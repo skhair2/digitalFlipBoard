@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { USER_JOURNEYS } from '../../data/userJourneys'
 import { useAuthStore } from '../../store/authStore'
-import { motion } from 'framer-motion'
 import { Button } from '../ui/Components'
 
 const cardVariants = {

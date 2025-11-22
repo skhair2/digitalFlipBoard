@@ -1,9 +1,6 @@
 import { useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
-import { useDesignStore } from '../../store/designStore'
-import { useBoardStore } from '../../store/boardStore'
 import { supabase } from '../../services/supabaseClient'
-import { motion } from 'framer-motion'
 
 export default function DatabaseTest() {
     const { user } = useAuthStore()

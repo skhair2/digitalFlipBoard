@@ -11,7 +11,7 @@ export const sanitizeInput = (input) => {
 // Validate message content (132 char limit, alphanumeric + punctuation)
 export const validateMessage = (message) => {
     const sanitized = sanitizeInput(message)
-    const allowed = /^[A-Za-z0-9\s\.\,\!\?\'\"\-\:\;\(\)]+$/
+    const allowed = /^[A-Za-z0-9\s.,!?'"\-:;()]+$/
 
     if (!sanitized || sanitized.length === 0) {
         return { valid: false, error: 'Message cannot be empty' }

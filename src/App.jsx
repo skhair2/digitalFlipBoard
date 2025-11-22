@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { Suspense, lazy, useEffect } from 'react'
 import Layout from './components/layout/Layout'
 import ProtectedRoute from './components/auth/ProtectedRoute'
+import ProtectedAdminRoute from './components/auth/ProtectedAdminRoute'
 import Spinner from './components/ui/Spinner'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 import { useMixpanel } from './hooks/useMixpanel'
@@ -23,6 +24,8 @@ const Display = lazy(() => import('./pages/Display'))
 const Control = lazy(() => import('./pages/Control'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Login = lazy(() => import('./pages/Login'))
+const OAuthCallback = lazy(() => import('./pages/OAuthCallback'))
+const Admin = lazy(() => import('./pages/Admin'))
 const DatabaseTest = lazy(() => import('./components/debug/DatabaseTest'))
 
 function App() {
@@ -49,6 +52,7 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="login" element={<Login />} />
+            <Route path="auth/callback" element={<OAuthCallback />} />
             <Route path="display" element={<Display />} />
             <Route path="control" element={<Control />} />
             <Route path="pricing" element={<Pricing />} />
@@ -68,6 +72,15 @@ function App() {
                 <ProtectedRoute>
                   <Dashboard />
                 </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="admin"
+              element={
+                <ProtectedAdminRoute>
+                  <Admin />
+                </ProtectedAdminRoute>
               }
             />
 

@@ -147,7 +147,7 @@ app.post('/api/send-email', async (req, res) => {
     }
 
     const token = authHeader.substring(7);
-    const { valid, user, error } = await verifyToken(token);
+    const { valid, user } = await verifyToken(token);
 
     if (!valid) {
       return res.status(401).json({ error: 'Invalid token' });
@@ -206,7 +206,7 @@ app.use((req, res) => {
 /**
  * Error handler
  */
-app.use((error, req, res, next) => {
+app.use((error, req, res) => {
   console.error('Error:', error.message);
 
   // CORS error

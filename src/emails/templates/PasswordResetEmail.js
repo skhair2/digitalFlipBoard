@@ -13,8 +13,7 @@ import BaseLayout from './BaseLayout';
  */
 export const PasswordResetEmail = ({ 
     name = 'User',
-    resetLink = 'https://flipdisplay.online/reset-password',
-    expirationHours = 24
+    resetLink = 'https://flipdisplay.online/reset-password'
 }) => {
     return (
         <BaseLayout 

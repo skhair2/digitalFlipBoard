@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useDesignStore } from '../../store/designStore'
 import { useSessionStore } from '../../store/sessionStore'
 import { useAuthStore } from '../../store/authStore'
@@ -10,7 +10,7 @@ import toast from 'react-hot-toast'
 
 export default function DesignList() {
   const { savedDesigns, fetchDesigns, loadDesign, deleteDesign, isLoading } = useDesignStore()
-  const { setGridConfig, currentMessage } = useSessionStore()
+  const { setGridConfig } = useSessionStore()
   const { user } = useAuthStore()
   const [selectedDesignId, setSelectedDesignId] = useState(null)
 
@@ -18,11 +18,11 @@ export default function DesignList() {
     if (user) {
       loadDesigns()
     }
-  }, [user])
+  }, [user, loadDesigns])
 
-  const loadDesigns = async () => {
+  const loadDesigns = useCallback(async () => {
     await fetchDesigns()
-  }
+  }, [fetchDesigns])
 
   const handleLoadDesign = async (design) => {
     try {

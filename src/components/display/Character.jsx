@@ -1,18 +1,10 @@
-import { motion, AnimatePresence } from 'framer-motion'
 import { memo } from 'react'
 import clsx from 'clsx'
-
+import { motion, AnimatePresence } from 'framer-motion'
 import PropTypes from 'prop-types'
 
-const Character = memo(({ char, color, colorTheme = 'monochrome', animationType = 'flip', delay = 0 }) => {
-    // Map characters to colors based on theme if needed
-    // For now, just use standard styling
-
-    const variants = {
-        initial: { rotateX: 0 },
-        animate: { rotateX: -180 },
-        exit: { rotateX: -180 }
-    }
+const Character = memo(({ char, color, delay = 0 }) => {
+    // Character animation and rendering
 
     return (
         <div className={clsx(

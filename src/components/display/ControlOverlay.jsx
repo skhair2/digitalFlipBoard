@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
 import PropTypes from 'prop-types'
 
 export default function ControlOverlay({

@@ -103,7 +103,7 @@ export default function Display() {
         if (displaySettings.clockMode !== isClockMode) {
             setDisplaySettings(prev => ({ ...prev, clockMode: isClockMode }))
         }
-    }, [isClockMode])
+    }, [isClockMode, displaySettings.clockMode])
 
     useKeyboardShortcuts({
         onToggleFullscreen: handleToggleFullscreen,

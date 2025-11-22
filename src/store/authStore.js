@@ -5,7 +5,7 @@ import mixpanel from '../services/mixpanelService'
 
 export const useAuthStore = create(
     persist(
-        (set, get) => ({
+        (set) => ({
             user: null,
             session: null,
             profile: null,
@@ -21,6 +21,45 @@ export const useAuthStore = create(
 
             // Initialize auth state
             initialize: async () => {
+                // Check for OAuth session first
+                const oauthSession = localStorage.getItem('auth_session')
+                if (oauthSession) {
+                    try {
+                        const session = JSON.parse(oauthSession)
+                        // Fetch profile data
+                        const { data: profile } = await supabase
+                            .from('profiles')
+                            .select('*')
+                            .eq('id', session.user.id)
+                            .single()
+
+                        const tier = profile?.subscription_tier || 'free'
+                        const isPremium = tier === 'pro' || tier === 'enterprise'
+
+                        set({
+                            user: session.user,
+                            session,
+                            profile: profile || null,
+                            isPremium,
+                            subscriptionTier: tier,
+                            designLimits: {
+                                maxDesigns: isPremium ? 999999 : 5,
+                                maxCollections: tier === 'enterprise' ? 999999 : (isPremium ? 20 : 0),
+                                canShareDesigns: isPremium,
+                                versionHistory: isPremium
+                            },
+                            loading: false
+                        })
+
+                        mixpanel.identify(session.user.id)
+                        return
+                    } catch (err) {
+                        console.error('Failed to restore OAuth session:', err)
+                        localStorage.removeItem('auth_session')
+                    }
+                }
+
+                // Fall back to Supabase session
                 const { data: { session } } = await supabase.auth.getSession()
                 if (session) {
             // Fetch profile data
@@ -116,30 +155,6 @@ export const useAuthStore = create(
                 }
             },
 
-            // Google OAuth signup
-            signUpWithGoogle: async () => {
-                try {
-                    const { data, error } = await supabase.auth.signInWithOAuth({
-                        provider: 'google',
-                        options: {
-                            redirectTo: `${window.location.origin}/auth/callback`,
-                            queryParams: {
-                                access_type: 'offline',
-                                prompt: 'consent',
-                            },
-                        }
-                    })
-
-                    if (error) throw error
-
-                    mixpanel.track('Google Auth Initiated')
-                    return { success: true, data }
-                } catch (error) {
-                    mixpanel.track('Google Auth Error', { error: error.message })
-                    return { success: false, error: error.message }
-                }
-            },
-
             // Password Sign Up
             signUpWithPassword: async (email, password, fullName) => {
                 try {
@@ -181,19 +196,107 @@ export const useAuthStore = create(
                 }
             },
 
+            // Set user (OAuth and other flows)
+            setUser: (user) => {
+                set({ user })
+                if (user?.id) {
+                    mixpanel.identify(user.id)
+                }
+            },
+
+            // Set user profile (OAuth and other flows)
+            setProfile: (profile) => {
+                const tier = profile?.subscription_tier || 'free'
+                const isPremium = tier === 'pro' || tier === 'enterprise'
+                
+                set({
+                    profile,
+                    isPremium,
+                    subscriptionTier: tier,
+                    designLimits: {
+                        maxDesigns: isPremium ? 999999 : 5,
+                        maxCollections: tier === 'enterprise' ? 999999 : (isPremium ? 20 : 0),
+                        canShareDesigns: isPremium,
+                        versionHistory: isPremium
+                    }
+                })
+                
+                if (profile?.id) {
+                    mixpanel.people.set({
+                        'Full Name': profile.full_name || '',
+                        'Email': profile.email || '',
+                        'Subscription Tier': tier,
+                        'Profile Picture': profile.picture || ''
+                    })
+                }
+            },
+
             // Sign out
             signOut: async () => {
                 try {
                     const { error } = await supabase.auth.signOut()
                     if (error) throw error
 
-                    set({ user: null, session: null, isPremium: false })
+                    localStorage.removeItem('auth_session')
+                    set({ 
+                        user: null, 
+                        session: null, 
+                        profile: null,
+                        isPremium: false,
+                        subscriptionTier: 'free',
+                        designLimits: {
+                            maxDesigns: 5,
+                            maxCollections: 0,
+                            canShareDesigns: false,
+                            versionHistory: false
+                        }
+                    })
                     mixpanel.track('User Signed Out')
                     mixpanel.reset()
                 } catch (error) {
                     console.error('Sign out error:', error)
                 }
             },
+
+            // Resend verification email
+            resendVerificationEmail: async (email) => {
+                try {
+                    const { error } = await supabase.auth.resend({
+                        type: 'signup',
+                        email
+                    })
+
+                    if (error) {
+                        return { success: false, error: error.message }
+                    }
+
+                    mixpanel.track('Verification Email Resent', { email })
+                    return { success: true }
+                } catch (error) {
+                    mixpanel.track('Resend Email Error', { error: error.message })
+                    return { success: false, error: error.message }
+                }
+            },
+
+            // Check email verification status
+            checkEmailVerification: async () => {
+                try {
+                    const { data: { user } } = await supabase.auth.getUser()
+                    if (user) {
+                        set((state) => ({
+                            user: {
+                                ...state.user,
+                                email_confirmed_at: user.email_confirmed_at
+                            }
+                        }))
+                        return { isVerified: !!user.email_confirmed_at }
+                    }
+                    return { isVerified: false }
+                } catch (error) {
+                    console.error('Check email verification error:', error)
+                    return { isVerified: false }
+                }
+            }
         }),
         {
             name: 'auth-storage',

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '../services/supabaseClient'
 
-export const useBoardStore = create((set, get) => ({
+export const useBoardStore = create((set) => ({
     boards: [],
     schedules: [],
     isLoading: false,

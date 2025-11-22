@@ -1,14 +1,53 @@
-import { Resend } from 'resend';
-import { WelcomeEmail } from '../emails/templates/WelcomeEmail';
-import { VerificationEmail } from '../emails/templates/VerificationEmail';
-import { InviteEmail } from '../emails/templates/InviteEmail';
+import { useAuthStore } from '../store/authStore';
 
-// Initialize Resend with API key from environment variables
-// Note: In a production environment, this should ideally be handled server-side
-// to avoid exposing the API key in the client bundle.
-const resend = new Resend(import.meta.env.VITE_RESEND_API_KEY);
+/**
+ * Email Service
+ * SECURITY: API calls go through secure backend endpoint, NOT client
+ * The server validates authentication and handles Resend API key securely
+ */
 
-const FROM_EMAIL = 'FlipDisplay <onboarding@resend.dev>'; // Default Resend testing domain
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+/**
+ * Helper function to get auth token
+ */
+async function getAuthToken() {
+    const session = useAuthStore.getState().session;
+    return session?.access_token;
+}
+
+/**
+ * Make authenticated request to email API endpoint
+ */
+async function sendEmailViaApi(endpoint, payload) {
+    try {
+        const token = await getAuthToken();
+
+        if (!token) {
+            return { success: false, error: 'User not authenticated' };
+        }
+
+        const response = await fetch(`${API_URL}${endpoint}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            return { success: false, error: error.error || 'Email send failed' };
+        }
+
+        const data = await response.json();
+        return { success: true, data };
+    } catch (error) {
+        console.error('Email API error:', error.message);
+        return { success: false, error: error.message };
+    }
+}
 
 export const emailService = {
     /**
@@ -17,18 +56,12 @@ export const emailService = {
      * @param {string} name - User's name
      */
     sendWelcome: async (email, name) => {
-        try {
-            const data = await resend.emails.send({
-                from: FROM_EMAIL,
-                to: email,
-                subject: 'Welcome to FlipDisplay.online!',
-                react: WelcomeEmail({ name }),
-            });
-            return { success: true, data };
-        } catch (error) {
-            console.error('Failed to send welcome email:', error);
-            return { success: false, error };
-        }
+        return sendEmailViaApi('/api/send-email', {
+            to: email,
+            subject: 'Welcome to FlipDisplay.online!',
+            html: `<h1>Welcome, ${name}!</h1><p>We're excited to have you on board.</p>`,
+            text: `Welcome, ${name}! We're excited to have you on board.`
+        });
     },
 
     /**
@@ -37,18 +70,12 @@ export const emailService = {
      * @param {string} code - Verification code
      */
     sendVerification: async (email, code) => {
-        try {
-            const data = await resend.emails.send({
-                from: FROM_EMAIL,
-                to: email,
-                subject: 'Verify your FlipDisplay account',
-                react: VerificationEmail({ code }),
-            });
-            return { success: true, data };
-        } catch (error) {
-            console.error('Failed to send verification email:', error);
-            return { success: false, error };
-        }
+        return sendEmailViaApi('/api/send-email', {
+            to: email,
+            subject: 'Verify your FlipDisplay account',
+            html: `<h1>Verify Your Email</h1><p>Your verification code is: <strong>${code}</strong></p>`,
+            text: `Your verification code is: ${code}`
+        });
     },
 
     /**
@@ -59,17 +86,15 @@ export const emailService = {
      * @param {string} inviteLink - Link to accept the invitation
      */
     sendInvite: async (email, inviterName, boardName, inviteLink) => {
-        try {
-            const data = await resend.emails.send({
-                from: FROM_EMAIL,
-                to: email,
-                subject: `${inviterName} invited you to collaborate on ${boardName}`,
-                react: InviteEmail({ inviterName, boardName, inviteLink }),
-            });
-            return { success: true, data };
-        } catch (error) {
-            console.error('Failed to send invite email:', error);
-            return { success: false, error };
-        }
+        return sendEmailViaApi('/api/send-email', {
+            to: email,
+            subject: `${inviterName} invited you to collaborate on ${boardName}`,
+            html: `
+                <h1>You're Invited!</h1>
+                <p>${inviterName} invited you to collaborate on <strong>${boardName}</strong></p>
+                <p><a href="${inviteLink}">Accept Invitation</a></p>
+            `,
+            text: `${inviterName} invited you to collaborate on ${boardName}. Visit: ${inviteLink}`
+        });
     }
 };

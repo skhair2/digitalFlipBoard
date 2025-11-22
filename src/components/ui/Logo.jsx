@@ -1,5 +1,3 @@
-import { motion } from 'framer-motion'
-
 export default function Logo({ className = "w-8 h-8", animated = false }) {
     return (
         <div className={`relative flex items-center justify-center ${className}`}>

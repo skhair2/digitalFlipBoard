@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { motion, useMotionTemplate, useMotionValue } from 'framer-motion'
+import { useRef } from 'react'
+import { useMotionTemplate, useMotionValue } from 'framer-motion'
 import {
     SparklesIcon,
     DevicePhoneMobileIcon,
