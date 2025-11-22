@@ -1,3 +1,6 @@
+import { Link } from 'react-router-dom'
+import { useAuthStore } from '../../store/authStore'
+import { Button } from '../ui/Components'
 import Logo from '../ui/Logo'
 
 export default function Header() {
@@ -8,7 +11,7 @@ export default function Header() {
             <div className="container mx-auto px-4 h-16 flex items-center justify-between">
                 <Link to="/" className="text-xl font-bold text-white flex items-center gap-3 group">
                     <Logo className="w-8 h-8 group-hover:scale-110 transition-transform duration-300" animated />
-                    <span>Digital Flipboard</span>
+                    <span>FlipDisplay.online</span>
                 </Link>
 
                 <nav className="hidden md:flex items-center gap-6">
@@ -26,9 +29,14 @@ export default function Header() {
                             <Button variant="outline" size="sm" onClick={signOut}>Sign Out</Button>
                         </>
                     ) : (
-                        <Link to="/control">
-                            <Button size="sm">Get Started</Button>
-                        </Link>
+                        <>
+                            <Link to="/login">
+                                <Button variant="ghost" size="sm">Sign In</Button>
+                            </Link>
+                            <Link to="/control">
+                                <Button size="sm">Get Started</Button>
+                            </Link>
+                        </>
                     )}
                 </div>
             </div>

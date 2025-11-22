@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /api
 
-Sitemap: https://digitalflipboard.com/sitemap.xml
+Sitemap: https://flipdisplay.online/sitemap.xml

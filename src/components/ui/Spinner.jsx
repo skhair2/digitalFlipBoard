@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types'
+
 export default function Spinner({ size = 'md', className = '' }) {
     const sizes = {
         sm: 'w-5 h-5',
@@ -10,4 +12,9 @@ export default function Spinner({ size = 'md', className = '' }) {
             <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
         </div>
     )
+}
+
+Spinner.propTypes = {
+    size: PropTypes.oneOf(['sm', 'md', 'lg']),
+    className: PropTypes.string,
 }

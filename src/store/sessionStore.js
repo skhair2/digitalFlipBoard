@@ -11,6 +11,7 @@ export const useSessionStore = create(
             isClockMode: false,
             lastAnimationType: 'flip',
             lastColorTheme: 'monochrome',
+            gridConfig: { rows: 6, cols: 22 }, // Default config
 
             boardState: null, // Array of { char, color }
 
@@ -18,6 +19,8 @@ export const useSessionStore = create(
             setBoardId: (id) => set({ boardId: id }),
             setConnected: (status) => set({ isConnected: status }),
             setClockMode: (status) => set({ isClockMode: status }),
+            setGridConfig: (config) => set({ gridConfig: config }),
+
             setMessage: (content, animationType = 'flip', colorTheme = 'monochrome') =>
                 set({
                     currentMessage: content,

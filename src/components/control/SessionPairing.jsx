@@ -38,6 +38,30 @@ export default function SessionPairing() {
         // navigate('/control/dashboard') // Removed incorrect navigation
     }
 
+    // Success Animation State
+    if (isConnected) {
+        return (
+            <Card className="max-w-md mx-auto w-full bg-teal-900/20 border-teal-500/50">
+                <div className="text-center py-8">
+                    <div className="w-20 h-20 bg-teal-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce shadow-[0_0_20px_rgba(20,184,166,0.5)]">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-10 h-10 text-white">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                    </div>
+                    <h2 className="text-3xl font-bold text-white mb-2">Connected!</h2>
+                    <p className="text-teal-200 mb-8">Your device is paired successfully.</p>
+
+                    <Button
+                        onClick={() => navigate('/control/dashboard')}
+                        className="w-full bg-teal-500 hover:bg-teal-400 text-white font-bold"
+                    >
+                        Go to Dashboard
+                    </Button>
+                </div>
+            </Card>
+        )
+    }
+
     return (
         <Card className="max-w-md mx-auto w-full">
             <h2 className="text-2xl font-bold text-white mb-2 text-center">Connect Display</h2>

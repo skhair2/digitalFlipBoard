@@ -1,17 +1,17 @@
 export const seoConfig = {
-    defaultTitle: 'Digital Flipboard - Virtual Split-Flap Display',
-    titleTemplate: '%s | Digital Flipboard',
+    defaultTitle: 'FlipDisplay.online - Virtual Split-Flap Display',
+    titleTemplate: '%s | FlipDisplay.online',
     defaultDescription: 'Transform any screen into a stunning split-flap message board. Control from your phone, display on your TV. No hardware required. Free forever.',
-    siteUrl: 'https://digitalflipboard.com',
-    defaultImage: 'https://digitalflipboard.com/og-image.jpg',
-    twitterHandle: '@digitalflipboard',
+    siteUrl: 'https://flipdisplay.online',
+    defaultImage: 'https://flipdisplay.online/og-image.jpg',
+    twitterHandle: '@flipdisplay',
     favicon: '/favicon.ico',
 
     // Structured data
     organization: {
         '@context': 'https://schema.org',
         '@type': 'SoftwareApplication',
-        name: 'Digital Flipboard',
+        name: 'FlipDisplay.online',
         applicationCategory: 'UtilitiesApplication',
         operatingSystem: 'Web Browser',
         offers: {
@@ -29,9 +29,9 @@ export const seoConfig = {
     // Page-specific SEO
     pages: {
         home: {
-            title: 'Digital Flipboard - Virtual Split-Flap Display for Any Screen',
+            title: 'FlipDisplay.online - Virtual Split-Flap Display for Any Screen',
             description: 'The best free alternative to physical split-flap displays. Turn your TV, monitor, or tablet into a retro message board. No hardware needed.',
-            keywords: 'digital flipboard, virtual split flap, vestaboard alternative, digital signage free, retro message board, split flap online, browser based display',
+            keywords: 'digital flipboard, virtual split flap, digitalflipboard, digital signage free, retro message board, split flap online, browser based display',
         },
         display: {
             title: 'Display Mode - Fullscreen Split-Flap Board',
@@ -40,13 +40,34 @@ export const seoConfig = {
         },
         control: {
             title: 'Remote Controller - Send Messages Instantly',
-            description: 'Control your Digital Flipboard from your phone. Type messages, choose colors, and trigger animations in real-time.',
+            description: 'Control your FlipDisplay.online from your phone. Type messages, choose colors, and trigger animations in real-time.',
             keywords: 'flipboard controller, remote message app, mobile control for display, split flap typer',
         },
         pricing: {
             title: 'Pricing - Free Forever & Pro Features',
             description: 'Start for free with unlimited messages. Upgrade to Pro for scheduled messages, custom themes, and API access.',
-            keywords: 'digital flipboard pricing, free digital signage, vestaboard cost, split flap software price',
+            keywords: 'digital flipboard pricing, free digital signage, digitalflipboard cost, split flap software price',
+        },
+        about: {
+            title: 'About FlipDisplay.online - Our Mission & Story',
+            description: 'Discover how FlipDisplay.online is bringing the nostalgic charm of split-flap displays to the digital age. Learn our mission and values.',
+            keywords: 'about flipdisplay, digital flipboard company, split flap display history, about us',
+        },
+        contact: {
+            title: 'Contact Us - Get Support for FlipDisplay.online',
+            description: 'Get in touch with the FlipDisplay.online team. We\'re here to help with questions, support, and feedback.',
+            keywords: 'contact flipdisplay, support, customer service, contact us',
+        },
+        blog: {
+            title: 'Blog - Digital Signage & Split-Flap Tips',
+            description: 'Read tutorials, guides, and tips about using FlipDisplay.online for digital signage and creative displays.',
+            keywords: 'flipdisplay blog, digital signage tutorials, split flap tips, how to guides',
+        },
+        blogpost: {
+            // Dynamic page - values passed via props
+            title: 'Blog Post',
+            description: 'Read the latest article from FlipDisplay.online',
+            keywords: 'flipdisplay blog, digital signage',
         },
     },
 }

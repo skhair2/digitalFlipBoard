@@ -8,36 +8,86 @@ export const useAuthStore = create(
         (set, get) => ({
             user: null,
             session: null,
+            profile: null,
             isPremium: false,
+            subscriptionTier: 'free',
+            designLimits: {
+                maxDesigns: 5,
+                maxCollections: 0,
+                canShareDesigns: false,
+                versionHistory: false
+            },
             loading: true,
 
             // Initialize auth state
             initialize: async () => {
                 const { data: { session } } = await supabase.auth.getSession()
                 if (session) {
-                    set({
-                        user: session.user,
-                        session,
-                        isPremium: session.user.user_metadata?.is_premium || false,
-                        loading: false
-                    })
-                    mixpanel.identify(session.user.id)
-                    mixpanel.people.set({
-                        $email: session.user.email,
-                        $name: session.user.user_metadata?.full_name,
-                        signupDate: session.user.created_at,
-                        isPremium: session.user.user_metadata?.is_premium || false,
-                    })
+            // Fetch profile data
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single()
+
+            const tier = profile?.subscription_tier || 'free'
+            const isPremium = tier === 'pro' || tier === 'enterprise'
+
+            set({
+                user: session.user,
+                session,
+                profile: profile || null,
+                isPremium,
+                subscriptionTier: tier,
+                designLimits: {
+                  maxDesigns: isPremium ? 999999 : 5,
+                  maxCollections: tier === 'enterprise' ? 999999 : (isPremium ? 20 : 0),
+                  canShareDesigns: isPremium,
+                  versionHistory: isPremium
+                },
+                loading: false
+            })
+            
+            mixpanel.identify(session.user.id)
+            mixpanel.people.set({
+                $email: session.user.email,
+                $name: profile?.full_name || session.user.user_metadata?.full_name,
+                signupDate: session.user.created_at,
+                isPremium: isPremium,
+                subscriptionTier: tier,
+                maxDesigns: isPremium ? 999999 : 5
+            })
                 } else {
                     set({ loading: false })
                 }
 
                 // Listen for auth changes
-                supabase.auth.onAuthStateChange((_event, session) => {
+                supabase.auth.onAuthStateChange(async (_event, session) => {
+                    let profile = null
+                    if (session?.user) {
+                        const { data } = await supabase
+                            .from('profiles')
+                            .select('*')
+                            .eq('id', session.user.id)
+                            .single()
+                        profile = data
+                    }
+
+                    const tier = profile?.subscription_tier || 'free'
+                    const isPremium = tier === 'pro' || tier === 'enterprise'
+
                     set({
                         user: session?.user ?? null,
                         session,
-                        isPremium: session?.user.user_metadata?.is_premium || false
+                        profile: profile || null,
+                        isPremium,
+                        subscriptionTier: tier,
+                        designLimits: {
+                          maxDesigns: isPremium ? 999999 : 5,
+                          maxCollections: tier === 'enterprise' ? 999999 : (isPremium ? 20 : 0),
+                          canShareDesigns: isPremium,
+                          versionHistory: isPremium
+                        }
                     })
                 })
             },
@@ -86,6 +136,47 @@ export const useAuthStore = create(
                     return { success: true, data }
                 } catch (error) {
                     mixpanel.track('Google Auth Error', { error: error.message })
+                    return { success: false, error: error.message }
+                }
+            },
+
+            // Password Sign Up
+            signUpWithPassword: async (email, password, fullName) => {
+                try {
+                    const { data, error } = await supabase.auth.signUp({
+                        email,
+                        password,
+                        options: {
+                            data: {
+                                full_name: fullName,
+                            }
+                        }
+                    })
+
+                    if (error) throw error
+
+                    mixpanel.track('User Signed Up', { method: 'password' })
+                    return { success: true, data }
+                } catch (error) {
+                    mixpanel.track('Sign Up Error', { error: error.message })
+                    return { success: false, error: error.message }
+                }
+            },
+
+            // Password Sign In
+            signInWithPassword: async (email, password) => {
+                try {
+                    const { data, error } = await supabase.auth.signInWithPassword({
+                        email,
+                        password
+                    })
+
+                    if (error) throw error
+
+                    mixpanel.track('User Signed In', { method: 'password' })
+                    return { success: true, data }
+                } catch (error) {
+                    mixpanel.track('Sign In Error', { error: error.message })
                     return { success: false, error: error.message }
                 }
             },

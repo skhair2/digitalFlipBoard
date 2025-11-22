@@ -69,6 +69,14 @@ class WebSocketService {
 
         // Message received event
         this.socket.on('message:received', (data) => {
+            // Simple rate limit: ignore messages if they come too fast (e.g., < 100ms)
+            const now = Date.now()
+            if (this.lastMessageTime && (now - this.lastMessageTime < 100)) {
+                console.warn('Rate limit exceeded: Message ignored')
+                return
+            }
+            this.lastMessageTime = now
+
             console.log('Message received:', data)
             mixpanel.track('Message Received', {
                 sessionCode: this.sessionCode,

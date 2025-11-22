@@ -33,6 +33,7 @@ export default {
         'fade-in': 'fadeIn 0.3s ease-in',
         'slide-up': 'slideUp 0.4s ease-out',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'watermark-pulse': 'watermarkPulse 3s ease-in-out infinite',
       },
       keyframes: {
         flip: {
@@ -48,10 +49,17 @@ export default {
           '0%': { transform: 'translateY(20px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
+        watermarkPulse: {
+          '0%, 100%': { opacity: '0.15' },
+          '50%': { opacity: '0.25' },
+        },
       },
       boxShadow: {
         'glow': '0 0 20px rgba(33, 128, 141, 0.3)',
         'glow-lg': '0 0 40px rgba(33, 128, 141, 0.4)',
+      },
+      backdropBlur: {
+        xs: '2px',
       },
     },
   },

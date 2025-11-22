@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { forwardRef } from 'react'
+import PropTypes from 'prop-types'
 
 export const Button = forwardRef(({ className, variant = 'primary', size = 'md', ...props }, ref) => {
     const variants = {
@@ -29,6 +30,17 @@ export const Button = forwardRef(({ className, variant = 'primary', size = 'md',
     )
 })
 
+Button.displayName = 'Button'
+Button.propTypes = {
+    className: PropTypes.string,
+    variant: PropTypes.oneOf(['primary', 'secondary', 'outline', 'ghost']),
+    size: PropTypes.oneOf(['sm', 'md', 'lg']),
+    children: PropTypes.node,
+    onClick: PropTypes.func,
+    disabled: PropTypes.bool,
+    type: PropTypes.oneOf(['button', 'submit', 'reset']),
+}
+
 export const Input = forwardRef(({ className, ...props }, ref) => {
     return (
         <input
@@ -42,6 +54,17 @@ export const Input = forwardRef(({ className, ...props }, ref) => {
     )
 })
 
+Input.displayName = 'Input'
+Input.propTypes = {
+    className: PropTypes.string,
+    type: PropTypes.string,
+    placeholder: PropTypes.string,
+    value: PropTypes.string,
+    onChange: PropTypes.func,
+    disabled: PropTypes.bool,
+    required: PropTypes.bool,
+}
+
 export const Card = ({ className, children, ...props }) => {
     return (
         <div
@@ -54,4 +77,9 @@ export const Card = ({ className, children, ...props }) => {
             {children}
         </div>
     )
+}
+
+Card.propTypes = {
+    className: PropTypes.string,
+    children: PropTypes.node,
 }
