@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import SessionPairing from '../components/control/SessionPairing'
 import MessageInput from '../components/control/MessageInput'
 import PreloadedMessages from '../components/control/PreloadedMessages'
 import AnimationPicker from '../components/control/AnimationPicker'
 import ColorThemePicker from '../components/control/ColorThemePicker'
 import Scheduler from '../components/control/Scheduler'
+import EmailVerificationBanner from '../components/auth/EmailVerificationBanner'
 import { useSessionStore } from '../store/sessionStore'
 import mixpanel from '../services/mixpanelService'
 import { Tab } from '@headlessui/react'
@@ -16,11 +17,11 @@ import Collections from '../components/designer/Collections'
 import VersionHistory from '../components/designer/VersionHistory'
 import PremiumGate from '../components/common/PremiumGate'
 import SharingPanel from '../components/control/SharingPanel'
+import RoleManagement from '../components/control/RoleManagement'
 
 export default function Control() {
     const { sessionCode, isConnected, setSessionCode, setConnected, setBoardId, isClockMode, setClockMode } = useSessionStore()
     const [searchParams] = useSearchParams()
-    const navigate = useNavigate()
     const [message, setMessage] = useState('')
     const [selectedTabIndex, setSelectedTabIndex] = useState(0)
 
@@ -37,7 +38,7 @@ export default function Control() {
 
         // Set active tab if specified in URL
         if (tab) {
-            const tabIndex = tabs.findIndex(t => t.name.toLowerCase() === tab.toLowerCase())
+            const tabIndex = ['Control', 'Input', 'Designer', 'Scheduler', 'Sharing', 'Admin'].findIndex(t => t.toLowerCase() === tab.toLowerCase())
             if (tabIndex >= 0) {
                 setSelectedTabIndex(tabIndex)
             }
@@ -157,11 +158,21 @@ export default function Control() {
                 </div>
             )
         },
-        { name: 'Schedule', component: <Scheduler boardId={searchParams.get('boardId')} /> }
+        { name: 'Schedule', component: <Scheduler boardId={searchParams.get('boardId')} /> },
+        {
+            name: 'Admin',
+            component: (
+                <div>
+                    <h2 className="text-lg font-semibold text-white mb-4">Role Management</h2>
+                    <RoleManagement />
+                </div>
+            )
+        }
     ]
 
     return (
         <div className="container mx-auto px-4 py-6 pb-32 max-w-2xl">
+            <EmailVerificationBanner />
             <header className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-2xl font-bold text-white">Controller</h1>

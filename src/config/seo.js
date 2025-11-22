@@ -1,7 +1,17 @@
 export const seoConfig = {
-    defaultTitle: 'FlipDisplay.online - Virtual Split-Flap Display',
+    // Master taglines - use throughout marketing
+    taglines: {
+        primary: 'Retro Charm. Digital Power. Zero Hardware.',
+        secondary: 'Split-Flap Displays for the Modern Age',
+        tertiary: 'Beautiful Message Boards. No Equipment. Just Magic.',
+        cta: 'Transform Any Screen Into a Stunning Display. Free Forever.',
+        alt1: 'The Future of Retro Signage is Here',
+        alt2: 'Professional Digital Signage. Nostalgic Aesthetic. Zero Cost.',
+    },
+
+    defaultTitle: 'FlipDisplay.online - Virtual Split-Flap Display | Free Digital Signage',
     titleTemplate: '%s | FlipDisplay.online',
-    defaultDescription: 'Transform any screen into a stunning split-flap message board. Control from your phone, display on your TV. No hardware required. Free forever.',
+    defaultDescription: 'Transform any screen into a beautiful split-flap message board. Control from your phone, display on your TV. Professional digital signage. No hardware required. Free forever.',
     siteUrl: 'https://flipdisplay.online',
     defaultImage: 'https://flipdisplay.online/og-image.jpg',
     twitterHandle: '@flipdisplay',

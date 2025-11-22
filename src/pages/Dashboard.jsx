@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useBoardStore } from '../store/boardStore'
 import { useDesignStore } from '../store/designStore'
 import { useFeatureGate } from '../hooks/useFeatureGate'
 import { Card, Button, Input } from '../components/ui/Components'
+import EmailVerificationBanner from '../components/auth/EmailVerificationBanner'
 import UpgradeModal from '../components/ui/UpgradeModal'
 import { PlusIcon, ComputerDesktopIcon, TrashIcon, SparklesIcon, CheckCircleIcon, LockClosedIcon, ArrowRightIcon } from '@heroicons/react/24/outline'
 
@@ -25,13 +26,13 @@ export default function Dashboard() {
         fetchDesigns()
     }, [fetchBoards, fetchDesigns])
 
-    const handleCreateClick = () => {
+    const handleCreateClick = useCallback(() => {
         if (isLimitReached('boards')) {
             setShowUpgradeModal(true)
         } else {
             setIsCreating(!isCreating)
         }
-    }
+    }, [isLimitReached, isCreating])
 
     const handleCreateBoard = async (e) => {
         e.preventDefault()
@@ -119,7 +120,7 @@ export default function Dashboard() {
                 actionLabel: 'See Pro benefits'
             }
         ]
-    }, [isPremium, boards.length, savedDesigns.length])
+    }, [isPremium, boards.length, savedDesigns.length, handleCreateClick, navigate])
 
     const renderStepIcon = (step) => {
         if (step.locked) {
@@ -133,6 +134,7 @@ export default function Dashboard() {
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-4xl">
+            <EmailVerificationBanner />
             <UpgradeModal
                 isOpen={showUpgradeModal}
                 onClose={() => setShowUpgradeModal(false)}

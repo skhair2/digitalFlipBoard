@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
+// eslint-disable-next-line no-unused-vars
 import { motion, useScroll, useTransform, useMotionValue } from 'framer-motion'
 import { Button } from '../ui/Components'
 import DigitalFlipBoardGrid from '../display/DigitalFlipBoardGrid'
@@ -41,7 +42,6 @@ const MagneticButton = ({ children, ...props }) => {
 export default function Hero() {
     const navigate = useNavigate()
     const { scrollY } = useScroll()
-    const y1 = useTransform(scrollY, [0, 500], [0, 200])
     const y2 = useTransform(scrollY, [0, 500], [0, -150])
     const [heroMessage, setHeroMessage] = useState("FLIPDISPLAY.ONLINE")
 

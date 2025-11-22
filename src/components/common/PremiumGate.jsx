@@ -1,8 +1,7 @@
 import PropTypes from 'prop-types'
 import { useAuthStore } from '../../store/authStore'
-import { motion } from 'framer-motion'
 
-export default function PremiumGate({ children, fallback }) {
+export default function PremiumGate({ children }) {
     const { isPremium } = useAuthStore()
 
     if (isPremium) {
@@ -18,9 +17,7 @@ export default function PremiumGate({ children, fallback }) {
 
             {/* Lock Overlay */}
             <div className="absolute inset-0 flex items-center justify-center z-10">
-                <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
+                <div
                     className="bg-slate-900/90 border border-teal-500/30 p-6 rounded-2xl shadow-2xl text-center max-w-sm mx-4 backdrop-blur-md"
                 >
                     <div className="w-12 h-12 bg-teal-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -38,7 +35,7 @@ export default function PremiumGate({ children, fallback }) {
                     >
                         Upgrade to Pro
                     </button>
-                </motion.div>
+                </div>
             </div>
         </div>
     )

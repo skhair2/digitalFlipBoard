@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuthStore } from '../../store/authStore'
 import { useSessionStore } from '../../store/sessionStore'
 import { inviteCollaborator, removeCollaborator, getCollaborators } from '../../services/sharingService'
 import { EnvelopeIcon, TrashIcon, UserGroupIcon } from '@heroicons/react/24/outline'
-import clsx from 'clsx'
 
 export default function SharingPanel() {
     const { user } = useAuthStore()
@@ -19,14 +18,14 @@ export default function SharingPanel() {
         if (boardId) {
             loadCollaborators()
         }
-    }, [boardId])
+    }, [boardId, loadCollaborators])
 
-    const loadCollaborators = async () => {
+    const loadCollaborators = useCallback(async () => {
         const result = await getCollaborators(boardId)
         if (result.success) {
             setCollaborators(result.data)
         }
-    }
+    }, [boardId])
 
     const handleInvite = async (e) => {
         e.preventDefault()

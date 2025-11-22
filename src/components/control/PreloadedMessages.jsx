@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
 import { Button, Card } from '../ui/Components'
-import { useSessionStore } from '../../store/sessionStore'
 
 const PRELOADED_MESSAGES = [
     { id: 1, text: 'WELCOME HOME', category: 'Greeting' },

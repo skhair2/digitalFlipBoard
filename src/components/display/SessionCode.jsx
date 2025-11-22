@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { useSessionStore } from '../../store/sessionStore'
 import { useWebSocket } from '../../hooks/useWebSocket'

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useDesignStore } from '../../store/designStore'
 import { useAuthStore } from '../../store/authStore'
 import Spinner from '../ui/Spinner'
@@ -8,20 +8,19 @@ import mixpanel from '../../services/mixpanelService'
 import PremiumGate from '../common/PremiumGate'
 
 export default function Collections() {
-  const { designCollections, fetchCollections, createCollection, deleteCollection, savedDesigns } = useDesignStore()
+  const { designCollections, fetchCollections, createCollection, deleteCollection } = useDesignStore()
   const { isPremium } = useAuthStore()
   const [isLoading, setIsLoading] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [newCollectionName, setNewCollectionName] = useState('')
   const [newCollectionDescription, setNewCollectionDescription] = useState('')
   const [expandedCollectionId, setExpandedCollectionId] = useState(null)
-  const [selectedCollectionId, setSelectedCollectionId] = useState(null)
 
   useEffect(() => {
     loadCollections()
-  }, [])
+  }, [loadCollections])
 
-  const loadCollections = async () => {
+  const loadCollections = useCallback(async () => {
     setIsLoading(true)
     try {
       await fetchCollections()
@@ -31,7 +30,7 @@ export default function Collections() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [fetchCollections])
 
   const handleCreateCollection = async (e) => {
     e.preventDefault()
@@ -85,7 +84,7 @@ export default function Collections() {
     }
   }
 
-  const getCollectionDesigns = (collectionId) => {
+  const getCollectionDesigns = () => {
     // This would normally query the design_collection_members table
     // For now, return empty array (implement full integration later)
     return []

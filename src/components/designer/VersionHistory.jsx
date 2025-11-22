@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useDesignStore } from '../../store/designStore'
 import { useAuthStore } from '../../store/authStore'
 import Spinner from '../ui/Spinner'
@@ -9,7 +9,7 @@ import PremiumGate from '../common/PremiumGate'
 
 export default function VersionHistory() {
   const { currentDesign, designVersions, fetchVersions, restoreDesignVersion } = useDesignStore()
-  const { isPremium, user } = useAuthStore()
+  const { isPremium } = useAuthStore()
   const [isLoading, setIsLoading] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
   const [expandedVersionId, setExpandedVersionId] = useState(null)
@@ -18,9 +18,9 @@ export default function VersionHistory() {
     if (currentDesign && isPremium) {
       loadVersions()
     }
-  }, [currentDesign])
+  }, [currentDesign, isPremium, loadVersions])
 
-  const loadVersions = async () => {
+  const loadVersions = useCallback(async () => {
     if (!currentDesign) return
     setIsLoading(true)
     try {
@@ -32,7 +32,7 @@ export default function VersionHistory() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [currentDesign, fetchVersions])
 
   const handleRestoreVersion = async (versionId) => {
     if (!window.confirm('Restore this version? Your current changes will be replaced.')) return
