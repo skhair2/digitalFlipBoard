@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom'
 import { Button } from '../components/ui/Components'
+import { useAuthStore } from '../store/authStore'
 
 export function Pricing() {
+    const { user, isPremium } = useAuthStore()
+
     return (
         <div className="min-h-screen bg-slate-900 py-20 px-4">
             <div className="container mx-auto max-w-5xl">
@@ -28,7 +31,13 @@ export function Pricing() {
                                 </li>
                             ))}
                         </ul>
-                        <Button variant="outline" className="w-full py-3">Get Started Free</Button>
+                        <Button
+                            variant="outline"
+                            className="w-full py-3"
+                            disabled={user && !isPremium}
+                        >
+                            {user && !isPremium ? 'Current Plan' : 'Get Started Free'}
+                        </Button>
                     </div>
 
                     {/* Pro Plan */}
@@ -49,7 +58,13 @@ export function Pricing() {
                                 </li>
                             ))}
                         </ul>
-                        <Button variant="primary" className="w-full py-3">Start 14-Day Trial</Button>
+                        <Button
+                            variant="primary"
+                            className="w-full py-3"
+                            disabled={isPremium}
+                        >
+                            {isPremium ? 'Current Plan' : 'Start 14-Day Trial'}
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -74,37 +89,9 @@ export function BlogPost() {
     )
 }
 
-export function Privacy() {
-    return (
-        <div className="container mx-auto px-4 py-20 max-w-3xl text-gray-300">
-            <h1 className="text-4xl font-bold text-white mb-8">Privacy Policy</h1>
-            <div className="space-y-6">
-                <p>Last updated: November 20, 2025</p>
-                <p>At Digital Flipboard, we take your privacy seriously. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website or use our application.</p>
-                <h2 className="text-2xl font-bold text-white mt-8 mb-4">Information We Collect</h2>
-                <p>We collect information that you voluntarily provide to us when you register on the website, express an interest in obtaining information about us or our products and services, when you participate in activities on the website or otherwise when you contact us.</p>
-                <h2 className="text-2xl font-bold text-white mt-8 mb-4">Use of Your Information</h2>
-                <p>We use the information we collect or receive to communicate with you, provide you with services, and improve our application.</p>
-            </div>
-        </div>
-    )
-}
 
-export function Terms() {
-    return (
-        <div className="container mx-auto px-4 py-20 max-w-3xl text-gray-300">
-            <h1 className="text-4xl font-bold text-white mb-8">Terms of Service</h1>
-            <div className="space-y-6">
-                <p>Last updated: November 20, 2025</p>
-                <p>Please read these Terms of Service ("Terms", "Terms of Service") carefully before using the Digital Flipboard website and application operated by us.</p>
-                <h2 className="text-2xl font-bold text-white mt-8 mb-4">Acceptance of Terms</h2>
-                <p>By accessing or using the Service you agree to be bound by these Terms. If you disagree with any part of the terms then you may not access the Service.</p>
-                <h2 className="text-2xl font-bold text-white mt-8 mb-4">Accounts</h2>
-                <p>When you create an account with us, you must provide us information that is accurate, complete, and current at all times. Failure to do so constitutes a breach of the Terms, which may result in immediate termination of your account on our Service.</p>
-            </div>
-        </div>
-    )
-}
+
+
 
 export function NotFound() {
     return (

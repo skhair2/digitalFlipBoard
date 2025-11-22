@@ -1,4 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom'
+import PropTypes from 'prop-types'
 import { useAuthStore } from '../../store/authStore'
 import Spinner from '../ui/Spinner'
 
@@ -23,4 +24,9 @@ export default function ProtectedRoute({ children, requirePremium = false }) {
     }
 
     return children
+}
+
+ProtectedRoute.propTypes = {
+    children: PropTypes.node.isRequired,
+    requirePremium: PropTypes.bool,
 }

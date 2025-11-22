@@ -1,7 +1,3 @@
-const ROWS = 6
-const COLS = 22
-const TOTAL_CHARS = ROWS * COLS
-
 export const ALIGNMENTS = {
     LEFT: 'left',
     CENTER: 'center',
@@ -15,36 +11,31 @@ export const PATTERNS = {
     CHECKERBOARD: 'checkerboard'
 }
 
-export function createBoardState(text, alignment = ALIGNMENTS.LEFT, pattern = PATTERNS.NONE) {
+export function createBoardState(text, alignment = ALIGNMENTS.LEFT, pattern = PATTERNS.NONE, rows = 6, cols = 22) {
     // Initialize empty board
-    let board = Array(ROWS).fill().map(() => Array(COLS).fill({ char: ' ', color: null }))
+    let board = Array(rows).fill().map(() => Array(cols).fill({ char: ' ', color: null }))
 
     // 1. Apply Text with Alignment
     const words = text.split(' ')
-    let currentLine = 0
-
-    // Simple word wrapping logic
-    // This is a basic implementation; could be improved
-    let lineBuffer = ''
 
     // Helper to place line on board
     const placeLine = (lineText, row) => {
-        if (row >= ROWS) return
+        if (row >= rows) return
 
         let startCol = 0
         const trimmed = lineText.trim()
 
         if (alignment === ALIGNMENTS.CENTER) {
-            startCol = Math.floor((COLS - trimmed.length) / 2)
+            startCol = Math.floor((cols - trimmed.length) / 2)
         } else if (alignment === ALIGNMENTS.RIGHT) {
-            startCol = COLS - trimmed.length
+            startCol = cols - trimmed.length
         }
 
         // Ensure startCol is not negative
         startCol = Math.max(0, startCol)
 
         for (let i = 0; i < trimmed.length; i++) {
-            if (startCol + i < COLS) {
+            if (startCol + i < cols) {
                 board[row][startCol + i] = { char: trimmed[i], color: null }
             }
         }
@@ -59,7 +50,7 @@ export function createBoardState(text, alignment = ALIGNMENTS.LEFT, pattern = PA
     let currentLineText = ''
 
     words.forEach(word => {
-        if ((currentLineText + word).length + 1 <= COLS) {
+        if ((currentLineText + word).length + 1 <= cols) {
             currentLineText += (currentLineText ? ' ' : '') + word
         } else {
             lines.push(currentLineText)
@@ -68,11 +59,10 @@ export function createBoardState(text, alignment = ALIGNMENTS.LEFT, pattern = PA
     })
     if (currentLineText) lines.push(currentLineText)
 
-    // Center vertically if needed? For now just start from top or middle
-    // Let's center vertically if lines < ROWS
+    // Center vertically if needed
     let startRow = 0
-    if (lines.length < ROWS) {
-        startRow = Math.floor((ROWS - lines.length) / 2)
+    if (lines.length < rows) {
+        startRow = Math.floor((rows - lines.length) / 2)
     }
 
     lines.forEach((line, i) => {
@@ -81,11 +71,9 @@ export function createBoardState(text, alignment = ALIGNMENTS.LEFT, pattern = PA
 
     // 2. Apply Patterns
     if (pattern === PATTERNS.BORDER) {
-        for (let r = 0; r < ROWS; r++) {
-            for (let c = 0; c < COLS; c++) {
-                if (r === 0 || r === ROWS - 1 || c === 0 || c === COLS - 1) {
-                    // Only overwrite if empty? Or always?
-                    // Let's overwrite to make the border visible
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) {
                     board[r][c] = { char: '', color: '#ef4444' } // Red border
                 }
             }
@@ -93,15 +81,13 @@ export function createBoardState(text, alignment = ALIGNMENTS.LEFT, pattern = PA
     } else if (pattern === PATTERNS.CORNERS) {
         const color = '#3b82f6' // Blue
         board[0][0] = { char: '', color }
-        board[0][COLS - 1] = { char: '', color }
-        board[ROWS - 1][0] = { char: '', color }
-        board[ROWS - 1][COLS - 1] = { char: '', color }
+        board[0][cols - 1] = { char: '', color }
+        board[rows - 1][0] = { char: '', color }
+        board[rows - 1][cols - 1] = { char: '', color }
     } else if (pattern === PATTERNS.CHECKERBOARD) {
-        for (let r = 0; r < ROWS; r++) {
-            for (let c = 0; c < COLS; c++) {
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
                 if ((r + c) % 2 === 0) {
-                    // Only background, keep text if present?
-                    // For checkerboard, maybe just subtle background
                     if (board[r][c].char === ' ') {
                         board[r][c] = { char: '', color: '#334155' }
                     }

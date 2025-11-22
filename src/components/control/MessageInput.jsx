@@ -8,12 +8,17 @@ import { processImageToBoard } from '../../utils/imageProcessor'
 
 export default function MessageInput({ message, setMessage }) {
     const { sendMessage } = useWebSocket()
-    const { setBoardState } = useSessionStore()
+    const { setBoardState, gridConfig } = useSessionStore()
     const [sending, setSending] = useState(false)
     const [showOptions, setShowOptions] = useState(false)
     const [alignment, setAlignment] = useState(ALIGNMENTS.LEFT)
     const [pattern, setPattern] = useState(PATTERNS.NONE)
     const fileInputRef = useRef(null)
+
+    // Calculate max chars based on current grid
+    const rows = gridConfig?.rows || 6
+    const cols = gridConfig?.cols || 22
+    const maxChars = rows * cols
 
     const handleSend = async (e) => {
         e.preventDefault()
@@ -22,7 +27,7 @@ export default function MessageInput({ message, setMessage }) {
         setSending(true)
 
         // Generate rich board state
-        const boardState = createBoardState(message, alignment, pattern)
+        const boardState = createBoardState(message, alignment, pattern, rows, cols)
         setBoardState(boardState)
 
         // In a real app, we would send this rich state over the socket
@@ -104,8 +109,8 @@ export default function MessageInput({ message, setMessage }) {
                         <Input
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
-                            placeholder="Type your message..."
-                            maxLength={132}
+                            placeholder={`Type your message (max ${maxChars} chars)...`}
+                            maxLength={maxChars}
                             className="w-full pr-10"
                         />
                         <button
@@ -135,7 +140,7 @@ export default function MessageInput({ message, setMessage }) {
                 </form>
 
                 <div className="text-right text-xs text-gray-500">
-                    {message.length}/132
+                    {message.length}/{maxChars}
                 </div>
             </div>
         </Card>

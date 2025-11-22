@@ -3,6 +3,7 @@ import { supabase } from '../services/supabaseClient'
 
 export const useBoardStore = create((set, get) => ({
     boards: [],
+    schedules: [],
     isLoading: false,
     error: null,
 
@@ -56,6 +57,67 @@ export const useBoardStore = create((set, get) => ({
 
             if (error) throw error
             set((state) => ({ boards: state.boards.filter((b) => b.id !== id) }))
+        } catch (error) {
+            set({ error: error.message })
+        } finally {
+            set({ isLoading: false })
+        }
+    },
+
+    // Schedule Actions
+    fetchSchedules: async (boardId) => {
+        set({ isLoading: true, error: null })
+        try {
+            const { data, error } = await supabase
+                .from('scheduled_messages')
+                .select('*')
+                .eq('board_id', boardId)
+                .order('scheduled_time', { ascending: true })
+
+            if (error) throw error
+            set({ schedules: data || [] })
+        } catch (error) {
+            set({ error: error.message })
+        } finally {
+            set({ isLoading: false })
+        }
+    },
+
+    createSchedule: async (boardId, content, scheduledTime) => {
+        set({ isLoading: true, error: null })
+        try {
+            const { data, error } = await supabase
+                .from('scheduled_messages')
+                .insert([{
+                    board_id: boardId,
+                    content,
+                    scheduled_time: scheduledTime,
+                    status: 'pending'
+                }])
+                .select()
+                .single()
+
+            if (error) throw error
+            set((state) => ({ schedules: [...state.schedules, data] }))
+            return data
+        } catch (error) {
+            set({ error: error.message })
+            throw error
+        } finally {
+            set({ isLoading: false })
+        }
+    },
+
+    deleteSchedule: async (id) => {
+        set({ isLoading: true, error: null })
+        try {
+            const { error } = await supabase
+                .from('scheduled_messages')
+                .delete()
+                .eq('id', id)
+
+            if (error) throw error
+            set((state) => ({ schedules: state.schedules.filter((s) => s.id !== id) }))
         } catch (error) {
             set({ error: error.message })
         } finally {

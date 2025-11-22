@@ -1,7 +1,7 @@
 const ROWS = 6
 const COLS = 22
 
-// Vestaboard standard colors (approximate)
+// DigitalFlipBoard standard colors (approximate)
 const PALETTE = [
     { name: 'red', hex: '#FF0000' },
     { name: 'orange', hex: '#FF7F00' },

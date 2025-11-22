@@ -10,20 +10,37 @@ import { useSessionStore } from '../store/sessionStore'
 import mixpanel from '../services/mixpanelService'
 import { Tab } from '@headlessui/react'
 import { clsx } from 'clsx'
+import GridEditor from '../components/designer/GridEditor'
+import DesignList from '../components/designer/DesignList'
+import Collections from '../components/designer/Collections'
+import VersionHistory from '../components/designer/VersionHistory'
+import PremiumGate from '../components/common/PremiumGate'
+import SharingPanel from '../components/control/SharingPanel'
 
 export default function Control() {
     const { sessionCode, isConnected, setSessionCode, setConnected, setBoardId, isClockMode, setClockMode } = useSessionStore()
     const [searchParams] = useSearchParams()
     const navigate = useNavigate()
     const [message, setMessage] = useState('')
+    const [selectedTabIndex, setSelectedTabIndex] = useState(0)
 
     // Check for boardId in URL
     useEffect(() => {
         const boardId = searchParams.get('boardId')
+        const tab = searchParams.get('tab')
+        
         if (boardId) {
             setBoardId(boardId)
             setSessionCode(boardId) // Use boardId as session code for now
             setConnected(true) // Assume connected for managed boards
+        }
+
+        // Set active tab if specified in URL
+        if (tab) {
+            const tabIndex = tabs.findIndex(t => t.name.toLowerCase() === tab.toLowerCase())
+            if (tabIndex >= 0) {
+                setSelectedTabIndex(tabIndex)
+            }
         }
     }, [searchParams, setBoardId, setSessionCode, setConnected])
 
@@ -39,10 +56,34 @@ export default function Control() {
         )
     }
 
+    // ... existing imports
+
     const tabs = [
         {
             name: 'Control', component: (
                 <div className="space-y-8">
+                    <section className="space-y-4">
+                        <h2 className="text-lg font-semibold text-white">Board Settings</h2>
+                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <span className="text-gray-300">Grid Size</span>
+                                <select
+                                    className="bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-teal-500"
+                                    onChange={(e) => {
+                                        const [rows, cols] = e.target.value.split('x').map(Number)
+                                        useSessionStore.getState().setGridConfig({ rows, cols })
+                                    }}
+                                    defaultValue="6x22"
+                                >
+                                    <option value="6x22">Standard (22x6)</option>
+                                    <option value="4x10">Compact (10x4)</option>
+                                    <option value="10x30">Ultrawide (30x10)</option>
+                                    <option value="12x24">Large (24x12)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </section>
+
                     <section className="space-y-4">
                         <h2 className="text-lg font-semibold text-white">Animation Style</h2>
                         <AnimationPicker />
@@ -78,6 +119,44 @@ export default function Control() {
                 </div>
             )
         },
+        {
+            name: 'Designer',
+            component: (
+                <div className="space-y-8">
+                    <PremiumGate>
+                        <div className="space-y-8">
+                            <section>
+                                <h2 className="text-lg font-semibold text-white mb-4">Board Editor</h2>
+                                <GridEditor />
+                            </section>
+                            <section>
+                                <h2 className="text-lg font-semibold text-white mb-4">Saved Designs</h2>
+                                <DesignList />
+                            </section>
+                            <section>
+                                <h2 className="text-lg font-semibold text-white mb-4">Collections</h2>
+                                <Collections />
+                            </section>
+                            <section>
+                                <h2 className="text-lg font-semibold text-white mb-4">Version History</h2>
+                                <VersionHistory />
+                            </section>
+                        </div>
+                    </PremiumGate>
+                </div>
+            )
+        },
+        {
+            name: 'Sharing',
+            component: (
+                <div className="space-y-8">
+                    <section>
+                        <h2 className="text-lg font-semibold text-white mb-4">Board Collaboration</h2>
+                        <SharingPanel />
+                    </section>
+                </div>
+            )
+        },
         { name: 'Schedule', component: <Scheduler boardId={searchParams.get('boardId')} /> }
     ]
 
@@ -96,7 +175,7 @@ export default function Control() {
                 <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
             </header>
 
-            <Tab.Group>
+            <Tab.Group selectedIndex={selectedTabIndex} onChange={setSelectedTabIndex}>
                 <Tab.List className="flex space-x-1 rounded-xl bg-slate-800/50 p-1 mb-8">
                     {tabs.map((tab) => (
                         <Tab
