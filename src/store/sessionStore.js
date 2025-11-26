@@ -12,14 +12,37 @@ export const useSessionStore = create(
             lastAnimationType: 'flip',
             lastColorTheme: 'monochrome',
             gridConfig: { rows: 6, cols: 22 }, // Default config
+            
+            // Connection timeout tracking
+            connectionTimeout: null,
+            lastSessionCode: null, // Remember the last code
+            connectionStartTime: null,
+            isConnectionExpired: false,
+            lastActivityTime: null, // Track last user activity
+            disconnectReason: null, // 'inactivity' or 'timeout' or 'manual'
+            isReconnect: false, // Flag to track if this is a reconnect
 
             boardState: null, // Array of { char, color }
 
-            setSessionCode: (code) => set({ sessionCode: code }),
+            setSessionCode: (code, isReconnecting = false) => set({ 
+                sessionCode: code,
+                lastSessionCode: code, // Remember this code
+                connectionStartTime: Date.now(),
+                lastActivityTime: Date.now(),
+                isConnectionExpired: false,
+                disconnectReason: null,
+                isReconnect: isReconnecting
+            }),
+            recordActivity: () => set({ lastActivityTime: Date.now() }),
             setBoardId: (id) => set({ boardId: id }),
             setConnected: (status) => set({ isConnected: status }),
             setClockMode: (status) => set({ isClockMode: status }),
             setGridConfig: (config) => set({ gridConfig: config }),
+            setConnectionExpired: (expired, reason = 'timeout') => set({ 
+                isConnectionExpired: expired,
+                disconnectReason: reason
+            }),
+            setConnectionTimeout: (timeout) => set({ connectionTimeout: timeout }),
 
             setMessage: (content, animationType = 'flip', colorTheme = 'monochrome') =>
                 set({
@@ -44,7 +67,11 @@ export const useSessionStore = create(
                 boardId: null,
                 isConnected: false,
                 currentMessage: null,
-                boardState: null
+                boardState: null,
+                connectionStartTime: null,
+                lastActivityTime: null,
+                isConnectionExpired: true,
+                isReconnect: false
             }),
         }),
         {

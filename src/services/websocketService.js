@@ -11,7 +11,7 @@ class WebSocketService {
         this.listeners = new Map()
     }
 
-    connect(sessionCode, userId = null) {
+    connect(sessionCode, userId = null, token = null) {
         if (this.socket?.connected) {
             console.warn('Already connected')
             return
@@ -19,11 +19,19 @@ class WebSocketService {
 
         this.sessionCode = sessionCode
 
+        // Build auth object - token is required for backend authentication
+        const auth = {
+            sessionCode,
+            userId,
+        }
+
+        // Include token if provided (required for Supabase auth validation)
+        if (token) {
+            auth.token = token
+        }
+
         this.socket = io(import.meta.env.VITE_WEBSOCKET_URL || 'ws://localhost:3001', {
-            auth: {
-                sessionCode,
-                userId,
-            },
+            auth,
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: this.maxReconnectAttempts,

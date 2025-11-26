@@ -16,10 +16,6 @@ export default function Collections() {
   const [newCollectionDescription, setNewCollectionDescription] = useState('')
   const [expandedCollectionId, setExpandedCollectionId] = useState(null)
 
-  useEffect(() => {
-    loadCollections()
-  }, [loadCollections])
-
   const loadCollections = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -31,6 +27,10 @@ export default function Collections() {
       setIsLoading(false)
     }
   }, [fetchCollections])
+
+  useEffect(() => {
+    loadCollections()
+  }, [loadCollections])
 
   const handleCreateCollection = async (e) => {
     e.preventDefault()

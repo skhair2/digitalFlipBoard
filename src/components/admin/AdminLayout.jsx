@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useAdminStore } from '../../store/adminStore';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import AdminSidebar from './AdminSidebar';
 import AdminDashboard from './AdminDashboard';
@@ -15,17 +15,12 @@ import RoleManagement from './RoleManagement';
  */
 
 export default function AdminLayout() {
-  const { isAdminViewActive, setAdminViewActive, clearAdminView } = useAdminStore();
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const [currentSection, setCurrentSection] = useState('dashboard');
 
-  if (!isAdminViewActive) {
-    return null;
-  }
-
   const handleBackToUser = () => {
-    clearAdminView();
-    setAdminViewActive(false);
+    navigate('/dashboard');
   };
 
   const renderSection = () => {

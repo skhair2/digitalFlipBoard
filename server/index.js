@@ -74,17 +74,22 @@ const PORT = process.env.PORT || 3001;
 // Socket.io connection handler
 io.on('connection', (socket) => {
   const userId = socket.userId;
+  const userEmail = socket.userEmail;
+  const isAuthenticated = socket.isAuthenticated;
   const clientIp = socket.handshake.address;
-
-  console.log(`[${new Date().toISOString()}] User ${userId} connected: ${socket.id} from ${clientIp}`);
-
   const { sessionCode } = socket.handshake.auth;
+
+  console.log(`[${new Date().toISOString()}] ✅ User connected: ${socket.id}`);
+  console.log(`   └─ IP: ${clientIp}`);
+  console.log(`   └─ Auth: ${isAuthenticated ? `✓ ${userEmail}` : '✗ Anonymous'}`);
+  console.log(`   └─ Session: ${sessionCode || 'pending'}`);
 
   if (sessionCode) {
     socket.join(sessionCode);
-    console.log(`[${new Date().toISOString()}] Socket joined session: ${sessionCode}`);
+    console.log(`[${new Date().toISOString()}] 🔗 Socket joined session: ${sessionCode}`);
+    console.log(`   └─ Room size: ${io.sockets.adapter.rooms.get(sessionCode)?.size || 1} clients`);
 
-    // Notify room of connection (don't expose user email in logs)
+    // Notify room of connection
     io.to(sessionCode).emit('connection:status', { connected: true });
   }
 
@@ -117,7 +122,10 @@ io.on('connection', (socket) => {
     // Security: Verify sessionCode matches user's authorized sessions
     // (could check against database if needed)
     
-    console.log(`[${new Date().toISOString()}] Message sent in session ${validatedPayload.sessionCode}`);
+    console.log(`[${new Date().toISOString()}] 📨 Message in session ${validatedPayload.sessionCode}`);
+    console.log(`   └─ From: ${userEmail || 'Anonymous'} (${socket.id})`);
+    console.log(`   └─ Content: "${validatedPayload.content.substring(0, 50)}..."`);
+    console.log(`   └─ Recipients: ${io.sockets.adapter.rooms.get(validatedPayload.sessionCode)?.size || 0} clients`);
 
     // Broadcast to everyone in the room
     io.to(validatedPayload.sessionCode).emit('message:received', validatedPayload);
@@ -127,7 +135,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log(`[${new Date().toISOString()}] User ${userId} disconnected: ${socket.id}`);
+    console.log(`[${new Date().toISOString()}] 👋 User disconnected: ${socket.id}`);
+    console.log(`   └─ Auth: ${isAuthenticated ? userEmail : 'Anonymous'}`);
+    console.log(`   └─ Session: ${sessionCode || 'none'}`);
   });
 });
 

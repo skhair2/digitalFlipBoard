@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRoleStore } from '../../store/roleStore';
 import { useAuthStore } from '../../store/authStore';
-import * as permissionService from '../../services/permissionService';
 import Spinner from '../ui/Spinner';
 import {
   MagnifyingGlassIcon,
@@ -40,7 +39,6 @@ export default function RoleManagement() {
     revokeError,
     auditLogs,
     auditLoading,
-    auditPage,
     auditHasMore,
     fetchAllAdmins,
     searchUsers,

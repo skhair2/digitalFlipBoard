@@ -53,9 +53,10 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
     return (
         <div
             className={`grid gap-0.5 bg-[#050505] transition-all duration-500 mx-auto
-                ${isFullscreen
-                    ? 'w-auto h-auto max-w-screen max-h-screen p-1 md:p-2 border-none shadow-none'
-                    : 'w-full max-w-[95vw] p-2 md:p-4 rounded-xl shadow-2xl border border-white/5'
+                ${
+                    isFullscreen
+                        ? 'w-full h-full p-2 md:p-4 border-none shadow-none'
+                        : 'w-full max-w-[95vw] p-2 md:p-4 rounded-xl shadow-2xl border border-white/5'
                 }`}
             style={{
                 gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,

@@ -8,6 +8,7 @@ import ColorThemePicker from '../components/control/ColorThemePicker'
 import Scheduler from '../components/control/Scheduler'
 import EmailVerificationBanner from '../components/auth/EmailVerificationBanner'
 import { useSessionStore } from '../store/sessionStore'
+import { useWebSocket } from '../hooks/useWebSocket'
 import mixpanel from '../services/mixpanelService'
 import { Tab } from '@headlessui/react'
 import { clsx } from 'clsx'
@@ -24,6 +25,12 @@ export default function Control() {
     const [searchParams] = useSearchParams()
     const [message, setMessage] = useState('')
     const [selectedTabIndex, setSelectedTabIndex] = useState(0)
+
+    // Call useWebSocket hook ONLY when user has entered a session code
+    // This prevents auto-connecting to display's stored code
+    if (sessionCode) {
+        useWebSocket()
+    }
 
     // Check for boardId in URL
     useEffect(() => {

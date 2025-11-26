@@ -14,12 +14,6 @@ export default function VersionHistory() {
   const [isRestoring, setIsRestoring] = useState(false)
   const [expandedVersionId, setExpandedVersionId] = useState(null)
 
-  useEffect(() => {
-    if (currentDesign && isPremium) {
-      loadVersions()
-    }
-  }, [currentDesign, isPremium, loadVersions])
-
   const loadVersions = useCallback(async () => {
     if (!currentDesign) return
     setIsLoading(true)
@@ -33,6 +27,12 @@ export default function VersionHistory() {
       setIsLoading(false)
     }
   }, [currentDesign, fetchVersions])
+
+  useEffect(() => {
+    if (currentDesign && isPremium) {
+      loadVersions()
+    }
+  }, [currentDesign, isPremium, loadVersions])
 
   const handleRestoreVersion = async (versionId) => {
     if (!window.confirm('Restore this version? Your current changes will be replaced.')) return

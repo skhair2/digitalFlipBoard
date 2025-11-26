@@ -34,28 +34,44 @@ export async function verifyToken(token) {
 
 /**
  * Middleware for Socket.io authentication
- * Verifies token on connection handshake
+ * Verifies token on connection handshake if provided
+ * Allows fallback to sessionCode-based auth for backward compatibility
  */
 export function createAuthMiddleware() {
   return async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
+      const sessionCode = socket.handshake.auth?.sessionCode;
       
-      if (!token) {
-        return next(new Error('No authentication token provided'));
+      // If token is provided, validate it (strict mode)
+      if (token) {
+        const { valid, user, error } = await verifyToken(token);
+
+        if (!valid) {
+          return next(new Error(error || 'Authentication failed'));
+        }
+
+        // Attach user info to socket for later use
+        socket.userId = user.id;
+        socket.userEmail = user.email;
+        socket.isAuthenticated = true;
+
+        return next();
       }
 
-      const { valid, user, error } = await verifyToken(token);
+      // Fallback: Allow connection with sessionCode alone (more permissive)
+      // This enables display + controller pairing without auth
+      if (sessionCode) {
+        console.log(`[Auth] Connection allowed via sessionCode: ${sessionCode}`);
+        socket.userId = null; // Anonymous connection
+        socket.userEmail = null;
+        socket.isAuthenticated = false;
 
-      if (!valid) {
-        return next(new Error(error || 'Authentication failed'));
+        return next();
       }
 
-      // Attach user info to socket for later use
-      socket.userId = user.id;
-      socket.userEmail = user.email;
-
-      next();
+      // No token and no sessionCode - reject connection
+      return next(new Error('No authentication token or session code provided'));
     } catch (error) {
       next(new Error('Authentication middleware error: ' + error.message));
     }

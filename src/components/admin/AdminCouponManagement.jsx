@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useCouponStore } from '../../store/couponStore';
-import { Spinner } from '../ui/Spinner';
+import Spinner from '../ui/Spinner';
 
 /**
  * AdminCouponManagement Component
@@ -14,7 +14,6 @@ export default function AdminCouponManagement() {
     coupons,
     couponsLoading,
     selectedCoupon,
-    couponDetails,
     couponAnalytics,
     templates,
     templatesLoading,
@@ -23,7 +22,6 @@ export default function AdminCouponManagement() {
     setSelectedCoupon,
     fetchCoupons,
     fetchTemplates,
-    getCouponDetails,
     updateCouponStatus,
     deleteCoupon,
     generateCoupons,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { generateCSRFToken, grantAdminRole, revokeAdminRole, fetchAdmins, fetchAuditLog } from '../../services/permissionService'
+import { generateCSRFToken, grantAdminRole, revokeAdminRole, fetchAllAdmins, fetchAuditLog } from '../../services/permissionService'
 import { useAuthStore } from '../../store/authStore'
 import mixpanel from '../../services/mixpanelService'
 import { Tab } from '@headlessui/react'
@@ -30,10 +30,11 @@ export default function RoleManagement() {
   const loadAdmins = async () => {
     try {
       setLoading(true)
-      const data = await fetchAdmins()
-      setAdmins(data)
+      const response = await fetchAllAdmins()
+      setAdmins(response.admins || [])
     } catch (err) {
       setError(`Failed to load admins: ${err.message}`)
+      setAdmins([])
     } finally {
       setLoading(false)
     }
@@ -41,10 +42,11 @@ export default function RoleManagement() {
 
   const loadAuditLog = async () => {
     try {
-      const data = await fetchAuditLog(50)
-      setAuditLog(data)
+      const response = await fetchAuditLog(50)
+      setAuditLog(response.logs || [])
     } catch (err) {
       console.error('Failed to load audit log:', err)
+      setAuditLog([])
     }
   }
 

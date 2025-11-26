@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircleIcon, ExclamationIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import { useAuthStore } from '../../store/authStore'
 import { Button } from '../ui/Components'
 
 export default function EmailVerificationBanner() {
-    const { user, profile } = useAuthStore()
+    const { user } = useAuthStore()
     const [isVerified, setIsVerified] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [cooldownSeconds, setCooldownSeconds] = useState(0)
@@ -74,7 +75,7 @@ export default function EmailVerificationBanner() {
                 <div className="max-w-7xl mx-auto px-4 py-4">
                     <div className="flex items-center justify-between gap-4 flex-wrap">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <ExclamationIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                            <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
                             <div className="min-w-0">
                                 <p className="text-sm font-medium text-amber-100">
                                     Please verify your email to access all features
