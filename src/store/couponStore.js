@@ -9,7 +9,7 @@ import * as couponService from '../services/couponService';
 
 export const useCouponStore = create(
   persist(
-    (set, get) => ({
+    (set) => ({
       // Admin Coupon Management State
       coupons: [],
       couponsLoading: false,

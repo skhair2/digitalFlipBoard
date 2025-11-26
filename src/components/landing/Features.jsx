@@ -1,5 +1,6 @@
 import { useRef } from 'react'
-import { useMotionTemplate, useMotionValue } from 'framer-motion'
+// eslint-disable-next-line no-unused-vars
+import { motion, useMotionTemplate, useMotionValue } from 'framer-motion'
 import {
     SparklesIcon,
     DevicePhoneMobileIcon,

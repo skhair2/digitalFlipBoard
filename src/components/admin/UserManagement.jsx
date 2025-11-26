@@ -18,10 +18,6 @@ export default function UserManagement() {
   const [showModal, setShowModal] = useState(false);
   const [updatingUser, setUpdatingUser] = useState(null);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
   const loadUsers = async () => {
     try {
       setLoading(true);
@@ -35,6 +31,10 @@ export default function UserManagement() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadUsers();
+  }, [setUsers, setTotalUsers]);
 
   const handleSearchUsers = async () => {
     if (!searchQuery.trim()) {

@@ -375,7 +375,7 @@ export const useRoleStore = create(
        * Load next page of audit logs
        */
       loadMoreAuditLogs: async () => {
-        const { auditPage, auditHasMore, auditPageSize } = get();
+        const { auditPage, auditHasMore } = get();
         if (!auditHasMore) return;
 
         await get().fetchAuditLog({ page: auditPage + 1 });

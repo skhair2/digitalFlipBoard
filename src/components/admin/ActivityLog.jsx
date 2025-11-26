@@ -14,10 +14,6 @@ export default function ActivityLog() {
   const [error, setError] = useState(null);
   const [filterType, setFilterType] = useState('all');
 
-  useEffect(() => {
-    loadActivityLog();
-  }, []);
-
   const loadActivityLog = async () => {
     try {
       setLoading(true);
@@ -30,6 +26,10 @@ export default function ActivityLog() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadActivityLog();
+  }, [setActivityLog]);
 
   const getActivityIcon = (type) => {
     const icons = {

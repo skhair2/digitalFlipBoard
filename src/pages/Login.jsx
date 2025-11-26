@@ -10,7 +10,7 @@ import Logo from '../components/ui/Logo'
 
 export default function Login() {
     const navigate = useNavigate()
-    const { signInWithPassword, signUpWithPassword, signUpWithGoogle, signUpWithMagicLink } = useAuthStore()
+    const { signInWithPassword, signUpWithPassword, signUpWithMagicLink } = useAuthStore()
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState(null)
     const [successMessage, setSuccessMessage] = useState(null)

@@ -106,7 +106,7 @@ export async function updateUserSubscriptionTier(userId, newTier, adminId) {
 
 export async function deactivateUser(userId, adminId) {
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('profiles')
       .update({ subscription_tier: 'deactivated' })
       .eq('id', userId)
@@ -245,7 +245,8 @@ export async function getRevenueMetrics() {
       .eq('subscription_tier', 'deactivated')
       .gte('updated_at', thirtyDaysAgo.toISOString());
 
-    const churnRate = totalUsers > 0 ? ((churnedUsers || 0) / (proCount + premiumCount)) * 100 : 0;
+    const totalUsers = proCount + premiumCount;
+    const churnRate = totalUsers > 0 ? ((churnedUsers || 0) / totalUsers) * 100 : 0;
 
     return {
       success: true,
@@ -362,7 +363,7 @@ export async function fetchAdminActivityLog(options = {}) {
 export async function getSystemHealth() {
   try {
     // Check database connectivity
-    const { data: dbCheck, error: dbError } = await supabase
+    const { error: dbError } = await supabase
       .from('profiles')
       .select('count(*)', { count: 'exact' })
       .limit(1);
@@ -370,7 +371,7 @@ export async function getSystemHealth() {
     const dbStatus = !dbError ? 'healthy' : 'unhealthy';
 
     // Check authentication system
-    const { data: authCheck, error: authError } = await supabase.auth.getUser();
+    const { error: authError } = await supabase.auth.getUser();
     const authStatus = !authError ? 'healthy' : 'unhealthy';
 
     // Check realtime connection
@@ -424,7 +425,7 @@ export async function isUserAdmin(userId) {
 
 export async function promoteUserToAdmin(userId, adminId) {
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('profiles')
       .update({ role: 'admin' })
       .eq('id', userId)
@@ -446,7 +447,7 @@ export async function promoteUserToAdmin(userId, adminId) {
 
 export async function demoteAdminToUser(userId, adminId) {
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('profiles')
       .update({ role: 'user' })
       .eq('id', userId)

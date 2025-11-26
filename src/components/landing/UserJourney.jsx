@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion'
 import { USER_JOURNEYS } from '../../data/userJourneys'
 import { useAuthStore } from '../../store/authStore'
 import { Button } from '../ui/Components'

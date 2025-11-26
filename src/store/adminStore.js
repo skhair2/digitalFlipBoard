@@ -9,7 +9,7 @@ import * as adminService from '../services/adminService';
 
 export const useAdminStore = create(
   persist(
-    (set, get) => ({
+    (set) => ({
       // State
       isAdminViewActive: false,
       currentAdminUserId: null,
@@ -63,7 +63,7 @@ export const useAdminStore = create(
 
       updateUserTier: async (userId, newTier, adminId) => {
         set({ usersLoading: true });
-        const { success, user, error } = await adminService.updateUserSubscriptionTier(userId, newTier, adminId);
+        const { success, error } = await adminService.updateUserSubscriptionTier(userId, newTier, adminId);
         
         if (success) {
           // Update in local state

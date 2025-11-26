@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase } from '../services/supabaseClient'
 import mixpanel from '../services/mixpanelService'
+import { isUserAdmin } from '../services/permissionService'
 
 export const useAuthStore = create(
     persist(
@@ -11,6 +12,7 @@ export const useAuthStore = create(
             profile: null,
             isPremium: false,
             subscriptionTier: 'free',
+            isAdmin: false,
             designLimits: {
                 maxDesigns: 5,
                 maxCollections: 0,
@@ -35,12 +37,14 @@ export const useAuthStore = create(
 
                         const tier = profile?.subscription_tier || 'free'
                         const isPremium = tier === 'pro' || tier === 'enterprise'
+                        const adminStatus = await isUserAdmin(session.user.id)
 
                         set({
                             user: session.user,
                             session,
                             profile: profile || null,
                             isPremium,
+                            isAdmin: adminStatus,
                             subscriptionTier: tier,
                             designLimits: {
                                 maxDesigns: isPremium ? 999999 : 5,
@@ -71,12 +75,14 @@ export const useAuthStore = create(
 
             const tier = profile?.subscription_tier || 'free'
             const isPremium = tier === 'pro' || tier === 'enterprise'
+            const adminStatus = await isUserAdmin(session.user.id)
 
             set({
                 user: session.user,
                 session,
                 profile: profile || null,
                 isPremium,
+                isAdmin: adminStatus,
                 subscriptionTier: tier,
                 designLimits: {
                   maxDesigns: isPremium ? 999999 : 5,
@@ -94,6 +100,7 @@ export const useAuthStore = create(
                 signupDate: session.user.created_at,
                 isPremium: isPremium,
                 subscriptionTier: tier,
+                isAdmin: adminStatus,
                 maxDesigns: isPremium ? 999999 : 5
             })
                 } else {
@@ -114,12 +121,14 @@ export const useAuthStore = create(
 
                     const tier = profile?.subscription_tier || 'free'
                     const isPremium = tier === 'pro' || tier === 'enterprise'
+                    const adminStatus = session?.user ? await isUserAdmin(session.user.id) : false
 
                     set({
                         user: session?.user ?? null,
                         session,
                         profile: profile || null,
                         isPremium,
+                        isAdmin: adminStatus,
                         subscriptionTier: tier,
                         designLimits: {
                           maxDesigns: isPremium ? 999999 : 5,
@@ -243,6 +252,7 @@ export const useAuthStore = create(
                         session: null, 
                         profile: null,
                         isPremium: false,
+                        isAdmin: false,
                         subscriptionTier: 'free',
                         designLimits: {
                             maxDesigns: 5,

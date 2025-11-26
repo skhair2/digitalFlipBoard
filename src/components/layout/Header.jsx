@@ -1,12 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
-import { useAdminStore } from '../../store/adminStore'
 import { Button } from '../ui/Components'
 import Logo from '../ui/Logo'
 
 export default function Header() {
-    const { user, profile, signOut } = useAuthStore()
-    const { setAdminViewActive, isAdminViewActive } = useAdminStore()
+    const { user, isAdmin, signOut } = useAuthStore()
 
     return (
         <header className="fixed top-0 w-full z-50 bg-slate-900/80 backdrop-blur border-b border-slate-800">
@@ -20,23 +18,14 @@ export default function Header() {
                     <Link to="/display" className="text-gray-300 hover:text-white transition-colors">Display</Link>
                     <Link to="/control" className="text-gray-300 hover:text-white transition-colors">Control</Link>
                     <Link to="/pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</Link>
+                    {isAdmin && (
+                        <Link to="/admin" className="text-gray-300 hover:text-white transition-colors font-medium">🔐 Admin</Link>
+                    )}
                 </nav>
 
                 <div className="flex items-center gap-4">
                     {user ? (
                         <>
-                            {profile?.role === 'admin' && (
-                                <button
-                                    onClick={() => setAdminViewActive(!isAdminViewActive)}
-                                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                                        isAdminViewActive
-                                            ? 'bg-purple-600 text-white hover:bg-purple-700'
-                                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                    }`}
-                                >
-                                    🔐 {isAdminViewActive ? 'Exit Admin' : 'Admin'}
-                                </button>
-                            )}
                             <Link to="/dashboard">
                                 <Button variant="ghost" size="sm">Dashboard</Button>
                             </Link>

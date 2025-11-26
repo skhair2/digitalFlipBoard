@@ -1,4 +1,4 @@
-import { AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import PropTypes from 'prop-types'
 import { useState } from 'react'
 

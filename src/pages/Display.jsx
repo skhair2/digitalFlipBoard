@@ -6,6 +6,7 @@ import BrandingWatermark from '../components/display/BrandingWatermark'
 import ControlOverlay from '../components/display/ControlOverlay'
 import SettingsPanel from '../components/display/SettingsPanel'
 import { useSessionStore } from '../store/sessionStore'
+import { useWebSocket } from '../hooks/useWebSocket'
 import { useAutoHide } from '../hooks/useAutoHide'
 import { useKeyboardShortcuts, toggleFullscreen } from '../hooks/useKeyboardShortcuts'
 import mixpanel from '../services/mixpanelService'
@@ -17,6 +18,10 @@ export default function Display() {
     const [timeString, setTimeString] = useState('')
     const [showInfo, setShowInfo] = useState(false)
     const [showSettings, setShowSettings] = useState(false)
+    const [showPairingCode, setShowPairingCode] = useState(true) // Track pairing code visibility
+
+    // Call useWebSocket hook to establish and maintain WebSocket connection
+    useWebSocket()
 
     // Display settings state
     const [displaySettings, setDisplaySettings] = useState({
@@ -25,6 +30,15 @@ export default function Display() {
         clockMode: isClockMode,
         autoHideControls: true,
     })
+
+    // Hide pairing code when controller connects
+    useEffect(() => {
+        if (isConnected) {
+            setShowPairingCode(false)
+        } else {
+            setShowPairingCode(true)
+        }
+    }, [isConnected])
 
     // Auto-hide controls after 3 seconds of inactivity (if enabled in settings)
     const { isVisible: controlsVisible } = useAutoHide(3000, isFullscreen && displaySettings.autoHideControls)
@@ -113,7 +127,9 @@ export default function Display() {
 
     return (
         <div
-            className={`min-h-screen bg-black flex flex-col items-center justify-center overflow-hidden relative ${isFullscreen ? 'p-0' : 'p-4'}`}
+            className={`bg-black flex flex-col items-center justify-center overflow-hidden relative ${
+                isFullscreen ? 'fixed inset-0 w-screen h-screen p-0' : 'min-h-screen p-4'
+            }`}
             style={{ filter: `brightness(${displaySettings.brightness}%)` }}
         >
             {/* Background glow - hide in fullscreen for cleaner look */}
@@ -121,7 +137,7 @@ export default function Display() {
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900 via-black to-black opacity-50 pointer-events-none" />
             )}
 
-            <div className={`z-10 w-full flex flex-col items-center ${isFullscreen ? 'h-screen justify-center' : 'gap-8'}`}>
+            <div className={`z-10 w-full h-full flex flex-col items-center ${isFullscreen ? 'justify-center' : 'gap-8'}`}>
                 {/* Display Grid - Auto-adjusts to screen size */}
                 <DigitalFlipBoardGrid
                     overrideMessage={
@@ -131,6 +147,23 @@ export default function Display() {
                     isFullscreen={isFullscreen}
                 />
 
+                {/* Pairing Code Overlay - Shows on grid when NOT connected in fullscreen */}
+                {!isConnected && !searchParams.get('boardId') && isFullscreen && showPairingCode && (
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none animate-fade-in z-20">
+                        <div className="text-center">
+                            <p className="text-white/50 text-sm md:text-base mb-4 uppercase tracking-wider font-semibold">
+                                Pairing Code
+                            </p>
+                            <div className="text-6xl md:text-8xl font-mono font-bold text-primary-400 tracking-widest mb-6 drop-shadow-[0_0_30px_rgba(33,128,141,0.6)]">
+                                {useSessionStore.getState().sessionCode}
+                            </div>
+                            <p className="text-white/70 text-lg md:text-xl">
+                                Enter this code on your phone to connect
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Session Code - Only show when NOT connected AND NOT in fullscreen */}
                 {!isConnected && !searchParams.get('boardId') && !isFullscreen && (
                     <div className="transition-opacity duration-500 relative">
@@ -138,11 +171,11 @@ export default function Display() {
                     </div>
                 )}
 
-                {/* Connection Success Message/Animation - Brief display then fade */}
-                {isConnected && !isClockMode && !currentMessage && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-                        <div className="text-teal-500 font-bold text-2xl md:text-4xl animate-bounce">
-                            CONNECTED
+                {/* Connection Success Message/Animation - Shows when controller connects */}
+                {isConnected && showPairingCode === false && !isClockMode && !currentMessage && (
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none animate-fade-out z-20">
+                        <div className="text-teal-500 font-bold text-4xl md:text-6xl animate-bounce drop-shadow-[0_0_30px_rgba(20,184,166,0.4)]">
+                            ✓ CONNECTED
                         </div>
                     </div>
                 )}
@@ -162,7 +195,7 @@ export default function Display() {
 
             {/* Status indicator (auto-hide in fullscreen) */}
             {(!isFullscreen || controlsVisible) && (
-                <div className="absolute top-4 right-4 flex items-center gap-2 transition-opacity duration-300">
+                <div className="fixed top-4 right-4 flex items-center gap-2 transition-opacity duration-300 z-50">
                     <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
                     <span className="text-xs text-gray-500 font-mono uppercase">
                         {isConnected ? 'Connected' : 'Disconnected'}

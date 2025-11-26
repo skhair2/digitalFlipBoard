@@ -749,6 +749,183 @@ Production environment
 
 ---
 
+## Session Management & Connection Lifecycle
+
+### Overview
+The system implements a **dual-timeout session management** strategy to balance user experience with resource efficiency.
+
+### Session Lifecycle
+
+#### Stage 1: Session Initiation
+1. User clicks "Open Controller" → Navigates to Control page
+2. User enters 6-digit display code from Display page
+3. `SessionPairing.jsx` validates code format (6 alphanumeric characters)
+4. `setSessionCode(code, isReconnecting=false)` called
+   - Sets `connectionStartTime` = now
+   - Sets `lastActivityTime` = now
+   - Sets `lastSessionCode` = code (for reconnect memory)
+   - Stores in localStorage via Zustand persist
+5. Session marked as connected: `isConnected = true`
+6. Mixpanel tracks: `connection_started` event
+
+#### Stage 2: Active Connection (Connected & Monitoring)
+**Duration**: 15 minutes OR until 5 minutes of inactivity
+
+**Timeout Logic** (in `SessionPairing.jsx` useEffect):
+```javascript
+// Hard timeout: 15 minutes max
+const remaining = CONNECTION_TIMEOUT_MS - totalElapsed  // 15 * 60 * 1000
+
+// Inactivity timeout: 5 minutes idle
+const inactiveElapsed = now - lastActivityTime
+const inactivityExpired = inactiveElapsed >= INACTIVITY_TIMEOUT_MS  // 5 * 60 * 1000
+
+// Whichever comes first triggers expiry
+if (inactivityExpired) {
+    setConnectionExpired(true, 'inactivity')  // Silent disconnect
+} else if (remaining <= 0) {
+    setConnectionExpired(true, 'timeout')     // Hard limit reached
+}
+```
+
+**Activity Tracking** (in `useWebSocket.js`):
+- `recordActivity()` called on:
+  - Message sent (via `sendMessage`)
+  - Message received (via WebSocket event)
+  - Connection established/reconnected
+- Resets `lastActivityTime` to prevent idle timeout
+
+**UI Feedback**:
+- Real-time MM:SS countdown displayed
+- **Amber warning** at < 2 minutes remaining
+  - Icon changes from teal to amber
+  - Text: "Connection Expiring Soon"
+  - Mixpanel tracks: `connection_expiring_soon` event
+- Icon animates: `animate-bounce` (normal) → `animate-pulse` (warning)
+
+#### Stage 3: Connection Expiration
+**Triggers**: After 15 min hard timeout OR 5 min inactivity
+
+**UI State**: "Connection Expired" card with two options:
+
+1. **Reconnect to [CODE]** (Primary Button)
+   - Calls `setSessionCode(lastSessionCode, isReconnecting=true)`
+   - Resets connection timer
+   - `recordActivity()` called to reset idle timer
+   - **Does NOT increment** session quota (free tier benefit)
+   - Mixpanel tracks: `connection_reconnected` with `disconnect_reason` field
+   - Message: "Reconnecting won't use another free session"
+
+2. **Enter New Display Code** (Secondary Button)
+   - Resets form state
+   - User enters different code
+   - **DOES increment** session quota (treated as new session)
+   - Mixpanel tracks: `connection_started` (new session)
+
+#### Stage 4: Cross-Tab Persistence
+**How it works**:
+- Zustand `persist` middleware saves to localStorage: `session-storage`
+- Browser `storage` event listener (in `sessionStore.js`) syncs across tabs
+- If user opens Control page in Tab A and Tab B:
+  - Both tabs share same session code
+  - Timer starts when first tab connects
+  - Disconnection affects all tabs
+  - Activity in Tab A resets idle timer for Tab B
+
+**Trade-off**: To enable cross-tab persistence, we don't pause timer when user navigates away (as requested)
+
+---
+
+### State Schema
+
+**sessionStore Fields**:
+```javascript
+{
+  // Basic session data
+  sessionCode: string | null,           // Current session code (e.g., "ABC123")
+  lastSessionCode: string | null,       // Previous session code (for reconnect)
+  isConnected: boolean,                 // Currently paired with display
+  
+  // Timeout tracking
+  connectionStartTime: timestamp | null,  // When current session started
+  lastActivityTime: timestamp | null,     // Last user action (send/receive/connect)
+  isConnectionExpired: boolean,          // Has session timed out?
+  disconnectReason: 'inactivity' | 'timeout' | null,  // Why did it disconnect?
+  
+  // Session metadata
+  isReconnect: boolean,                 // Is current session a reconnect? (for analytics)
+  
+  // Message data
+  currentMessage: string | null,
+  boardState: array | null,            // For designer/grid mode
+  
+  // Grid & display preferences
+  gridConfig: { rows: 6, cols: 22 },
+  lastAnimationType: string,
+  lastColorTheme: string,
+  isClockMode: boolean
+}
+```
+
+---
+
+### Quota System Integration
+
+**Free Tier** (1 session per 24h):
+```
+New Connection → incrementSession() → quota used
+Reconnect      → (no call to incrementSession) → quota preserved
+```
+
+**Premium Tier**:
+```
+Unlimited connections (both new and reconnects)
+Same 15-min timeout per connection
+```
+
+**Check**: In `handlePair()`, validation:
+```javascript
+if (!user && freeSessionUsed) {
+    setError('Free session limit reached. Please sign in to continue.')
+    // Show "Sign In for Unlimited Access" button
+}
+```
+
+---
+
+### Analytics Tracking (Mixpanel)
+
+**Events Tracked**:
+| Event | When | Properties |
+|-------|------|-----------|
+| `connection_started` | New session begins | `code`, `is_authenticated` |
+| `connection_reconnected` | User reconnects | `code`, `disconnect_reason`, `is_authenticated` |
+| `connection_expiring_soon` | <2 min remaining | `remaining_seconds` |
+| `connection_expired` | Session ends | `reason` ("inactivity" \| "timeout"), `duration_seconds` |
+
+**Segment Definition**:
+- **Reconnects**: Tracked separately so you can measure stickiness
+- **Inactivity vs. Hard Timeout**: Tracked separately for UX insights
+- **Duration**: `duration_seconds` helps identify optimal timeout window
+
+---
+
+### Implementation Files
+
+**Core Changes**:
+```
+src/store/sessionStore.js              # Added: lastActivityTime, disconnectReason, isReconnect, recordActivity()
+src/components/control/SessionPairing.jsx   # Rewritten: dual-timeout logic, amber warning, reconnect UI
+src/hooks/useWebSocket.js              # Added: recordActivity() calls on events
+```
+
+**No changes needed**:
+- Display page (works as-is)
+- Backend WebSocket server (sessions unchanged)
+- Supabase (no DB schema changes)
+
+---
+
 ## Future Architecture Improvements
 
 ### Phase 2: Enhanced Features
@@ -772,8 +949,8 @@ Production environment
 
 ---
 
-**Last Updated**: November 22, 2025  
-**Status**: ✅ Current Architecture  
+**Last Updated**: November 25, 2025  
+**Status**: ✅ Connection Timeout Feature Implemented  
 **Next Review**: After Phase 2 feature release
 
 See also: [00-README.md](./00-README.md), [DEPLOYMENT.md](./DEPLOYMENT.md), [SECURITY.md](./SECURITY.md)

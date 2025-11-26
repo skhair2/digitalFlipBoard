@@ -14,15 +14,15 @@ export default function DesignList() {
   const { user } = useAuthStore()
   const [selectedDesignId, setSelectedDesignId] = useState(null)
 
+  const loadDesigns = useCallback(async () => {
+    await fetchDesigns()
+  }, [fetchDesigns])
+
   useEffect(() => {
     if (user) {
       loadDesigns()
     }
   }, [user, loadDesigns])
-
-  const loadDesigns = useCallback(async () => {
-    await fetchDesigns()
-  }, [fetchDesigns])
 
   const handleLoadDesign = async (design) => {
     try {

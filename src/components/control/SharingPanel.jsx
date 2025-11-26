@@ -14,18 +14,18 @@ export default function SharingPanel() {
     const [error, setError] = useState(null)
     const [success, setSuccess] = useState(null)
 
-    useEffect(() => {
-        if (boardId) {
-            loadCollaborators()
-        }
-    }, [boardId, loadCollaborators])
-
     const loadCollaborators = useCallback(async () => {
         const result = await getCollaborators(boardId)
         if (result.success) {
             setCollaborators(result.data)
         }
     }, [boardId])
+
+    useEffect(() => {
+        if (boardId) {
+            loadCollaborators()
+        }
+    }, [boardId, loadCollaborators])
 
     const handleInvite = async (e) => {
         e.preventDefault()

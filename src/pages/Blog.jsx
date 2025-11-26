@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion'
 import SEOHead from '../components/SEOHead'
 import { blogPosts } from '../data/blogPosts'
 import { Input } from '../components/ui/Components'
