@@ -16,7 +16,7 @@ export const useBoardStore = create((set) => ({
                 .order('created_at', { ascending: false })
 
             if (error) throw error
-            set({ boards: data })
+            set({ boards: Array.isArray(data) ? data : [] })
         } catch (error) {
             set({ error: error.message })
         } finally {
@@ -37,7 +37,7 @@ export const useBoardStore = create((set) => ({
                 .single()
 
             if (error) throw error
-            set((state) => ({ boards: [data, ...state.boards] }))
+            set((state) => ({ boards: [data, ...(Array.isArray(state.boards) ? state.boards : [])] }))
             return data
         } catch (error) {
             set({ error: error.message })

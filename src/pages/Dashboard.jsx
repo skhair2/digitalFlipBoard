@@ -54,9 +54,9 @@ export default function Dashboard() {
                     id: 'managed-board',
                     title: 'Launch a managed display',
                     description: 'Create a board with a persistent code for always-on signage.',
-                    done: boards.length > 0,
+                    done: (boards?.length || 0) > 0,
                     action: () => handleCreateClick(),
-                    actionLabel: boards.length ? 'Manage displays' : 'Create display'
+                    actionLabel: (boards?.length || 0) ? 'Manage displays' : 'Create display'
                 },
                 {
                     id: 'design',
@@ -90,15 +90,15 @@ export default function Dashboard() {
                 id: 'board',
                 title: 'Create your first display',
                 description: 'Generate a temporary board and see the split-flap magic in action.',
-                done: boards.length > 0,
+                done: (boards?.length || 0) > 0,
                 action: () => handleCreateClick(),
-                actionLabel: boards.length ? 'Manage displays' : 'Create display'
+                actionLabel: (boards?.length || 0) ? 'Manage displays' : 'Create display'
             },
             {
                 id: 'pair',
                 title: 'Pair controller + display',
                 description: 'Open /control and /display in two tabs, then enter your session code.',
-                done: boards.length > 0,
+                done: (boards?.length || 0) > 0,
                 action: () => navigate('/control'),
                 actionLabel: 'Open Controller'
             },
@@ -120,7 +120,7 @@ export default function Dashboard() {
                 actionLabel: 'See Pro benefits'
             }
         ]
-    }, [isPremium, boards.length, savedDesigns.length, handleCreateClick, navigate])
+    }, [isPremium, boards?.length, savedDesigns.length, handleCreateClick, navigate])
 
     const renderStepIcon = (step) => {
         if (step.locked) {
@@ -256,7 +256,7 @@ export default function Dashboard() {
                     )}
 
                     <div className="grid md:grid-cols-2 gap-4">
-                        {boards.map((board) => (
+                        {(Array.isArray(boards) ? boards : []).map((board) => (
                             <Card key={board.id} className="group hover:border-teal-500/50 transition-colors">
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="flex items-center gap-3">
@@ -296,7 +296,7 @@ export default function Dashboard() {
                             </Card>
                         ))}
 
-                        {boards.length === 0 && !isCreating && (
+                        {(Array.isArray(boards) ? boards.length : 0) === 0 && !isCreating && (
                             <div className="col-span-full p-8 rounded-xl border border-dashed border-slate-700 flex flex-col items-center justify-center text-center text-gray-500">
                                 <ComputerDesktopIcon className="w-12 h-12 mb-4 opacity-20" />
                                 <p>No displays yet.</p>
