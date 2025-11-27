@@ -9,6 +9,7 @@ import Scheduler from '../components/control/Scheduler'
 import EmailVerificationBanner from '../components/auth/EmailVerificationBanner'
 import { useSessionStore } from '../store/sessionStore'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { useActivityTracking } from '../hooks/useActivityTracking'
 import mixpanel from '../services/mixpanelService'
 import { Tab } from '@headlessui/react'
 import { clsx } from 'clsx'
@@ -19,6 +20,7 @@ import VersionHistory from '../components/designer/VersionHistory'
 import PremiumGate from '../components/common/PremiumGate'
 import SharingPanel from '../components/control/SharingPanel'
 import RoleManagement from '../components/control/RoleManagement'
+import SessionManagement from '../components/admin/SessionManagement'
 
 export default function Control() {
     const { sessionCode, isConnected, setSessionCode, setConnected, setBoardId, isClockMode, setClockMode } = useSessionStore()
@@ -26,11 +28,25 @@ export default function Control() {
     const [message, setMessage] = useState('')
     const [selectedTabIndex, setSelectedTabIndex] = useState(0)
 
-    // Call useWebSocket hook ONLY when user has entered a session code
-    // This prevents auto-connecting to display's stored code
-    if (sessionCode) {
-        useWebSocket()
-    }
+    // Call useWebSocket hook - it handles null sessionCode internally
+    useWebSocket()
+
+    // Track user activity to prevent session timeout
+    useActivityTracking(sessionCode, 'controller')
+
+    // On first mount, clear any stale sessionCode from localStorage
+    // Sessions should only exist for the current browser session
+    useEffect(() => {
+        if (sessionCode && !searchParams.get('boardId')) {
+            // If we have a sessionCode but no boardId in URL and we just loaded,
+            // this is likely a stale session code persisted from before the fix
+            const connectionTime = useSessionStore.getState().connectionStartTime
+            if (!connectionTime || Date.now() - connectionTime > 15 * 60 * 1000) {
+                // Session is expired or connection time is missing - clear it
+                setSessionCode(null)
+            }
+        }
+    }, [])
 
     // Check for boardId in URL
     useEffect(() => {
@@ -169,9 +185,15 @@ export default function Control() {
         {
             name: 'Admin',
             component: (
-                <div>
-                    <h2 className="text-lg font-semibold text-white mb-4">Role Management</h2>
-                    <RoleManagement />
+                <div className="space-y-8">
+                    <section>
+                        <SessionManagement />
+                    </section>
+                    <hr className="border-slate-700 my-8" />
+                    <section>
+                        <h2 className="text-lg font-semibold text-white mb-4">Role Management</h2>
+                        <RoleManagement />
+                    </section>
                 </div>
             )
         }
@@ -190,7 +212,18 @@ export default function Control() {
                         </span>
                     </p>
                 </div>
-                <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                    {isConnected && (
+                        <button
+                            onClick={() => setSessionCode(null)}
+                            className="px-3 py-2 text-sm font-medium bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                            title="Disconnect and connect to a new display"
+                        >
+                            ➕ New Display
+                        </button>
+                    )}
+                </div>
             </header>
 
             <Tab.Group selectedIndex={selectedTabIndex} onChange={setSelectedTabIndex}>

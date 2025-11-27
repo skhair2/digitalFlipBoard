@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # Redis for session storage and rate limiting
+  redis:
+    image: redis:7-alpine
+    container_name: digitalflipboard-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - digitalflipboard
+    environment:
+      - REDIS_PASSWORD=
+
+  # PostgreSQL for Supabase (optional - use managed Supabase)
+  postgres:
+    image: postgres:15-alpine
+    container_name: digitalflipboard-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: digitalflipboard
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - digitalflipboard
+
+  # Digital FlipBoard Server
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: digitalflipboard-server
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      REDIS_URL: redis://redis:6379
+      SUPABASE_URL: ${SUPABASE_URL:-https://your-project.supabase.co}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-your-key}
+      LOG_LEVEL: DEBUG
+      LOG_DIR: /app/logs
+      ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000
+    volumes:
+      - ./server:/app/server
+      - ./logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - digitalflipboard
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local
+
+networks:
+  digitalflipboard:
+    driver: bridge

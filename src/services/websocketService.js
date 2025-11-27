@@ -30,7 +30,22 @@ class WebSocketService {
             auth.token = token
         }
 
-        this.socket = io(import.meta.env.VITE_WEBSOCKET_URL || 'ws://localhost:3001', {
+        // Determine WebSocket URL:
+        // 1. Use env var if set (for production)
+        // 2. Otherwise use hostname + backend port (3001)
+        let wsUrl = import.meta.env.VITE_WEBSOCKET_URL
+        
+        if (!wsUrl) {
+            // Build URL from current window location
+            // Extract just the hostname/IP without port, then use backend port 3001
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+            const hostname = window.location.hostname // IP or domain, no port
+            wsUrl = `${protocol}//${hostname}:3001`
+        }
+
+        console.log('[WebSocket] Connecting to:', wsUrl, 'from origin:', window.location.origin)
+
+        this.socket = io(wsUrl, {
             auth,
             transports: ['websocket', 'polling'],
             reconnection: true,

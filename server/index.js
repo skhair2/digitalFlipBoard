@@ -1,22 +1,63 @@
+// Periodically disconnect stale sockets (idle >5 min)
+const SOCKET_STALE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+setInterval(() => {
+  for (const socket of io.sockets.sockets.values()) {
+    if (!socket.lastActivity) continue;
+    if (Date.now() - socket.lastActivity > SOCKET_STALE_TIMEOUT) {
+      const reason = `Stale socket: idle >${SOCKET_STALE_TIMEOUT / 60000} min`;
+      logger.info('socket_stale_disconnect', {
+        socket_id: socket.id.substring(0, 12),
+        session_code: socket.sessionCode || 'none',
+        user_id: socket.userId || 'anonymous',
+        user_email: socket.userEmail || 'anonymous',
+        client_ip: socket.handshake.address,
+        user_agent: socket.handshake.headers['user-agent'] || 'unknown',
+        last_activity: socket.lastActivity,
+        reason
+      });
+      socket.emit('session:force-disconnect', { reason });
+      socket.disconnect(true);
+    }
+  }
+}, 60 * 1000); // every minute
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { Resend } from 'resend';
+import { createClient } from '@supabase/supabase-js';
 
 // Import security modules
 import { createAuthMiddleware, verifyToken } from './auth.js';
-import rateLimiter from './rateLimiter.js';
 import { messageSchema, emailSchema, validatePayload } from './validation.js';
+
+// Import infrastructure modules
+import logger from './logger.js';
+import { connectRedis, sessionStore, activityStore } from './redis.js';
+import { createRateLimiter } from './redisRateLimiter.js';
+import { registerHealthCheckRoutes, readinessMiddleware } from './healthCheck.js';
 
 dotenv.config();
 
 const app = express();
 
+// Initialize rate limiter with Redis backend
+const rateLimiter = createRateLimiter();
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Add request logging middleware
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    logger.logApiCall(req.method, req.path, res.statusCode, duration, req.userId);
+  });
+  next();
+});
 
 // Security: CORS Configuration - Only allow specific origins
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',');
@@ -55,7 +96,20 @@ app.use((req, res, next) => {
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // In development: allow all origins since they're connecting via pairing code
+      // In production: use ALLOWED_ORIGINS env var
+      if (process.env.NODE_ENV === 'development') {
+        callback(null, true);
+      } else {
+        const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',');
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('CORS not allowed'));
+        }
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST']
   },
@@ -66,10 +120,174 @@ const io = new Server(httpServer, {
 // Resend email client
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Supabase client for fetching user profile data
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+// Apply readiness middleware to API routes (skip health checks)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/health') || req.path === '/metrics') {
+    return next();
+  }
+  readinessMiddleware(req, res, next);
+});
+
+// Register health check routes before protected routes
+registerHealthCheckRoutes(app);
+
 // Security: Apply authentication middleware to all socket connections
 io.use(createAuthMiddleware());
 
 const PORT = process.env.PORT || 3001;
+
+// Configuration for session management
+const SESSION_CONFIG = {
+  // Inactivity timeout in milliseconds (15 minutes default)
+  INACTIVITY_TIMEOUT: parseInt(process.env.INACTIVITY_TIMEOUT || '900000', 10),
+  // Warning threshold before killing (5 minutes before timeout)
+  INACTIVITY_WARNING_THRESHOLD: parseInt(process.env.INACTIVITY_WARNING_THRESHOLD || '600000', 10),
+  // Check interval for inactive sessions (1 minute)
+  CHECK_INTERVAL: parseInt(process.env.CHECK_INTERVAL || '60000', 10),
+  // Max session lifetime (24 hours)
+  MAX_SESSION_LIFETIME: parseInt(process.env.MAX_SESSION_LIFETIME || '86400000', 10)
+};
+
+// NOTE: Sessions are now stored in Redis instead of in-memory Map
+// This allows for distributed session state across multiple server instances
+
+/**
+ * Update session activity timestamp using Redis
+ */
+async function updateSessionActivity(sessionCode) {
+  try {
+    await activityStore.updateActivity(sessionCode);
+  } catch (error) {
+    logger.error('Failed to update session activity', error, { session_code: sessionCode });
+  }
+}
+
+/**
+ * Get session inactivity duration using Redis
+ */
+async function getSessionInactivityDuration(sessionCode) {
+  try {
+    return await activityStore.getInactivityDuration(sessionCode);
+  } catch (error) {
+    logger.error('Failed to get inactivity duration', error, { session_code: sessionCode });
+    return 0;
+  }
+}
+
+/**
+ * Notify session of upcoming termination
+ */
+function notifySessionWarning(sessionCode, minutesRemaining) {
+  logger.warn('session_inactivity_warning', {
+    session_code: sessionCode,
+    minutes_remaining: minutesRemaining
+  });
+  io.to(sessionCode).emit('session:inactivity:warning', {
+    message: `Session inactive for too long. Disconnecting in ${minutesRemaining} minutes.`,
+    minutesRemaining,
+    timestamp: new Date().toISOString()
+  });
+}
+
+/**
+ * Terminate a session and disconnect all clients
+ */
+function terminateSession(sessionCode, reason = 'inactivity') {
+  logger.logSessionTermination(sessionCode, reason, 0);
+
+  const room = io.sockets.adapter.rooms.get(sessionCode);
+  if (!room) {
+    logger.debug('session_already_terminated', { session_code: sessionCode });
+    return;
+  }
+
+  const clientSockets = Array.from(room);
+
+  // Notify clients before terminating
+  io.to(sessionCode).emit('session:terminated', {
+    reason,
+    message: 'Session has been terminated due to ' + reason,
+    timestamp: new Date().toISOString()
+  });
+
+  // Disconnect all sockets in the session
+  clientSockets.forEach((socketId) => {
+    const socket = io.sockets.sockets.get(socketId);
+    if (socket) {
+      socket.emit('session:force-disconnect', {
+        reason,
+        message: `Session terminated: ${reason}`
+      });
+      socket.leave(sessionCode);
+      socket.disconnect(true);
+    }
+  });
+
+  // Clean up Redis session data
+  sessionStore.delete(sessionCode).catch(err => {
+    logger.error('Failed to delete session from Redis', err, { session_code: sessionCode });
+  });
+}
+
+/**
+ * Monitor and terminate inactive sessions
+ * Runs periodically to check for stale sessions
+ */
+async function monitorInactiveSessions() {
+  try {
+    // Note: In a distributed system, you would query all active sessions
+    // For now, we monitor only sessions with active connections
+    const rooms = io.sockets.adapter.rooms;
+    
+    for (const [sessionCode, clients] of rooms.entries()) {
+      // Skip socket.io internal rooms (they start with /)
+      if (sessionCode.startsWith('/')) continue;
+
+      // Check if session has clients
+      if (!clients || clients.size === 0) continue;
+
+      const inactivityDuration = await getSessionInactivityDuration(sessionCode);
+      const inactivityMinutes = Math.floor(inactivityDuration / 60000);
+
+      // Check if session is inactive and send warning
+      if (
+        inactivityDuration >= SESSION_CONFIG.INACTIVITY_WARNING_THRESHOLD &&
+        inactivityDuration < SESSION_CONFIG.INACTIVITY_TIMEOUT
+      ) {
+        const minutesRemaining = Math.floor(
+          (SESSION_CONFIG.INACTIVITY_TIMEOUT - inactivityDuration) / 60000
+        );
+        notifySessionWarning(sessionCode, minutesRemaining);
+      }
+
+      // Terminate inactive session
+      if (inactivityDuration >= SESSION_CONFIG.INACTIVITY_TIMEOUT) {
+        terminateSession(sessionCode, `inactivity (${inactivityMinutes} minutes idle)`);
+      }
+    }
+  } catch (error) {
+    logger.error('Error monitoring inactive sessions', error);
+  }
+}
+
+/**
+ * Start the inactivity monitoring loop
+ */
+function startInactivityMonitoring() {
+  logger.info('session_monitoring_started', {
+    inactivity_timeout_minutes: Math.round(SESSION_CONFIG.INACTIVITY_TIMEOUT / 60000),
+    warning_threshold_minutes: Math.round(SESSION_CONFIG.INACTIVITY_WARNING_THRESHOLD / 60000),
+    check_interval_seconds: Math.round(SESSION_CONFIG.CHECK_INTERVAL / 1000)
+  });
+
+  setInterval(monitorInactiveSessions, SESSION_CONFIG.CHECK_INTERVAL);
+}
 
 // Socket.io connection handler
 io.on('connection', (socket) => {
@@ -77,67 +295,218 @@ io.on('connection', (socket) => {
   const userEmail = socket.userEmail;
   const isAuthenticated = socket.isAuthenticated;
   const clientIp = socket.handshake.address;
+  const userAgent = socket.handshake.headers['user-agent'] || 'unknown';
   const { sessionCode } = socket.handshake.auth;
+  const connectionTime = new Date().toISOString();
 
-  console.log(`[${new Date().toISOString()}] ✅ User connected: ${socket.id}`);
-  console.log(`   └─ IP: ${clientIp}`);
-  console.log(`   └─ Auth: ${isAuthenticated ? `✓ ${userEmail}` : '✗ Anonymous'}`);
-  console.log(`   └─ Session: ${sessionCode || 'pending'}`);
+  socket.connectedAt = Date.now();
+  socket.lastActivity = Date.now(); // Track last activity timestamp
+  
+  logger.debug('socket_connection_initiated', {
+    socket_id: socket.id.substring(0, 12),
+    client_ip: clientIp,
+    user_agent: userAgent.substring(0, 80),
+    has_session_code: !!sessionCode,
+    is_authenticated: isAuthenticated,
+    user_email: userEmail || 'anonymous'
+  });
+
+  logger.logSocketConnection(socket, { id: userId, email: userEmail });
+
+  if (!sessionCode) {
+    logger.warn('socket_connection_no_session_code', {
+      socket_id: socket.id.substring(0, 12),
+      user_id: userId || 'anonymous',
+      client_ip: clientIp
+    });
+    return;
+  }
 
   if (sessionCode) {
+    socket.sessionCode = sessionCode;
+
+    logger.info('socket_joining_session', {
+      socket_id: socket.id.substring(0, 12),
+      session_code: sessionCode,
+      user_id: userId || 'anonymous',
+      user_email: userEmail || 'anonymous',
+      is_authenticated: isAuthenticated
+    });
+
+    // Initialize session in Redis
+    sessionStore.save(sessionCode, {
+      sessionCode,
+      createdAt: connectionTime,
+      clients: [{
+        socketId: socket.id,
+        userId,
+        userEmail,
+        isAuthenticated,
+        clientIp,
+        joinedAt: connectionTime,
+        userAgent
+      }]
+    }).catch(err => {
+      logger.error('Failed to save session to Redis', err, { session_code: sessionCode, socket_id: socket.id.substring(0, 12) });
+    });
+
     socket.join(sessionCode);
-    console.log(`[${new Date().toISOString()}] 🔗 Socket joined session: ${sessionCode}`);
-    console.log(`   └─ Room size: ${io.sockets.adapter.rooms.get(sessionCode)?.size || 1} clients`);
+    const roomSize = io.sockets.adapter.rooms.get(sessionCode)?.size || 1;
+
+    logger.info('client_joined_session', {
+      session_code: sessionCode,
+      socket_id: socket.id.substring(0, 12),
+      room_size: roomSize,
+      total_rooms: io.sockets.adapter.rooms.size,
+      user_id: userId || 'anonymous'
+    });
 
     // Notify room of connection
+    logger.debug('emitting_connection_status', {
+      session_code: sessionCode,
+      room_size: roomSize,
+      event: 'connection:status'
+    });
     io.to(sessionCode).emit('connection:status', { connected: true });
+
+    // Fetch and send controller's subscription tier to display (async operation)
+    if (userId) {
+      (async () => {
+        try {
+          logger.debug('fetching_user_profile_tier', {
+            user_id: userId,
+            session_code: sessionCode
+          });
+
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('subscription_tier')
+            .eq('id', userId)
+            .single();
+
+          if (error) {
+            logger.warn('Failed to fetch user profile for tier info', { 
+              user_id: userId,
+              error: error.message,
+              session_code: sessionCode 
+            });
+          } else {
+            const tier = profile?.subscription_tier || 'free';
+            logger.info('sending_controller_tier', {
+              session_code: sessionCode,
+              user_id: userId,
+              subscription_tier: tier,
+              room_size: io.sockets.adapter.rooms.get(sessionCode)?.size || 0
+            });
+            // Send controller's tier to all clients in the room
+            io.to(sessionCode).emit('controller:tier', { tier });
+          }
+        } catch (error) {
+          logger.error('Error fetching controller tier', error, { 
+            user_id: userId,
+            session_code: sessionCode 
+          });
+        }
+      })();
+    } else {
+      logger.debug('no_user_id_skipping_tier_fetch', {
+        session_code: sessionCode,
+        socket_id: socket.id.substring(0, 12)
+      });
+    }
   }
 
   // Message send event with validation and rate limiting
-  socket.on('message:send', (payload, callback) => {
-    // Security: Check rate limit
-    const rateLimitCheck = rateLimiter.checkUserLimit(userId);
-    if (!rateLimitCheck.allowed) {
-      const error = `Rate limited: ${rateLimitCheck.retryAfter}s remaining`;
-      console.warn(`[RATE_LIMIT] User ${userId} exceeded message limit`);
-      return callback?.({
-        success: false,
-        error,
-        retryAfter: rateLimitCheck.retryAfter
+  socket.on('message:send', async (payload, callback) => {
+    socket.lastActivity = Date.now();
+    try {
+      logger.debug('message_send_received', {
+        socket_id: socket.id.substring(0, 12),
+        session_code: payload?.sessionCode,
+        content_length: payload?.content?.length || 0,
+        user_id: userId || 'anonymous'
       });
+
+      // Update session activity when message is sent
+      if (payload?.sessionCode) {
+        await updateSessionActivity(payload.sessionCode);
+      }
+
+      // Security: Check rate limit
+      const rateLimitCheck = await rateLimiter.checkUserLimit(userId || clientIp);
+      if (!rateLimitCheck.allowed) {
+        logger.logRateLimitExceeded(userId || clientIp, 'message', rateLimitCheck.retryAfter);
+        return callback?.({
+          success: false,
+          error: `Rate limited: ${rateLimitCheck.retryAfter}s remaining`,
+          retryAfter: rateLimitCheck.retryAfter
+        });
+      }
+
+      // Security: Validate input payload
+      const validation = validatePayload(messageSchema, payload);
+      if (!validation.valid) {
+        logger.warn('message_validation_failed', {
+          user_id: userId,
+          error: validation.error,
+          session_code: payload?.sessionCode
+        });
+        return callback?.({
+          success: false,
+          error: validation.error
+        });
+      }
+
+      const { data: validatedPayload } = validation;
+      const targetSession = validatedPayload.sessionCode;
+      const room = io.sockets.adapter.rooms.get(targetSession);
+      const recipients = room ? room.size : 0;
+
+      logger.logMessageSent(targetSession, userEmail || userId, validatedPayload.content, recipients);
+
+      // Broadcast to everyone in the room
+      io.to(targetSession).emit('message:received', validatedPayload);
+
+      // Callback to confirm delivery
+      callback?.({ success: true });
+    } catch (error) {
+      logger.error('message:send handler failed', error, { user_id: userId });
+      callback?.({ success: false, error: 'Internal server error' });
     }
+  });
 
-    // Security: Validate input payload
-    const validation = validatePayload(messageSchema, payload);
-    if (!validation.valid) {
-      console.warn(`[VALIDATION_ERROR] User ${userId}: ${validation.error}`);
-      return callback?.({
-        success: false,
-        error: validation.error
-      });
+  // Track activity for any client interaction
+  socket.on('client:activity', async (data) => {
+    socket.lastActivity = Date.now();
+    if (data?.sessionCode) {
+      await updateSessionActivity(data.sessionCode);
     }
-
-    const { data: validatedPayload } = validation;
-    
-    // Security: Verify sessionCode matches user's authorized sessions
-    // (could check against database if needed)
-    
-    console.log(`[${new Date().toISOString()}] 📨 Message in session ${validatedPayload.sessionCode}`);
-    console.log(`   └─ From: ${userEmail || 'Anonymous'} (${socket.id})`);
-    console.log(`   └─ Content: "${validatedPayload.content.substring(0, 50)}..."`);
-    console.log(`   └─ Recipients: ${io.sockets.adapter.rooms.get(validatedPayload.sessionCode)?.size || 0} clients`);
-
-    // Broadcast to everyone in the room
-    io.to(validatedPayload.sessionCode).emit('message:received', validatedPayload);
-
-    // Callback to confirm delivery
-    callback?.({ success: true });
   });
 
   socket.on('disconnect', () => {
-    console.log(`[${new Date().toISOString()}] 👋 User disconnected: ${socket.id}`);
-    console.log(`   └─ Auth: ${isAuthenticated ? userEmail : 'Anonymous'}`);
-    console.log(`   └─ Session: ${sessionCode || 'none'}`);
+    socket.lastActivity = Date.now();
+    const roomSize = socket.sessionCode ? (io.sockets.adapter.rooms.get(socket.sessionCode)?.size || 0) : 0;
+    
+    logger.info('socket_disconnect', {
+      socket_id: socket.id.substring(0, 12),
+      session_code: socket.sessionCode || 'none',
+      room_size_after: Math.max(0, roomSize - 1),
+      user_id: userId || 'anonymous',
+      user_email: userEmail || 'anonymous',
+      connection_duration_ms: Date.now() - socket.connectedAt
+    });
+    
+    logger.logSocketDisconnection(socket, 'client');
+
+    // Remove from Redis session
+    if (socket.sessionCode) {
+      sessionStore.removeClient(socket.sessionCode, socket.id).catch(err => {
+        logger.error('Failed to remove client from Redis session', err, { 
+          session_code: socket.sessionCode,
+          socket_id: socket.id.substring(0, 12)
+        });
+      });
+    }
   });
 });
 
@@ -180,14 +549,18 @@ app.post('/api/send-email', async (req, res) => {
       text: emailData.text
     });
 
-    console.log(`[${new Date().toISOString()}] Email sent by ${user.email} to ${emailData.to}`);
+    logger.info('email_sent', {
+      user_email: user.email,
+      recipient: emailData.to,
+      email_id: result.id
+    });
 
     res.json({
       success: true,
       id: result.id
     });
   } catch (error) {
-    console.error('Email send error:', error.message);
+    logger.error('Email send failed', error, { recipient: req.body.to });
     res.status(500).json({
       error: 'Failed to send email',
       message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
@@ -204,6 +577,150 @@ app.get('/', (req, res) => {
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV || 'development'
   });
+});
+
+/**
+ * Diagnostic endpoint - Show server state and connection info
+ */
+app.get('/api/diagnostics', (req, res) => {
+  const rooms = io.sockets.adapter.rooms;
+  const allSockets = io.sockets.sockets;
+  
+  const sessionInfo = [];
+  for (const [roomName, clients] of rooms.entries()) {
+    if (!roomName.startsWith('/') && clients && clients.size > 0) {
+      const socketArray = Array.from(clients);
+      sessionInfo.push({
+        session_code: roomName,
+        client_count: clients.size,
+        socket_ids: socketArray.map(id => id.substring(0, 12))
+      });
+    }
+  }
+
+  // Add socket details for diagnostics
+  const socketDetails = [];
+  for (const socket of allSockets.values()) {
+    socketDetails.push({
+      socket_id: socket.id.substring(0, 12),
+      session_code: socket.sessionCode || 'none',
+      user_id: socket.userId || 'anonymous',
+      user_email: socket.userEmail || 'anonymous',
+      client_ip: socket.handshake.address,
+      user_agent: socket.handshake.headers['user-agent'] || 'unknown',
+      connected_at: socket.connectedAt,
+      last_activity: socket.lastActivity
+    });
+  }
+  res.json({
+    server_status: 'running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    uptime_seconds: Math.floor(process.uptime()),
+    memory_usage_mb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+    socket_stats: {
+      total_connected_sockets: allSockets.size,
+      active_sessions: sessionInfo.length,
+      sessions: sessionInfo,
+      sockets: socketDetails
+    },
+    redis_status: 'configured',
+    websocket_url: `ws://0.0.0.0:${process.env.PORT || 3001}`,
+    cors_enabled: true,
+    auth_methods: ['token', 'sessionCode']
+  });
+});
+
+/**
+ * Debug endpoint - List all active sessions
+ */
+app.get('/api/debug/sessions', async (req, res) => {
+  try {
+    const sessions = [];
+    const rooms = io.sockets.adapter.rooms;
+
+    for (const [roomName, clients] of rooms.entries()) {
+      // Skip Socket.io internal rooms
+      if (roomName.startsWith('/') || !clients || clients.size === 0) continue;
+
+      const sessionData = await sessionStore.get(roomName);
+      const inactivityDuration = await getSessionInactivityDuration(roomName);
+
+      sessions.push({
+        session_code: roomName,
+        client_count: clients.size,
+        inactivity_minutes: Math.floor(inactivityDuration / 60000),
+        clients: sessionData?.clients || []
+      });
+    }
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      total_sessions: sessions.length,
+      total_connected_sockets: io.sockets.sockets.size,
+      sessions
+    });
+  } catch (error) {
+    logger.error('Failed to fetch sessions debug info', error);
+    res.status(500).json({ error: 'Failed to fetch sessions' });
+  }
+});
+
+/**
+ * Debug endpoint - Get specific session details
+ */
+app.get('/api/debug/sessions/:sessionCode', async (req, res) => {
+  try {
+    const { sessionCode } = req.params;
+    const room = io.sockets.adapter.rooms.get(sessionCode);
+    const sessionData = await sessionStore.get(sessionCode);
+    const inactivityDuration = await getSessionInactivityDuration(sessionCode);
+
+    if (!sessionData) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    res.json({
+      session_code: sessionCode,
+      client_count: room?.size || 0,
+      inactivity_duration_ms: inactivityDuration,
+      inactivity_minutes: Math.floor(inactivityDuration / 60000),
+      created_at: sessionData.createdAt,
+      clients: sessionData.clients || []
+    });
+  } catch (error) {
+    logger.error('Failed to fetch session details', error, { session_code: req.params.sessionCode });
+    res.status(500).json({ error: 'Failed to fetch session details' });
+  }
+});
+
+/**
+ * Admin endpoint to manually terminate a session
+ */
+app.post('/api/admin/sessions/:sessionCode/terminate', (req, res) => {
+  try {
+    const { sessionCode } = req.params;
+    const { reason = 'admin request' } = req.body;
+
+    const room = io.sockets.adapter.rooms.get(sessionCode);
+    if (!room || room.size === 0) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    terminateSession(sessionCode, reason);
+
+    res.json({
+      success: true,
+      message: `Session ${sessionCode} terminated`,
+      reason
+    });
+  } catch (error) {
+    logger.error('Error terminating session', error, { session_code: req.params.sessionCode });
+    res.status(500).json({
+      error: 'Failed to terminate session',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
 });
 
 /**
@@ -231,18 +748,69 @@ app.use((error, req, res) => {
 });
 
 // Start server
-httpServer.listen(PORT, () => {
-  console.log(`\n🚀 Digital FlipBoard Server running on port ${PORT}`);
-  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔒 Security: Auth enabled, input validation active, rate limiting enabled\n`);
-});
+async function startServer() {
+  try {
+    // Validate required environment variables
+    const requiredEnvs = ['SUPABASE_URL', 'REDIS_URL'];
+    const missingEnvs = requiredEnvs.filter(env => !process.env[env]);
+    
+    if (missingEnvs.length > 0) {
+      logger.critical('Missing required environment variables', null, {
+        missing: missingEnvs
+      });
+      process.exit(1);
+    }
+
+    // Connect to Redis
+    await connectRedis();
+
+    // Start HTTP server on all network interfaces (0.0.0.0) for internet accessibility
+    httpServer.listen(PORT, '0.0.0.0', () => {
+      logger.info('server_started', {
+        port: PORT,
+        address: '0.0.0.0',
+        environment: process.env.NODE_ENV || 'development',
+        redis_url: process.env.REDIS_URL?.split('@')[1] || 'configured',
+        features: ['redis-sessions', 'structured-logging', 'health-checks', 'redis-rate-limiting']
+      });
+
+      // Start monitoring inactive sessions
+      startInactivityMonitoring();
+    });
+  } catch (error) {
+    logger.critical('Failed to start server', error);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...');
+  logger.info('server_shutting_down', { reason: 'SIGTERM signal' });
   httpServer.close(() => {
-    console.log('Server closed');
+    logger.info('server_closed');
     process.exit(0);
+  });
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('UNCAUGHT EXCEPTION:', error);
+  console.error('Stack:', error.stack);
+  logger.critical('Uncaught exception', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('UNHANDLED REJECTION:', reason);
+  console.error('Promise:', promise);
+  logger.critical('Unhandled rejection', reason);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.critical('Unhandled rejection', new Error(`Promise rejected: ${reason}`), {
+    promise: promise.toString()
   });
 });
 

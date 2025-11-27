@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { supabase } from '../services/supabaseClient'
 import mixpanel from '../services/mixpanelService'
 import { isUserAdmin } from '../services/permissionService'
+import { emailService } from '../services/emailService.jsx'
 
 export const useAuthStore = create(
     persist(
@@ -66,43 +67,43 @@ export const useAuthStore = create(
                 // Fall back to Supabase session
                 const { data: { session } } = await supabase.auth.getSession()
                 if (session) {
-            // Fetch profile data
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .single()
+                    // Fetch profile data
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single()
 
-            const tier = profile?.subscription_tier || 'free'
-            const isPremium = tier === 'pro' || tier === 'enterprise'
-            const adminStatus = await isUserAdmin(session.user.id)
+                    const tier = profile?.subscription_tier || 'free'
+                    const isPremium = tier === 'pro' || tier === 'enterprise'
+                    const adminStatus = await isUserAdmin(session.user.id)
 
-            set({
-                user: session.user,
-                session,
-                profile: profile || null,
-                isPremium,
-                isAdmin: adminStatus,
-                subscriptionTier: tier,
-                designLimits: {
-                  maxDesigns: isPremium ? 999999 : 5,
-                  maxCollections: tier === 'enterprise' ? 999999 : (isPremium ? 20 : 0),
-                  canShareDesigns: isPremium,
-                  versionHistory: isPremium
-                },
-                loading: false
-            })
-            
-            mixpanel.identify(session.user.id)
-            mixpanel.people.set({
-                $email: session.user.email,
-                $name: profile?.full_name || session.user.user_metadata?.full_name,
-                signupDate: session.user.created_at,
-                isPremium: isPremium,
-                subscriptionTier: tier,
-                isAdmin: adminStatus,
-                maxDesigns: isPremium ? 999999 : 5
-            })
+                    set({
+                        user: session.user,
+                        session,
+                        profile: profile || null,
+                        isPremium,
+                        isAdmin: adminStatus,
+                        subscriptionTier: tier,
+                        designLimits: {
+                            maxDesigns: isPremium ? 999999 : 5,
+                            maxCollections: tier === 'enterprise' ? 999999 : (isPremium ? 20 : 0),
+                            canShareDesigns: isPremium,
+                            versionHistory: isPremium
+                        },
+                        loading: false
+                    })
+
+                    mixpanel.identify(session.user.id)
+                    mixpanel.people.set({
+                        $email: session.user.email,
+                        $name: profile?.full_name || session.user.user_metadata?.full_name,
+                        signupDate: session.user.created_at,
+                        isPremium: isPremium,
+                        subscriptionTier: tier,
+                        isAdmin: adminStatus,
+                        maxDesigns: isPremium ? 999999 : 5
+                    })
                 } else {
                     set({ loading: false })
                 }
@@ -131,35 +132,85 @@ export const useAuthStore = create(
                         isAdmin: adminStatus,
                         subscriptionTier: tier,
                         designLimits: {
-                          maxDesigns: isPremium ? 999999 : 5,
-                          maxCollections: tier === 'enterprise' ? 999999 : (isPremium ? 20 : 0),
-                          canShareDesigns: isPremium,
-                          versionHistory: isPremium
+                            maxDesigns: isPremium ? 999999 : 5,
+                            maxCollections: tier === 'enterprise' ? 999999 : (isPremium ? 20 : 0),
+                            canShareDesigns: isPremium,
+                            versionHistory: isPremium
                         }
                     })
                 })
             },
 
-            // Magic link signup
-            signUpWithMagicLink: async (email) => {
+            // Magic link sign in (Sign In Only)
+            signInWithMagicLink: async (email) => {
                 try {
+                    // 1. Check if user exists first
+                    const { data: exists, error: checkError } = await supabase.rpc('check_user_exists', {
+                        email_to_check: email
+                    })
+
+                    if (checkError) throw checkError
+
+                    if (!exists) {
+                        return { success: false, error: 'User not found', code: 'USER_NOT_FOUND' }
+                    }
+
+                    // 2. If user exists, proceed with magic link
+                    // Use VITE_APP_URL for consistent redirect URL
+                    const redirectUrl = import.meta.env.VITE_APP_URL || `${window.location.origin}`
+                    const callbackUrl = `${redirectUrl}/auth/callback`
+
+                    console.log('[Magic Link] Sending to:', email, 'Redirect URL:', callbackUrl)
+
                     const { data, error } = await supabase.auth.signInWithOtp({
                         email,
                         options: {
-                            emailRedirectTo: `${window.location.origin}/auth/callback`,
-                            data: {
-                                signup_source: 'magic_link',
-                                signup_timestamp: new Date().toISOString(),
-                            }
+                            emailRedirectTo: callbackUrl,
+                            // No signup metadata needed as we only allow existing users
                         }
                     })
 
-                    if (error) throw error
+                    if (error) {
+                        console.error('[Magic Link] Error:', error)
+                        throw error
+                    }
 
+                    console.log('[Magic Link] Success, check email')
                     mixpanel.track('Magic Link Sent', { email })
                     return { success: true, data }
                 } catch (error) {
+                    console.error('[Magic Link] Exception:', error)
                     mixpanel.track('Magic Link Error', { error: error.message })
+                    return { success: false, error: error.message }
+                }
+            },
+
+            // Magic link sign up (New users)
+            signUpWithMagicLink: async (email) => {
+                try {
+                    const redirectUrl = import.meta.env.VITE_APP_URL || `${window.location.origin}`
+                    const callbackUrl = `${redirectUrl}/auth/callback`
+
+                    console.log('[Magic Link Signup] Sending to:', email, 'Redirect URL:', callbackUrl)
+
+                    const { data, error } = await supabase.auth.signInWithOtp({
+                        email,
+                        options: {
+                            emailRedirectTo: callbackUrl,
+                        }
+                    })
+
+                    if (error) {
+                        console.error('[Magic Link Signup] Error:', error)
+                        throw error
+                    }
+
+                    console.log('[Magic Link Signup] Success, check email')
+                    mixpanel.track('Magic Link Signup Sent', { email })
+                    return { success: true, data }
+                } catch (error) {
+                    console.error('[Magic Link Signup] Exception:', error)
+                    mixpanel.track('Magic Link Signup Error', { error: error.message })
                     return { success: false, error: error.message }
                 }
             },
@@ -179,7 +230,18 @@ export const useAuthStore = create(
 
                     if (error) throw error
 
-                    mixpanel.track('User Signed Up', { method: 'password' })
+                    mixpanel.track('User Signed Up', { method: 'password', email })
+
+                    // Send welcome email after successful signup
+                    try {
+                        await emailService.sendWelcome(email, fullName || 'User')
+                        mixpanel.track('Welcome Email Sent', { email })
+                    } catch (emailError) {
+                        // Log email error but don't fail the signup
+                        console.warn('Failed to send welcome email:', emailError)
+                        mixpanel.track('Welcome Email Failed', { email, error: emailError.message })
+                    }
+
                     return { success: true, data }
                 } catch (error) {
                     mixpanel.track('Sign Up Error', { error: error.message })
@@ -217,7 +279,7 @@ export const useAuthStore = create(
             setProfile: (profile) => {
                 const tier = profile?.subscription_tier || 'free'
                 const isPremium = tier === 'pro' || tier === 'enterprise'
-                
+
                 set({
                     profile,
                     isPremium,
@@ -229,7 +291,7 @@ export const useAuthStore = create(
                         versionHistory: isPremium
                     }
                 })
-                
+
                 if (profile?.id) {
                     mixpanel.people.set({
                         'Full Name': profile.full_name || '',
@@ -247,9 +309,9 @@ export const useAuthStore = create(
                     if (error) throw error
 
                     localStorage.removeItem('auth_session')
-                    set({ 
-                        user: null, 
-                        session: null, 
+                    set({
+                        user: null,
+                        session: null,
                         profile: null,
                         isPremium: false,
                         isAdmin: false,

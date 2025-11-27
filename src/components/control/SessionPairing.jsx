@@ -18,6 +18,7 @@ export default function SessionPairing() {
     const [remainingTime, setRemainingTime] = useState(null)
     const [isWarning, setIsWarning] = useState(false) // Amber warning at <2 min
     const [showCodeForm, setShowCodeForm] = useState(false) // Track if user wants to enter new code
+    const [showQuickReconnect, setShowQuickReconnect] = useState(false) // Show reconnect option within 24h
     const navigate = useNavigate()
     
     const { 
@@ -34,10 +35,25 @@ export default function SessionPairing() {
     const { user } = useAuthStore()
     const { freeSessionUsed, incrementSession } = useUsageStore()
 
-    // Initialize: Show quick reconnect if lastSessionCode exists, otherwise show blank form
+    // Initialize: Check if last session was within 24 hours
     useEffect(() => {
         if (lastSessionCode && !showCodeForm) {
-            setShowReconnect(false) // Not expired, just asking to reconnect
+            const lastSessionTime = localStorage.getItem('lastSessionTime')
+            if (lastSessionTime) {
+                const timeSinceLastSession = Date.now() - parseInt(lastSessionTime)
+                const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000
+                
+                if (timeSinceLastSession < TWENTY_FOUR_HOURS) {
+                    setShowQuickReconnect(true)
+                } else {
+                    // Last session was more than 24 hours ago - show new form
+                    setShowCodeForm(true)
+                    setShowQuickReconnect(false)
+                }
+            } else {
+                setShowQuickReconnect(true)
+            }
+            setShowReconnect(false)
         }
     }, [lastSessionCode, showCodeForm])
 
@@ -121,7 +137,9 @@ export default function SessionPairing() {
         }
 
         setSessionCode(trimmedCode, false) // false = new connection, not reconnect
+        localStorage.setItem('lastSessionTime', Date.now().toString()) // Save current time for 24h tracking
         setShowReconnect(false)
+        setShowQuickReconnect(false)
         setError('')
         setIsWarning(false)
 
@@ -138,7 +156,9 @@ export default function SessionPairing() {
         if (!lastSessionCode) return
         
         setSessionCode(lastSessionCode, true) // true = this is a reconnect (no quota)
+        localStorage.setItem('lastSessionTime', Date.now().toString()) // Save current time
         setShowReconnect(false)
+        setShowQuickReconnect(false)
         setError('')
         setIsWarning(false)
         recordActivity() // Reset activity timer
@@ -330,8 +350,8 @@ export default function SessionPairing() {
                 </div>
             )}
 
-            {/* SCENARIO 2: Returning User (has lastSessionCode in localStorage) */}
-            {lastSessionCode && !showCodeForm && (
+            {/* SCENARIO 2: Returning User within 24h (has lastSessionCode in localStorage) */}
+            {lastSessionCode && !showCodeForm && showQuickReconnect && (
                 <div className="text-center py-8">
                     <div className="w-16 h-16 bg-teal-500/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-teal-500/50">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-teal-400">
@@ -359,7 +379,7 @@ export default function SessionPairing() {
                             variant="outline"
                             className="w-full"
                         >
-                            ➕ Enter New Display Code
+                            ➕ Enter Different Display Code
                         </Button>
                     </div>
 
