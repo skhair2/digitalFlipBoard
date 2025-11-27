@@ -155,29 +155,24 @@ export const useAuthStore = create(
                         return { success: false, error: 'User not found', code: 'USER_NOT_FOUND' }
                     }
 
-                    // 2. If user exists, proceed with magic link
-                    // Use VITE_APP_URL for consistent redirect URL
-                    const redirectUrl = import.meta.env.VITE_APP_URL || `${window.location.origin}`
-                    const callbackUrl = `${redirectUrl}/auth/callback`
-
-                    console.log('[Magic Link] Sending to:', email, 'Redirect URL:', callbackUrl)
-
-                    const { data, error } = await supabase.auth.signInWithOtp({
-                        email,
-                        options: {
-                            emailRedirectTo: callbackUrl,
-                            // No signup metadata needed as we only allow existing users
-                        }
+                    // 2. Call backend to send magic link via Resend
+                    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+                    const response = await fetch(`${API_URL}/api/auth/send-magic-link`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ email })
                     })
 
-                    if (error) {
-                        console.error('[Magic Link] Error:', error)
-                        throw error
+                    if (!response.ok) {
+                        const error = await response.json()
+                        throw new Error(error.error || 'Failed to send magic link')
                     }
 
-                    console.log('[Magic Link] Success, check email')
-                    mixpanel.track('Magic Link Sent', { email })
-                    return { success: true, data }
+                    console.log('[Magic Link] Sent via Resend to:', email)
+                    mixpanel.track('Magic Link Sent', { email, provider: 'resend' })
+                    return { success: true }
                 } catch (error) {
                     console.error('[Magic Link] Exception:', error)
                     mixpanel.track('Magic Link Error', { error: error.message })
@@ -188,26 +183,24 @@ export const useAuthStore = create(
             // Magic link sign up (New users)
             signUpWithMagicLink: async (email) => {
                 try {
-                    const redirectUrl = import.meta.env.VITE_APP_URL || `${window.location.origin}`
-                    const callbackUrl = `${redirectUrl}/auth/callback`
-
-                    console.log('[Magic Link Signup] Sending to:', email, 'Redirect URL:', callbackUrl)
-
-                    const { data, error } = await supabase.auth.signInWithOtp({
-                        email,
-                        options: {
-                            emailRedirectTo: callbackUrl,
-                        }
+                    // Call backend to send magic link via Resend
+                    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+                    const response = await fetch(`${API_URL}/api/auth/send-magic-link`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ email })
                     })
 
-                    if (error) {
-                        console.error('[Magic Link Signup] Error:', error)
-                        throw error
+                    if (!response.ok) {
+                        const error = await response.json()
+                        throw new Error(error.error || 'Failed to send magic link')
                     }
 
-                    console.log('[Magic Link Signup] Success, check email')
-                    mixpanel.track('Magic Link Signup Sent', { email })
-                    return { success: true, data }
+                    console.log('[Magic Link Signup] Sent via Resend to:', email)
+                    mixpanel.track('Magic Link Signup Sent', { email, provider: 'resend' })
+                    return { success: true }
                 } catch (error) {
                     console.error('[Magic Link Signup] Exception:', error)
                     mixpanel.track('Magic Link Signup Error', { error: error.message })

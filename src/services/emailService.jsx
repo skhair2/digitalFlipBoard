@@ -3,7 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import {
     WelcomeEmail,
     VerificationEmail,
-    InviteEmail
+    InviteEmail,
+    MagicLinkEmail
 } from '../emails/templates';
 
 /**
@@ -57,6 +58,41 @@ async function sendEmail(to, subject, template) {
     }
 }
 
+/**
+ * Send email without authentication (for magic links, password resets, etc.)
+ */
+async function sendPublicEmail(to, subject, template) {
+    try {
+        // Render React template to HTML
+        const html = renderToStaticMarkup(template);
+
+        // Call backend API without auth
+        const response = await fetch(`${API_URL}/api/send-public-email`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                to,
+                subject,
+                html,
+                text: 'Please view this email in a client that supports HTML.'
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            return { success: false, error: error.error || 'Failed to send email' };
+        }
+
+        const data = await response.json();
+        return { success: true, data };
+    } catch (error) {
+        console.error('Email service error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 export const emailService = {
     /**
      * Send a welcome email to a new user
@@ -81,6 +117,19 @@ export const emailService = {
             email,
             'Verify your FlipDisplay account',
             <VerificationEmail code={code} />
+        );
+    },
+
+    /**
+     * Send a magic link to a user
+     * @param {string} email - User's email address
+     * @param {string} magicLink - Magic link URL
+     */
+    sendMagicLink: async (email, magicLink) => {
+        return sendPublicEmail(
+            email,
+            'Sign in to FlipDisplay',
+            <MagicLinkEmail email={email} magicLink={magicLink} />
         );
     },
 

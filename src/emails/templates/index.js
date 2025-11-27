@@ -10,6 +10,7 @@ export { default as BaseLayout } from './BaseLayout';
 export { default as WelcomeEmail } from './WelcomeEmail';
 export { default as VerificationEmail } from './VerificationEmail';
 export { default as InviteEmail } from './InviteEmail';
+export { default as MagicLinkEmail } from './MagicLinkEmail';
 export { default as PasswordResetEmail } from './PasswordResetEmail';
 export { default as PaymentConfirmationEmail } from './PaymentConfirmationEmail';
 export { default as DesignShareEmail } from './DesignShareEmail';
