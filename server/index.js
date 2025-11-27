@@ -244,7 +244,7 @@ async function monitorInactiveSessions() {
     // Note: In a distributed system, you would query all active sessions
     // For now, we monitor only sessions with active connections
     const rooms = io.sockets.adapter.rooms;
-    
+
     for (const [sessionCode, clients] of rooms.entries()) {
       // Skip socket.io internal rooms (they start with /)
       if (sessionCode.startsWith('/')) continue;
@@ -301,7 +301,7 @@ io.on('connection', (socket) => {
 
   socket.connectedAt = Date.now();
   socket.lastActivity = Date.now(); // Track last activity timestamp
-  
+
   logger.debug('socket_connection_initiated', {
     socket_id: socket.id.substring(0, 12),
     client_ip: clientIp,
@@ -385,10 +385,10 @@ io.on('connection', (socket) => {
             .single();
 
           if (error) {
-            logger.warn('Failed to fetch user profile for tier info', { 
+            logger.warn('Failed to fetch user profile for tier info', {
               user_id: userId,
               error: error.message,
-              session_code: sessionCode 
+              session_code: sessionCode
             });
           } else {
             const tier = profile?.subscription_tier || 'free';
@@ -402,9 +402,9 @@ io.on('connection', (socket) => {
             io.to(sessionCode).emit('controller:tier', { tier });
           }
         } catch (error) {
-          logger.error('Error fetching controller tier', error, { 
+          logger.error('Error fetching controller tier', error, {
             user_id: userId,
-            session_code: sessionCode 
+            session_code: sessionCode
           });
         }
       })();
@@ -486,7 +486,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     socket.lastActivity = Date.now();
     const roomSize = socket.sessionCode ? (io.sockets.adapter.rooms.get(socket.sessionCode)?.size || 0) : 0;
-    
+
     logger.info('socket_disconnect', {
       socket_id: socket.id.substring(0, 12),
       session_code: socket.sessionCode || 'none',
@@ -495,13 +495,13 @@ io.on('connection', (socket) => {
       user_email: userEmail || 'anonymous',
       connection_duration_ms: Date.now() - socket.connectedAt
     });
-    
+
     logger.logSocketDisconnection(socket, 'client');
 
     // Remove from Redis session
     if (socket.sessionCode) {
       sessionStore.removeClient(socket.sessionCode, socket.id).catch(err => {
-        logger.error('Failed to remove client from Redis session', err, { 
+        logger.error('Failed to remove client from Redis session', err, {
           session_code: socket.sessionCode,
           socket_id: socket.id.substring(0, 12)
         });
@@ -569,6 +569,46 @@ app.post('/api/send-email', async (req, res) => {
 });
 
 /**
+ * POST /api/auth/send-magic-link
+ * Generate Supabase magic link and send via Resend with custom template
+ */
+app.post('/api/auth/send-magic-link', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    const redirectUrl = process.env.VITE_APP_URL || 'http://localhost:5173';
+    const { data: otpData, error: otpError } = await supabase.auth.admin.generateLink({
+      type: 'magiclink',
+      email,
+      options: { redirectTo: `${redirectUrl}/auth/callback` }
+    });
+
+    if (otpError || !otpData.properties?.action_link) {
+      logger.error('Magic link generation failed', otpError, { email });
+      return res.status(500).json({ error: 'Failed to generate magic link' });
+    }
+
+    const magicLink = otpData.properties.action_link;
+    const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"><div style="max-width:560px;margin:0 auto;padding:20px"><div style="text-align:center;margin-bottom:24px"><span style="font-size:24px;font-weight:bold;color:#fff">FlipDisplay.online</span></div><div style="background-color:#1e293b;border-radius:12px;border:1px solid #334155;padding:24px"><h1 style="font-size:24px;font-weight:bold;color:#fff;margin-bottom:16px;text-align:center">Your Magic Link</h1><p style="font-size:16px;line-height:26px;color:#cbd5e1;margin-bottom:16px">Click the button below to sign in to your FlipDisplay account. This link will expire in 1 hour.</p><div style="text-align:center;margin-top:32px;margin-bottom:32px"><a href="${magicLink}" style="background-color:#14b8a6;border-radius:8px;color:#fff;font-size:16px;font-weight:bold;text-decoration:none;display:inline-block;padding:12px 24px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1)">Sign In to FlipDisplay</a></div><p style="font-size:14px;line-height:22px;color:#94a3b8;margin-bottom:16px">Or copy and paste this link into your browser:</p><div style="background:#0f172a;border-radius:8px;padding:12px;margin:16px 0;border:1px solid #334155;word-break:break-all"><span style="font-size:12px;color:#2dd4bf;font-family:monospace">${magicLink}</span></div><hr style="border-color:#334155;margin:20px 0"><p style="font-size:16px;line-height:26px;color:#cbd5e1">If you didn't request this link, you can safely ignore this email.</p></div><div style="margin-top:32px;text-align:center"><p style="font-size:12px;color:#64748b;margin-bottom:8px">© ${new Date().getFullYear()} FlipDisplay.online. All rights reserved.</p></div></div></body></html>`;
+
+    const result = await resend.emails.send({
+      from: process.env.FROM_EMAIL || 'noreply@flipdisplay.online',
+      to: email,
+      subject: 'Sign in to FlipDisplay',
+      html: emailHtml,
+      text: `Sign in to FlipDisplay: ${magicLink}`
+    });
+
+    logger.info('magic_link_sent_via_resend', { email, email_id: result.id });
+    res.json({ success: true, message: 'Magic link sent to your email' });
+  } catch (error) {
+    logger.error('Magic link send failed', error, { email: req.body.email });
+    res.status(500).json({ error: 'Failed to send magic link', message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' });
+  }
+});
+
+/**
  * Health check endpoint
  */
 app.get('/', (req, res) => {
@@ -585,7 +625,7 @@ app.get('/', (req, res) => {
 app.get('/api/diagnostics', (req, res) => {
   const rooms = io.sockets.adapter.rooms;
   const allSockets = io.sockets.sockets;
-  
+
   const sessionInfo = [];
   for (const [roomName, clients] of rooms.entries()) {
     if (!roomName.startsWith('/') && clients && clients.size > 0) {
@@ -753,7 +793,7 @@ async function startServer() {
     // Validate required environment variables
     const requiredEnvs = ['SUPABASE_URL', 'REDIS_URL'];
     const missingEnvs = requiredEnvs.filter(env => !process.env[env]);
-    
+
     if (missingEnvs.length > 0) {
       logger.critical('Missing required environment variables', null, {
         missing: missingEnvs
