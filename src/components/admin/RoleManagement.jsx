@@ -7,7 +7,7 @@ import {
   ShieldCheckIcon,
   XMarkIcon,
   CheckIcon,
-  ExclamationIcon,
+  ExclamationTriangleIcon,
   ClockIcon,
 } from '@heroicons/react/24/outline';
 
@@ -122,7 +122,7 @@ export default function RoleManagement() {
       {/* Error Banner */}
       {(adminError || grantError || revokeError) && (
         <div className="p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-300 flex items-start gap-3">
-          <ExclamationIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <div>
             <p className="font-medium">{adminError || grantError || revokeError}</p>
             <p className="text-sm mt-1">Please try again or contact support if the problem persists.</p>
@@ -140,11 +140,10 @@ export default function RoleManagement() {
           <button
             key={tab.id}
             onClick={() => switchTab(tab.id)}
-            className={`px-4 py-3 font-medium text-sm transition-colors border-b-2 ${
-              activeTab === tab.id
-                ? 'border-indigo-500 text-white'
-                : 'border-transparent text-gray-400 hover:text-gray-300'
-            }`}
+            className={`px-4 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === tab.id
+              ? 'border-indigo-500 text-white'
+              : 'border-transparent text-gray-400 hover:text-gray-300'
+              }`}
           >
             {tab.label}
           </button>
@@ -317,13 +316,12 @@ export default function RoleManagement() {
                         <button
                           onClick={() => handleRevokeClick(admin.userId)}
                           disabled={admin.userId === user.id || revokingRole === admin.userId}
-                          className={`text-sm font-medium px-3 py-1 rounded transition-colors ${
-                            admin.userId === user.id
-                              ? 'text-gray-500 cursor-not-allowed opacity-50'
-                              : revokingRole === admin.userId
-                                ? 'text-gray-400'
-                                : 'text-red-400 hover:text-red-300 hover:bg-red-500/10'
-                          }`}
+                          className={`text-sm font-medium px-3 py-1 rounded transition-colors ${admin.userId === user.id
+                            ? 'text-gray-500 cursor-not-allowed opacity-50'
+                            : revokingRole === admin.userId
+                              ? 'text-gray-400'
+                              : 'text-red-400 hover:text-red-300 hover:bg-red-500/10'
+                            }`}
                         >
                           {revokingRole === admin.userId ? 'Revoking...' : 'Revoke'}
                         </button>
@@ -356,11 +354,10 @@ export default function RoleManagement() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-1">
-                        <span className={`text-sm font-semibold px-2 py-1 rounded ${
-                          log.action === 'GRANT'
-                            ? 'bg-green-500/20 text-green-400'
-                            : 'bg-red-500/20 text-red-400'
-                        }`}>
+                        <span className={`text-sm font-semibold px-2 py-1 rounded ${log.action === 'GRANT'
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                          }`}>
                           {log.action}
                         </span>
                         <span className="text-white font-medium">{log.user?.email}</span>
@@ -492,7 +489,7 @@ export default function RoleManagement() {
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-gray-700 bg-red-950/50">
               <h2 className="text-lg font-bold text-red-300 flex items-center gap-2">
-                <ExclamationIcon className="w-5 h-5" />
+                <ExclamationTriangleIcon className="w-5 h-5" />
                 Revoke Admin Access
               </h2>
             </div>

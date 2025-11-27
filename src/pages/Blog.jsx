@@ -37,14 +37,14 @@ export default function Blog() {
 
                     {/* Search and Filter */}
                     <div className="flex flex-col md:flex-row gap-6 justify-between items-center mb-12">
-                        <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto no-scrollbar">
+                        <div className="flex flex-wrap gap-2 justify-center md:justify-start w-full md:w-auto">
                             {categories.map(category => (
                                 <button
                                     key={category}
                                     onClick={() => setSelectedCategory(category)}
-                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${selectedCategory === category
-                                            ? 'bg-teal-500 text-white'
-                                            : 'bg-slate-800 text-gray-400 hover:bg-slate-700 hover:text-white'
+                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${selectedCategory === category
+                                        ? 'bg-teal-500 text-white'
+                                        : 'bg-slate-800 text-gray-400 hover:bg-slate-700 hover:text-white'
                                         }`}
                                 >
                                     {category}

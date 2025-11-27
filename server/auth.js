@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import logger from './logger.js';
 
 dotenv.config();
 
@@ -42,14 +43,35 @@ export function createAuthMiddleware() {
     try {
       const token = socket.handshake.auth?.token;
       const sessionCode = socket.handshake.auth?.sessionCode;
+      const clientIp = socket.handshake.address;
       
+      logger.debug('auth_middleware_checking', {
+        has_token: !!token,
+        has_session_code: !!sessionCode,
+        client_ip: clientIp
+      });
+
       // If token is provided, validate it (strict mode)
       if (token) {
+        logger.debug('auth_middleware_validating_token', {
+          client_ip: clientIp
+        });
+
         const { valid, user, error } = await verifyToken(token);
 
         if (!valid) {
+          logger.warn('auth_token_validation_failed', {
+            error: error || 'Authentication failed',
+            client_ip: clientIp
+          });
           return next(new Error(error || 'Authentication failed'));
         }
+
+        logger.info('auth_token_validated_success', {
+          user_id: user.id,
+          user_email: user.email,
+          client_ip: clientIp
+        });
 
         // Attach user info to socket for later use
         socket.userId = user.id;
@@ -62,7 +84,10 @@ export function createAuthMiddleware() {
       // Fallback: Allow connection with sessionCode alone (more permissive)
       // This enables display + controller pairing without auth
       if (sessionCode) {
-        console.log(`[Auth] Connection allowed via sessionCode: ${sessionCode}`);
+        logger.info('auth_session_code_connection_allowed', {
+          session_code: sessionCode,
+          client_ip: clientIp
+        });
         socket.userId = null; // Anonymous connection
         socket.userEmail = null;
         socket.isAuthenticated = false;
@@ -71,8 +96,15 @@ export function createAuthMiddleware() {
       }
 
       // No token and no sessionCode - reject connection
+      logger.warn('auth_connection_rejected_no_credentials', {
+        client_ip: clientIp,
+        has_auth_object: !!socket.handshake.auth
+      });
       return next(new Error('No authentication token or session code provided'));
     } catch (error) {
+      logger.error('auth_middleware_error', error, {
+        client_ip: socket.handshake.address
+      });
       next(new Error('Authentication middleware error: ' + error.message));
     }
   };

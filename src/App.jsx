@@ -32,6 +32,23 @@ function App() {
   useMixpanel() // Track page views
   const { initialize } = useAuthStore()
 
+  // Clean up stale session data from localStorage on app load
+  useEffect(() => {
+    try {
+      const sessionStorage = localStorage.getItem('session-storage')
+      if (sessionStorage) {
+        const parsed = JSON.parse(sessionStorage)
+        // If sessionCode exists in persisted state, it's stale - remove it
+        if (parsed.state && parsed.state.sessionCode) {
+          parsed.state.sessionCode = null
+          localStorage.setItem('session-storage', JSON.stringify(parsed))
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to clean up stale session data:', error)
+    }
+  }, [])
+
   useEffect(() => {
     initialize()
   }, [initialize])
@@ -57,7 +74,7 @@ function App() {
             <Route path="control" element={<Control />} />
             <Route path="pricing" element={<Pricing />} />
             <Route path="blog" element={<Blog />} />
-            <Route path="blog/:id" element={<BlogPost />} />
+            <Route path="blog/:slug" element={<BlogPost />} />
             <Route path="privacy" element={<Privacy />} />
             <Route path="terms" element={<Terms />} />
             <Route path="about" element={<About />} />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { googleOAuthService } from '../services/googleOAuthService'
 import { supabase } from '../services/supabaseClient'
@@ -8,75 +8,134 @@ import Logo from '../components/ui/Logo'
 
 export default function OAuthCallback() {
     const navigate = useNavigate()
+    const [searchParams] = useSearchParams()
     const { setUser, setProfile } = useAuthStore()
     const [error, setError] = useState(null)
     const [isProcessing, setIsProcessing] = useState(true)
 
     useEffect(() => {
-        const handleOAuthCallback = async () => {
+        const handleCallback = async () => {
             try {
                 setIsProcessing(true)
                 setError(null)
 
-                // Handle the OAuth callback
-                const result = await googleOAuthService.handleCallback()
+                // Check if this is a magic link callback from Supabase
+                const authType = searchParams.get('type')
+                
+                if (authType === 'recovery' || authType === 'signup') {
+                    // Handle Magic Link / Email confirmation
+                    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+                    
+                    if (sessionError) throw sessionError
+                    if (!session) throw new Error('No session found after magic link')
 
-                if (!result.success) {
-                    throw new Error(result.error)
+                    // Get or create user profile
+                    const { data: existingProfile } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single()
+
+                    let profile = existingProfile
+
+                    // Create profile if it doesn't exist
+                    if (!profile) {
+                        const { data: newProfile, error: profileError } = await supabase
+                            .from('profiles')
+                            .insert({
+                                id: session.user.id,
+                                email: session.user.email,
+                                full_name: session.user.user_metadata?.full_name || ''
+                            })
+                            .select()
+                            .single()
+
+                        if (profileError) throw profileError
+                        profile = newProfile
+                    }
+
+                    // Update auth store
+                    setUser(session.user)
+                    setProfile(profile)
+
+                    // Track in analytics
+                    const mixpanel = window.mixpanel
+                    if (mixpanel) {
+                        mixpanel.identify(session.user.id)
+                        mixpanel.people.set({
+                            $email: session.user.email,
+                            signup_method: 'magic_link',
+                            signup_date: new Date().toISOString()
+                        })
+                        mixpanel.track('Magic Link Login', {
+                            email: session.user.email
+                        })
+                    }
+
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        navigate('/dashboard', { replace: true })
+                    }, 500)
+                } else {
+                    // Handle Google OAuth (via Supabase)
+                    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+                    
+                    if (sessionError) throw sessionError
+                    if (!session) throw new Error('No session found after Google OAuth')
+
+                    // Get or create user profile
+                    const { data: existingProfile } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single()
+
+                    let profile = existingProfile
+
+                    // Create profile if it doesn't exist
+                    if (!profile) {
+                        const { data: newProfile, error: profileError } = await supabase
+                            .from('profiles')
+                            .insert({
+                                id: session.user.id,
+                                email: session.user.email,
+                                full_name: session.user.user_metadata?.full_name || ''
+                            })
+                            .select()
+                            .single()
+
+                        if (profileError) throw profileError
+                        profile = newProfile
+                    }
+
+                    // Update auth store
+                    setUser(session.user)
+                    setProfile(profile)
+
+                    // Track in analytics
+                    const mixpanel = window.mixpanel
+                    if (mixpanel) {
+                        mixpanel.identify(session.user.id)
+                        mixpanel.people.set({
+                            $email: session.user.email,
+                            $name: session.user.user_metadata?.full_name,
+                            signup_method: 'google_oauth',
+                            signup_date: new Date().toISOString()
+                        })
+                        mixpanel.track('Google OAuth Login', {
+                            email: session.user.email,
+                            name: session.user.user_metadata?.full_name
+                        })
+                    }
+
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        navigate('/dashboard', { replace: true })
+                    }, 500)
                 }
-
-                const googleUser = result.user
-
-                // Create or update user profile in Supabase
-                const profile = await googleOAuthService.createOrUpdateUser(supabase, googleUser)
-
-                // Create a custom session/token (since we're not using Supabase auth directly)
-                const session = {
-                    user: {
-                        id: profile.id,
-                        email: googleUser.email,
-                        user_metadata: {
-                            full_name: googleUser.name,
-                            avatar_url: googleUser.picture
-                        },
-                        email_confirmed_at: googleUser.email_verified ? new Date().toISOString() : null
-                    },
-                    access_token: result.tokens.access_token,
-                    refresh_token: result.tokens.refresh_token || null,
-                    expires_in: result.tokens.expires_in,
-                    oauth_provider: 'google'
-                }
-
-                // Store session
-                localStorage.setItem('auth_session', JSON.stringify(session))
-
-                // Update auth store
-                setUser(session.user)
-                setProfile(profile)
-
-                // Track in analytics
-                const mixpanel = window.mixpanel
-                if (mixpanel) {
-                    mixpanel.identify(profile.id)
-                    mixpanel.people.set({
-                        $email: googleUser.email,
-                        $name: googleUser.name,
-                        signup_method: 'google_oauth',
-                        signup_date: new Date().toISOString()
-                    })
-                    mixpanel.track('Google OAuth Signup', {
-                        email: googleUser.email,
-                        name: googleUser.name
-                    })
-                }
-
-                // Redirect to dashboard
-                setTimeout(() => {
-                    navigate('/dashboard', { replace: true })
-                }, 500)
             } catch (err) {
-                console.error('OAuth callback error:', err)
-                setError(err.message || 'Failed to process Google login. Please try again.')
+                console.error('Callback error:', err)
+                setError(err.message || 'Failed to process login. Please try again.')
 
                 // Redirect to login after 3 seconds
                 setTimeout(() => {
@@ -87,8 +146,8 @@ export default function OAuthCallback() {
             }
         }
 
-        handleOAuthCallback()
-    }, [navigate, setUser, setProfile])
+        handleCallback()
+    }, [navigate, setUser, setProfile, searchParams])
 
     if (error) {
         return (

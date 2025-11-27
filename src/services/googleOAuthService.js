@@ -1,7 +1,7 @@
 // Google OAuth Service
 // Handles OAuth flow, token management, and user profile creation
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
+import { supabase } from './supabaseClient'
 const GOOGLE_REDIRECT_URI = `${import.meta.env.VITE_APP_URL}/auth/callback`
 const GOOGLE_AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
@@ -35,34 +35,18 @@ function generatePKCE() {
 }
 
 export const googleOAuthService = {
-    // Start the OAuth flow
+    // Start the OAuth flow using Supabase
     startOAuthFlow: async () => {
-        if (!GOOGLE_CLIENT_ID) {
-            throw new Error('Google Client ID not configured. Add VITE_GOOGLE_CLIENT_ID to .env')
-        }
-
         try {
-            const { verifier, challenge } = await generatePKCE()
-            const state = generateState()
-
-            // Store state and verifier in sessionStorage for verification later
-            sessionStorage.setItem('oauth_state', state)
-            sessionStorage.setItem('oauth_pkce_verifier', verifier)
-
-            // Build OAuth URL
-            const params = new URLSearchParams({
-                client_id: GOOGLE_CLIENT_ID,
-                redirect_uri: GOOGLE_REDIRECT_URI,
-                response_type: 'code',
-                scope: 'openid email profile',
-                state,
-                code_challenge: challenge,
-                code_challenge_method: 'S256',
-                prompt: 'consent'
+            // Use Supabase's built-in Google OAuth provider
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: `${import.meta.env.VITE_APP_URL}/auth/callback`
+                }
             })
 
-            // Redirect to Google
-            window.location.href = `${GOOGLE_AUTH_ENDPOINT}?${params.toString()}`
+            if (error) throw error
         } catch (error) {
             console.error('OAuth flow error:', error)
             throw error
@@ -72,46 +56,21 @@ export const googleOAuthService = {
     // Handle OAuth callback
     handleCallback: async () => {
         try {
-            // Get auth code and state from URL
-            const params = new URLSearchParams(window.location.search)
-            const code = params.get('code')
-            const state = params.get('state')
-            const error = params.get('error')
+            // Supabase automatically handles the callback
+            // Just get the current session
+            const { data: { session }, error } = await supabase.auth.getSession()
 
-            if (error) {
-                throw new Error(`Google OAuth error: ${error}`)
-            }
-
-            if (!code) {
-                throw new Error('No authorization code received')
-            }
-
-            // Verify state for CSRF protection
-            const storedState = sessionStorage.getItem('oauth_state')
-            if (state !== storedState) {
-                throw new Error('Invalid state parameter - possible CSRF attack')
-            }
-
-            // Get PKCE verifier
-            const pkceVerifier = sessionStorage.getItem('oauth_pkce_verifier')
-            if (!pkceVerifier) {
-                throw new Error('PKCE verifier not found')
-            }
-
-            // Exchange code for tokens
-            const tokenData = await googleOAuthService.exchangeCodeForToken(code, pkceVerifier)
-
-            // Get user info from Google
-            const userInfo = await googleOAuthService.getUserInfo(tokenData.access_token)
-
-            // Clean up session storage
-            sessionStorage.removeItem('oauth_state')
-            sessionStorage.removeItem('oauth_pkce_verifier')
+            if (error) throw error
+            if (!session) throw new Error('No session found after OAuth callback')
 
             return {
                 success: true,
-                user: userInfo,
-                tokens: tokenData
+                user: session.user,
+                tokens: {
+                    access_token: session.access_token,
+                    refresh_token: session.refresh_token,
+                    expires_in: session.expires_in
+                }
             }
         } catch (error) {
             console.error('OAuth callback error:', error)

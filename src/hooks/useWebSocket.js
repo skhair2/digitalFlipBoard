@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/authStore'
 import { supabase } from '../services/supabaseClient'
 
 export const useWebSocket = () => {
-    const { sessionCode, isConnected, setConnected, setMessage, recordActivity } = useSessionStore()
+    const { sessionCode, isConnected, setConnected, setMessage, recordActivity, setControllerSubscriptionTier } = useSessionStore()
     const { user, session } = useAuthStore()
 
     useEffect(() => {
@@ -48,15 +48,70 @@ export const useWebSocket = () => {
             setMessage(data.content, data.animationType, data.colorTheme)
         }
 
+        // Handle controller subscription tier information
+        const handleControllerTier = (data) => {
+            console.log('[WebSocket] Controller tier received:', data.tier)
+            setControllerSubscriptionTier(data.tier || 'free')
+        }
+
+        // Handle session inactivity warning
+        const handleInactivityWarning = (data) => {
+            console.warn('[WebSocket] Session inactivity warning:', data)
+            // Show toast or modal notification to user
+            const message = data.message || 'Session is inactive. Please interact with the display to keep it alive.'
+            window.dispatchEvent(new CustomEvent('session:inactivity:warning', { 
+                detail: { 
+                  message, 
+                  minutesRemaining: data.minutesRemaining 
+                } 
+            }))
+        }
+
+        // Handle session termination
+        const handleSessionTerminated = (data) => {
+            console.error('[WebSocket] Session terminated:', data)
+            setConnected(false)
+            // Show alert to user
+            window.dispatchEvent(new CustomEvent('session:terminated', { 
+                detail: { 
+                  reason: data.reason,
+                  message: data.message 
+                } 
+            }))
+            // Disconnect from session
+            websocketService.disconnect()
+        }
+
+        // Handle force disconnect
+        const handleForceDisconnect = (data) => {
+            console.error('[WebSocket] Force disconnected:', data)
+            setConnected(false)
+            window.dispatchEvent(new CustomEvent('session:force-disconnect', { 
+                detail: { 
+                  reason: data.reason,
+                  message: data.message 
+                } 
+            }))
+            websocketService.disconnect()
+        }
+
         websocketService.on('connection:status', handleConnectionStatus)
         websocketService.on('message:received', handleMessageReceived)
+        websocketService.on('controller:tier', handleControllerTier)
+        websocketService.on('session:inactivity:warning', handleInactivityWarning)
+        websocketService.on('session:terminated', handleSessionTerminated)
+        websocketService.on('session:force-disconnect', handleForceDisconnect)
 
         return () => {
             websocketService.off('connection:status', handleConnectionStatus)
             websocketService.off('message:received', handleMessageReceived)
+            websocketService.off('controller:tier', handleControllerTier)
+            websocketService.off('session:inactivity:warning', handleInactivityWarning)
+            websocketService.off('session:terminated', handleSessionTerminated)
+            websocketService.off('session:force-disconnect', handleForceDisconnect)
             websocketService.disconnect()
         }
-    }, [sessionCode, user, session, setConnected, setMessage, recordActivity])
+    }, [sessionCode, user, session, setConnected, setMessage, recordActivity, setControllerSubscriptionTier])
 
     const sendMessage = useCallback((message, options) => {
         try {

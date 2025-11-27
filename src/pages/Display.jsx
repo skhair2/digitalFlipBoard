@@ -9,19 +9,25 @@ import { useSessionStore } from '../store/sessionStore'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useAutoHide } from '../hooks/useAutoHide'
 import { useKeyboardShortcuts, toggleFullscreen } from '../hooks/useKeyboardShortcuts'
+import { useActivityTracking } from '../hooks/useActivityTracking'
 import mixpanel from '../services/mixpanelService'
 
 export default function Display() {
-    const { isConnected, setSessionCode, setBoardId, setConnected, isClockMode, setClockMode, currentMessage } = useSessionStore()
+    const { isConnected, setSessionCode, setBoardId, setConnected, isClockMode, setClockMode, currentMessage, sessionCode, lastSessionCode, controllerSubscriptionTier } = useSessionStore()
     const [searchParams] = useSearchParams()
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [timeString, setTimeString] = useState('')
     const [showInfo, setShowInfo] = useState(false)
     const [showSettings, setShowSettings] = useState(false)
     const [showPairingCode, setShowPairingCode] = useState(true) // Track pairing code visibility
+    const [showConnectedMessage, setShowConnectedMessage] = useState(false) // Track connected message visibility
+    const [sessionWarning, setSessionWarning] = useState(null)
 
     // Call useWebSocket hook to establish and maintain WebSocket connection
     useWebSocket()
+
+    // Track user activity to prevent session timeout
+    useActivityTracking(sessionCode, 'display')
 
     // Display settings state
     const [displaySettings, setDisplaySettings] = useState({
@@ -35,23 +41,82 @@ export default function Display() {
     useEffect(() => {
         if (isConnected) {
             setShowPairingCode(false)
+            // Show connected message and auto-hide after 2 seconds
+            setShowConnectedMessage(true)
+            const timer = setTimeout(() => {
+                setShowConnectedMessage(false)
+            }, 2000)
+            return () => clearTimeout(timer)
         } else {
             setShowPairingCode(true)
+            setShowConnectedMessage(false)
         }
     }, [isConnected])
+
+    // Auto-generate session code on mount if not set
+    useEffect(() => {
+        if (!sessionCode && !searchParams.get('boardId')) {
+            // Generate a temporary session code for display
+            const tempCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+            setSessionCode(tempCode)
+        }
+    }, [])
+
+    // Check every minute if display should disconnect due to 24h inactivity + free tier controller
+    useEffect(() => {
+        if (!isConnected || controllerSubscriptionTier === 'pro' || controllerSubscriptionTier === 'premium') {
+            return // Only disconnect if: connected AND controller is free tier
+        }
+
+        const checkInactivityPolicy = () => {
+            try {
+                const lastSessionTime = localStorage.getItem('lastSessionTime')
+                if (lastSessionTime) {
+                    const timeSinceLastSession = Date.now() - parseInt(lastSessionTime)
+                    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000
+
+                    if (timeSinceLastSession > TWENTY_FOUR_HOURS) {
+                        console.log('[Display] Disconnecting free tier controller - no activity for 24+ hours')
+                        // Force disconnect
+                        setConnected(false)
+                        setSessionCode(null)
+                        setShowPairingCode(true)
+                        // Show notification
+                        window.dispatchEvent(new CustomEvent('session:inactivity:policy', {
+                            detail: {
+                                message: 'Display session ended. Free tier requires activity within 24 hours. Please re-pair to continue.',
+                                reason: 'free_tier_24h_policy'
+                            }
+                        }))
+                    }
+                }
+            } catch (error) {
+                console.warn('[Display] Error checking inactivity policy:', error)
+            }
+        }
+
+        // Check immediately on mount
+        checkInactivityPolicy()
+
+        // Then check every minute
+        const interval = setInterval(checkInactivityPolicy, 60 * 1000)
+        return () => clearInterval(interval)
+    }, [isConnected, controllerSubscriptionTier, setConnected, setSessionCode])
 
     // Auto-hide controls after 3 seconds of inactivity (if enabled in settings)
     const { isVisible: controlsVisible } = useAutoHide(3000, isFullscreen && displaySettings.autoHideControls)
 
+    // Track boardId from URL for reference, but don't auto-connect
+    // Connection only happens when Controller sends pairing code via WebSocket
     useEffect(() => {
         const boardId = searchParams.get('boardId')
         if (boardId) {
             setBoardId(boardId)
-            setSessionCode(boardId)
-            setConnected(true)
+            // Note: NOT calling setSessionCode() or setConnected(true) here
+            // Display must wait for user to manually enter pairing code or Controller to send it
         }
         mixpanel.track('Display Page Viewed', { boardId: boardId || 'temporary' })
-    }, [searchParams, setBoardId, setSessionCode, setConnected])
+    }, [searchParams, setBoardId])
 
     // Clock Mode Logic
     useEffect(() => {
@@ -76,6 +141,50 @@ export default function Display() {
 
         document.addEventListener('fullscreenchange', handleFullscreenChange)
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+    }, [])
+
+    // Listen for session inactivity warnings and terminations
+    useEffect(() => {
+        const handleInactivityWarning = (event) => {
+            const { message, minutesRemaining } = event.detail
+            setSessionWarning({
+                type: 'warning',
+                message,
+                minutesRemaining
+            })
+            // Auto-hide warning after 5 seconds
+            setTimeout(() => setSessionWarning(null), 5000)
+        }
+
+        const handleSessionTerminated = (event) => {
+            const { reason, message } = event.detail
+            setSessionWarning({
+                type: 'error',
+                message: `Session ended: ${message}`,
+                reason
+            })
+            // Show for longer as session is ending
+            setTimeout(() => setSessionWarning(null), 10000)
+        }
+
+        const handleForceDisconnect = (event) => {
+            const { reason, message } = event.detail
+            setSessionWarning({
+                type: 'error',
+                message: `Disconnected: ${message}`,
+                reason
+            })
+        }
+
+        window.addEventListener('session:inactivity:warning', handleInactivityWarning)
+        window.addEventListener('session:terminated', handleSessionTerminated)
+        window.addEventListener('session:force-disconnect', handleForceDisconnect)
+
+        return () => {
+            window.removeEventListener('session:inactivity:warning', handleInactivityWarning)
+            window.removeEventListener('session:terminated', handleSessionTerminated)
+            window.removeEventListener('session:force-disconnect', handleForceDisconnect)
+        }
     }, [])
 
     // Keyboard shortcuts
@@ -138,44 +247,41 @@ export default function Display() {
             )}
 
             <div className={`z-10 w-full h-full flex flex-col items-center ${isFullscreen ? 'justify-center' : 'gap-8'}`}>
-                {/* Display Grid - Auto-adjusts to screen size */}
+                {/* Display Grid - Always visible */}
                 <DigitalFlipBoardGrid
                     overrideMessage={
-                        isClockMode ? timeString :
-                            (!isConnected && !searchParams.get('boardId')) ? "" : undefined
+                        isClockMode ? timeString : undefined
                     }
                     isFullscreen={isFullscreen}
                 />
 
-                {/* Pairing Code Overlay - Shows on grid when NOT connected in fullscreen */}
-                {!isConnected && !searchParams.get('boardId') && isFullscreen && showPairingCode && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none animate-fade-in z-20">
+                {/* DEFAULT STATE: Show Pairing Code Overlay */}
+                {!isConnected && showPairingCode && sessionCode && (
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-20 animate-fade-in">
                         <div className="text-center">
-                            <p className="text-white/50 text-sm md:text-base mb-4 uppercase tracking-wider font-semibold">
-                                Pairing Code
+                            <p className="text-white/60 text-lg md:text-xl mb-8 uppercase tracking-wider font-semibold">
+                                Display Pairing Code
                             </p>
-                            <div className="text-6xl md:text-8xl font-mono font-bold text-primary-400 tracking-widest mb-6 drop-shadow-[0_0_30px_rgba(33,128,141,0.6)]">
-                                {useSessionStore.getState().sessionCode}
+                            <div className="text-7xl md:text-9xl font-mono font-bold text-teal-400 tracking-widest mb-8 drop-shadow-[0_0_30px_rgba(20,184,166,0.6)]">
+                                {sessionCode}
                             </div>
-                            <p className="text-white/70 text-lg md:text-xl">
-                                Enter this code on your phone to connect
+                            <p className="text-white/70 text-sm md:text-lg">
+                                Enter this code on your controller to connect
                             </p>
                         </div>
                     </div>
                 )}
 
-                {/* Session Code - Only show when NOT connected AND NOT in fullscreen */}
-                {!isConnected && !searchParams.get('boardId') && !isFullscreen && (
-                    <div className="transition-opacity duration-500 relative">
-                        <SessionCode fullScreenMode={isFullscreen} />
-                    </div>
-                )}
-
-                {/* Connection Success Message/Animation - Shows when controller connects */}
-                {isConnected && showPairingCode === false && !isClockMode && !currentMessage && (
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none animate-fade-out z-20">
-                        <div className="text-teal-500 font-bold text-4xl md:text-6xl animate-bounce drop-shadow-[0_0_30px_rgba(20,184,166,0.4)]">
-                            ✓ CONNECTED
+                {/* CONNECTED STATE: Show Connected Message */}
+                {isConnected && !isClockMode && !currentMessage && showConnectedMessage && (
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center z-20 animate-fade-in">
+                        <div className="text-center">
+                            <p className="text-teal-400 font-bold text-3xl md:text-6xl animate-bounce drop-shadow-[0_0_30px_rgba(20,184,166,0.4)]">
+                                ✓ CONNECTED
+                            </p>
+                            <p className="text-white/50 text-sm md:text-base mt-4">
+                                Controller is now pairing with this display
+                            </p>
                         </div>
                     </div>
                 )}
@@ -183,6 +289,33 @@ export default function Display() {
 
             {/* Branding Watermark - Hidden in fullscreen as requested */}
             {/* {isFullscreen && <BrandingWatermark />} */}
+
+            {/* Session Inactivity Warning/Error */}
+            {sessionWarning && (
+                <div className={`fixed top-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md rounded-lg shadow-lg z-40 animate-fade-in p-4 flex gap-3 ${
+                    sessionWarning.type === 'warning' 
+                        ? 'bg-amber-500/90 border border-amber-400 text-amber-900'
+                        : 'bg-red-500/90 border border-red-400 text-red-900'
+                }`}>
+                    <div className="flex-shrink-0 mt-1">
+                        {sessionWarning.type === 'warning' ? (
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                        ) : (
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                        )}
+                    </div>
+                    <div className="flex-1">
+                        <p className="font-semibold text-sm">{sessionWarning.message}</p>
+                        {sessionWarning.minutesRemaining !== undefined && (
+                            <p className="text-xs opacity-75 mt-1">Keep using the display to stay connected.</p>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Control Overlay (replaces old fullscreen button) */}
             <ControlOverlay

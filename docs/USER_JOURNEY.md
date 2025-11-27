@@ -54,7 +54,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    ANONYMOUS USER (No Login)                         │
-│                    One free 60-second session per day                │
+│                    One free 15-minute session per day                │
 └─────────────────────────────────────────────────────────────────────┘
 
 START
@@ -85,7 +85,7 @@ START
   │          └─ IF available → Increments freeSessionUsed counter
   │
   ├─ Connected: SessionPairing shows success
-  │             Timer starts: 60 seconds countdown
+  │             Timer starts: 15 minutes countdown
   │             "Session expires in 00:59"
   │             (Amber warning at <15 seconds)
   │

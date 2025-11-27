@@ -4,14 +4,28 @@ import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import PropTypes from 'prop-types'
 
-const Character = memo(({ char, color, delay = 0 }) => {
+const Character = memo(({ char, color, delay = 0, fontSize = null, isFullscreen = false }) => {
     // Character animation and rendering
+
+    // Determine character dimensions
+    const charDimensions = isFullscreen && fontSize
+        ? {
+            style: {
+                width: `${fontSize * 0.65}px`, // Width based on font size (65%)
+                height: `${fontSize * 1.3}px`, // Height based on font size (130%)
+                fontSize: `${fontSize}px`,
+            }
+        }
+        : {}
 
     return (
         <div className={clsx(
-            "relative w-8 h-12 sm:w-10 sm:h-14 md:w-12 md:h-16 lg:w-14 lg:h-20 perspective-1000",
+            !isFullscreen && "w-8 h-12 sm:w-10 sm:h-14 md:w-12 md:h-16 lg:w-14 lg:h-20",
+            "relative perspective-1000",
             "bg-[#111] rounded-sm overflow-hidden shadow-2xl ring-1 ring-white/10"
-        )}>
+        )}
+        {...(isFullscreen && fontSize ? { style: charDimensions.style } : {})}
+        >
             <AnimatePresence mode="popLayout">
                 <motion.div
                     key={`${char}-${color}`}
@@ -26,12 +40,16 @@ const Character = memo(({ char, color, delay = 0 }) => {
                         damping: 20,
                         mass: 1
                     }}
-                    className="absolute inset-0 flex items-center justify-center font-mono text-4xl sm:text-5xl md:text-6xl font-bold pb-1"
+                    className={clsx(
+                        "absolute inset-0 flex items-center justify-center font-mono font-bold pb-1",
+                        !isFullscreen && "text-4xl sm:text-5xl md:text-6xl"
+                    )}
                     style={{
                         backfaceVisibility: 'hidden',
                         backgroundColor: color || '#18181b', // Zinc-900
                         color: color ? 'transparent' : '#f8fafc', // Slate-50
-                        backgroundImage: !color ? 'linear-gradient(to bottom, #27272a 0%, #18181b 100%)' : 'none'
+                        backgroundImage: !color ? 'linear-gradient(to bottom, #27272a 0%, #18181b 100%)' : 'none',
+                        ...(isFullscreen && fontSize && { fontSize: `${fontSize}px` })
                     }}
                 >
                     {/* Top half highlight */}
@@ -57,7 +75,10 @@ Character.propTypes = {
     char: PropTypes.string,
     color: PropTypes.string,
     colorTheme: PropTypes.string,
-    animationType: PropTypes.string
+    animationType: PropTypes.string,
+    delay: PropTypes.number,
+    fontSize: PropTypes.number,
+    isFullscreen: PropTypes.bool
 }
 
 export default Character

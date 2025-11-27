@@ -101,6 +101,23 @@ export default function DatabaseTest() {
                 }
             }
 
+            // Test 7: RPC Function (check_user_exists)
+            addResult('RPC Test', 'running', 'Testing check_user_exists function...')
+            try {
+                // Check for a likely non-existent email
+                const { data: exists, error: rpcError } = await supabase.rpc('check_user_exists', {
+                    email_to_check: 'nonexistent@example.com'
+                })
+
+                if (rpcError) {
+                    addResult('RPC Test', 'error', `RPC failed: ${rpcError.message}`)
+                } else {
+                    addResult('RPC Test', 'success', `RPC working. Non-existent user check returned: ${exists}`)
+                }
+            } catch (err) {
+                addResult('RPC Test', 'error', `RPC exception: ${err.message}`)
+            }
+
         } catch (error) {
             addResult('General', 'error', `Unexpected error: ${error.message}`)
         } finally {

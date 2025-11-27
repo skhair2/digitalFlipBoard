@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { useAuthStore } from './authStore'
 
 export const useSessionStore = create(
     persist(
@@ -21,6 +22,7 @@ export const useSessionStore = create(
             lastActivityTime: null, // Track last user activity
             disconnectReason: null, // 'inactivity' or 'timeout' or 'manual'
             isReconnect: false, // Flag to track if this is a reconnect
+            controllerSubscriptionTier: 'free', // Track controller's subscription tier (free/pro/premium)
 
             boardState: null, // Array of { char, color }
 
@@ -36,6 +38,7 @@ export const useSessionStore = create(
             recordActivity: () => set({ lastActivityTime: Date.now() }),
             setBoardId: (id) => set({ boardId: id }),
             setConnected: (status) => set({ isConnected: status }),
+            setControllerSubscriptionTier: (tier) => set({ controllerSubscriptionTier: tier }),
             setClockMode: (status) => set({ isClockMode: status }),
             setGridConfig: (config) => set({ gridConfig: config }),
             setConnectionExpired: (expired, reason = 'timeout') => set({ 
@@ -76,6 +79,35 @@ export const useSessionStore = create(
         }),
         {
             name: 'session-storage',
+            // Only persist specific fields, NOT sessionCode (sessions are ephemeral)
+            // lastSessionCode is persisted separately for 24h reconnect history
+            partialize: (state) => {
+                const authStore = useAuthStore.getState()
+                const isPremium = authStore.isPremium
+                
+                return {
+                    // DO NOT persist sessionCode - sessions should be per-browser-session only
+                    // boardId persists if loaded from URL with ?boardId= parameter
+                    boardId: state.boardId,
+                    lastAnimationType: state.lastAnimationType,
+                    lastColorTheme: state.lastColorTheme,
+                    gridConfig: state.gridConfig,
+                    isClockMode: state.isClockMode,
+                    lastSessionCode: state.lastSessionCode, // For 24h reconnect history
+                    
+                    // Only persist messages for premium users
+                    currentMessage: isPremium ? state.currentMessage : null,
+                    boardState: isPremium ? state.boardState : null,
+                }
+            },
+            // Migration: Clear stale sessionCode from old localStorage data
+            migrate: (persistedState) => {
+                // Remove sessionCode if it exists in old data (from before the fix)
+                if (persistedState && persistedState.sessionCode) {
+                    delete persistedState.sessionCode
+                }
+                return persistedState
+            }
         }
     )
 )
@@ -85,6 +117,17 @@ if (typeof window !== 'undefined') {
     window.addEventListener('storage', (e) => {
         if (e.key === 'session-storage') {
             useSessionStore.persist.rehydrate()
+        }
+    })
+    
+    // Clear messages on page unload for anonymous users
+    window.addEventListener('beforeunload', () => {
+        const authStore = useAuthStore.getState()
+        if (!authStore.isPremium) {
+            const state = useSessionStore.getState()
+            // Clear message data from memory to prevent leakage
+            state.setMessage(null)
+            state.setBoardState(null)
         }
     })
 }
