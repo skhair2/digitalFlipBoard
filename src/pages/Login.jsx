@@ -10,10 +10,13 @@ import Logo from '../components/ui/Logo'
 
 export default function Login() {
     const navigate = useNavigate()
-    const { signInWithPassword, signUpWithPassword, signUpWithMagicLink } = useAuthStore()
+    const { signInWithPassword, signUpWithPassword } = useAuthStore()
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState(null)
     const [successMessage, setSuccessMessage] = useState(null)
+
+    const [selectedTabIndex, setSelectedTabIndex] = useState(0)
+    const [signInStep, setSignInStep] = useState('email') // 'email' or 'password'
 
     // Form State
     const [email, setEmail] = useState('')
@@ -25,8 +28,10 @@ export default function Login() {
         setError(null)
         setSuccessMessage(null)
 
-        // Validate terms for all signup methods
-        if (mode === 'signup' || mode === 'magiclink') {
+        // Validate terms for signup only (Magic Link sign-in doesn't need explicit terms check if it's just login)
+        // But if we want to be safe, we can keep it. However, standard login usually implies terms acceptance.
+        // For Sign Up, it's mandatory.
+        if (mode === 'signup') {
             if (!acceptTermsAndPrivacy) {
                 setError('You must accept the Terms of Service and Privacy Policy to continue.')
                 return
@@ -42,7 +47,7 @@ export default function Login() {
             } else if (mode === 'signup') {
                 result = await signUpWithPassword(email, password, fullName)
             } else if (mode === 'magiclink') {
-                result = await signUpWithMagicLink(email)
+                result = await useAuthStore.getState().signInWithMagicLink(email)
             }
 
             if (result.success) {
@@ -52,7 +57,12 @@ export default function Login() {
                     navigate('/dashboard')
                 }
             } else {
-                setError(result.error)
+                if (result.code === 'USER_NOT_FOUND' && mode === 'magiclink') {
+                    setError('Account not found. Please sign up.')
+                    setSelectedTabIndex(1) // Switch to Sign Up tab
+                } else {
+                    setError(result.error)
+                }
             }
         } catch (err) {
             setError('An unexpected error occurred.')
@@ -109,9 +119,9 @@ export default function Login() {
                         <p className="text-slate-400 text-sm">Sign in to control your board</p>
                     </div>
 
-                    <Tab.Group>
+                    <Tab.Group selectedIndex={selectedTabIndex} onChange={setSelectedTabIndex}>
                         <Tab.List className="flex p-1 space-x-1 bg-slate-950/50 rounded-xl mx-8 mt-6 border border-white/5">
-                            {['Sign In', 'Sign Up', 'Magic Link'].map((category) => (
+                            {['Sign In', 'Sign Up'].map((category) => (
                                 <Tab
                                     key={category}
                                     className={({ selected }) =>
@@ -146,20 +156,68 @@ export default function Login() {
                                             placeholder="Email address"
                                             className="bg-slate-950/50 border-white/10 focus:border-teal-500/50 focus:ring-teal-500/20"
                                         />
-                                        <Input
-                                            type="password"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            placeholder="Password"
-                                            className="bg-slate-950/50 border-white/10 focus:border-teal-500/50 focus:ring-teal-500/20"
-                                        />
-                                        <Button
-                                            onClick={() => handleAuth('signin')}
-                                            disabled={isLoading || !email || !password}
-                                            className="w-full bg-gradient-to-r from-teal-500 to-teal-400 hover:from-teal-400 hover:to-teal-300 text-white shadow-lg shadow-teal-500/25 border-none"
-                                        >
-                                            {isLoading ? 'Signing In...' : 'Sign In'}
-                                        </Button>
+
+                                        <AnimatePresence mode="wait">
+                                            {signInStep === 'email' ? (
+                                                <motion.div
+                                                    key="email-buttons"
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -10 }}
+                                                    className="flex gap-3"
+                                                >
+                                                    <Button
+                                                        onClick={() => setSignInStep('password')}
+                                                        disabled={isLoading || !email}
+                                                        className="flex-1 bg-gradient-to-r from-teal-500 to-teal-400 hover:from-teal-400 hover:to-teal-300 text-white shadow-lg shadow-teal-500/25 border-none"
+                                                    >
+                                                        Use Password
+                                                    </Button>
+                                                    <Button
+                                                        onClick={() => handleAuth('magiclink')}
+                                                        disabled={isLoading || !email}
+                                                        className="flex-1 bg-gradient-to-r from-indigo-500 to-indigo-400 hover:from-indigo-400 hover:to-indigo-300 text-white shadow-lg shadow-indigo-500/25 border-none"
+                                                    >
+                                                        {isLoading ? 'Sending...' : 'Send Magic Link'}
+                                                    </Button>
+                                                </motion.div>
+                                            ) : (
+                                                <motion.div
+                                                    key="password-input"
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -10 }}
+                                                    className="space-y-3"
+                                                >
+                                                    <Input
+                                                        type="password"
+                                                        value={password}
+                                                        onChange={(e) => setPassword(e.target.value)}
+                                                        placeholder="Password"
+                                                        className="bg-slate-950/50 border-white/10 focus:border-teal-500/50 focus:ring-teal-500/20"
+                                                    />
+                                                    <div className="flex gap-3">
+                                                        <Button
+                                                            onClick={() => {
+                                                                setSignInStep('email')
+                                                                setPassword('')
+                                                            }}
+                                                            disabled={isLoading}
+                                                            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white border border-white/10"
+                                                        >
+                                                            Back
+                                                        </Button>
+                                                        <Button
+                                                            onClick={() => handleAuth('signin')}
+                                                            disabled={isLoading || !password}
+                                                            className="flex-1 bg-gradient-to-r from-teal-500 to-teal-400 hover:from-teal-400 hover:to-teal-300 text-white shadow-lg shadow-teal-500/25 border-none"
+                                                        >
+                                                            {isLoading ? 'Signing In...' : 'Sign In'}
+                                                        </Button>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
                                     </div>
                                 </Tab.Panel>
 
@@ -238,68 +296,6 @@ export default function Login() {
                                             className="w-full bg-gradient-to-r from-teal-500 to-teal-400 hover:from-teal-400 hover:to-teal-300 text-white shadow-lg shadow-teal-500/25 border-none disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {isLoading ? 'Creating Account...' : 'Sign Up'}
-                                        </Button>
-                                    </div>
-                                </Tab.Panel>
-
-                                {/* Magic Link Panel */}
-                                <Tab.Panel
-                                    as={motion.div}
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    className="space-y-4 focus:outline-none"
-                                >
-                                    <div className="space-y-4">
-                                        <p className="text-sm text-slate-400 text-center mb-4">
-                                            We'll send a magic link to your email. No password required.
-                                        </p>
-                                        <Input
-                                            type="email"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            placeholder="Email address"
-                                            className="bg-slate-950/50 border-white/10 focus:border-teal-500/50 focus:ring-teal-500/20"
-                                        />
-
-                                        {/* Terms & Privacy Checkbox */}
-                                        <div className="py-2">
-                                            <label className="flex items-start gap-3 cursor-pointer group">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={acceptTermsAndPrivacy}
-                                                    onChange={(e) => setAcceptTermsAndPrivacy(e.target.checked)}
-                                                    className="w-4 h-4 mt-1 rounded border-white/20 text-teal-500 focus:ring-teal-500 focus:ring-offset-0 cursor-pointer"
-                                                />
-                                                <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
-                                                    I agree to the{' '}
-                                                    <a
-                                                        href="/terms"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-teal-400 hover:text-teal-300 underline font-medium"
-                                                    >
-                                                        Terms of Service
-                                                    </a>
-                                                    {' '}and{' '}
-                                                    <a
-                                                        href="/privacy"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-teal-400 hover:text-teal-300 underline font-medium"
-                                                    >
-                                                        Privacy Policy
-                                                    </a>
-                                                </span>
-                                            </label>
-                                        </div>
-
-                                        <Button
-                                            onClick={() => handleAuth('magiclink')}
-                                            disabled={isLoading || !email || !acceptTermsAndPrivacy}
-                                            className="w-full bg-gradient-to-r from-indigo-500 to-indigo-400 hover:from-indigo-400 hover:to-indigo-300 text-white shadow-lg shadow-indigo-500/25 border-none disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            {isLoading ? 'Sending...' : 'Send Magic Link'}
                                         </Button>
                                     </div>
                                 </Tab.Panel>

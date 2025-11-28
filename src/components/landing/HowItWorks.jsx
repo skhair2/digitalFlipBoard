@@ -48,7 +48,21 @@ export default function HowItWorks() {
                     </motion.p>
                 </div>
 
-                <div className="max-w-6xl mx-auto">
+                <motion.div
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-100px" }}
+                    variants={{
+                        hidden: { opacity: 0 },
+                        visible: {
+                            opacity: 1,
+                            transition: {
+                                staggerChildren: 0.3
+                            }
+                        }
+                    }}
+                    className="max-w-6xl mx-auto"
+                >
                     {steps.map((step, index) => (
                         <div key={step.number} className="relative">
                             {/* Connecting Line */}
@@ -57,10 +71,14 @@ export default function HowItWorks() {
                             )}
 
                             <motion.div
-                                initial={{ opacity: 0, y: 50 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true, margin: "-100px" }}
-                                transition={{ duration: 0.8 }}
+                                variants={{
+                                    hidden: { opacity: 0, y: 50 },
+                                    visible: {
+                                        opacity: 1,
+                                        y: 0,
+                                        transition: { duration: 0.8, ease: "easeOut" }
+                                    }
+                                }}
                                 className={`grid lg:grid-cols-2 gap-16 items-center mb-32 last:mb-0 ${index % 2 === 1 ? 'lg:flex-row-reverse' : ''
                                     }`}
                             >
@@ -92,7 +110,7 @@ export default function HowItWorks() {
                             </motion.div>
                         </div>
                     ))}
-                </div>
+                </motion.div>
             </div>
         </section>
     )

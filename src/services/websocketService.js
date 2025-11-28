@@ -11,7 +11,7 @@ class WebSocketService {
         this.listeners = new Map()
     }
 
-    connect(sessionCode, userId = null, token = null) {
+    connect(sessionCode, userId = null, token = null, role = 'display') {
         if (this.socket?.connected) {
             console.warn('Already connected')
             return
@@ -23,6 +23,7 @@ class WebSocketService {
         const auth = {
             sessionCode,
             userId,
+            role,
         }
 
         // Include token if provided (required for Supabase auth validation)
@@ -34,7 +35,7 @@ class WebSocketService {
         // 1. Use env var if set (for production)
         // 2. Otherwise use hostname + backend port (3001)
         let wsUrl = import.meta.env.VITE_WEBSOCKET_URL
-        
+
         if (!wsUrl) {
             // Build URL from current window location
             // Extract just the hostname/IP without port, then use backend port 3001
@@ -63,14 +64,14 @@ class WebSocketService {
         this.socket.on('connect', () => {
             console.log('WebSocket connected')
             this.reconnectAttempts = 0
+            this.startHeartbeat()
             mixpanel.track('WebSocket Connected', { sessionCode: this.sessionCode })
-            this.emit('connection:status', { connected: true })
         })
 
         this.socket.on('disconnect', (reason) => {
             console.log('WebSocket disconnected:', reason)
+            this.stopHeartbeat()
             mixpanel.track('WebSocket Disconnected', { reason })
-            this.emit('connection:status', { connected: false, reason })
         })
 
         this.socket.on('connect_error', (error) => {
@@ -116,6 +117,26 @@ class WebSocketService {
             this.emit('session:expired')
             this.disconnect()
         })
+    }
+
+    startHeartbeat() {
+        this.stopHeartbeat() // Clear any existing interval
+        // Send heartbeat every 2 minutes (well within the 5-minute stale timeout)
+        this.heartbeatInterval = setInterval(() => {
+            if (this.socket?.connected) {
+                this.socket.emit('client:heartbeat', {
+                    sessionCode: this.sessionCode,
+                    timestamp: Date.now()
+                })
+            }
+        }, 2 * 60 * 1000)
+    }
+
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval)
+            this.heartbeatInterval = null
+        }
     }
 
     // Send message to display
@@ -171,6 +192,7 @@ class WebSocketService {
     }
 
     disconnect() {
+        this.stopHeartbeat()
         if (this.socket) {
             this.socket.disconnect()
             this.socket = null

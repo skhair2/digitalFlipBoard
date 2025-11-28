@@ -180,33 +180,7 @@ export const useAuthStore = create(
                 }
             },
 
-            // Magic link sign up (New users)
-            signUpWithMagicLink: async (email) => {
-                try {
-                    // Call backend to send magic link via Resend
-                    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
-                    const response = await fetch(`${API_URL}/api/auth/send-magic-link`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ email })
-                    })
 
-                    if (!response.ok) {
-                        const error = await response.json()
-                        throw new Error(error.error || 'Failed to send magic link')
-                    }
-
-                    console.log('[Magic Link Signup] Sent via Resend to:', email)
-                    mixpanel.track('Magic Link Signup Sent', { email, provider: 'resend' })
-                    return { success: true }
-                } catch (error) {
-                    console.error('[Magic Link Signup] Exception:', error)
-                    mixpanel.track('Magic Link Signup Error', { error: error.message })
-                    return { success: false, error: error.message }
-                }
-            },
 
             // Password Sign Up
             signUpWithPassword: async (email, password, fullName) => {
