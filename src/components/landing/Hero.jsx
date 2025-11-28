@@ -1,12 +1,8 @@
-import { useState, useRef, useEffect, lazy, Suspense } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-// eslint-disable-next-line no-unused-vars
 import { motion, useScroll, useTransform, useMotionValue } from 'framer-motion'
 import { Button } from '../ui/Components'
 import DigitalFlipBoardGrid from '../display/DigitalFlipBoardGrid'
-
-// Lazy load Scene3D to improve initial page load performance
-const Scene3D = lazy(() => import('./Scene3D'))
 
 const MagneticButton = ({ children, ...props }) => {
     const ref = useRef(null)
@@ -64,17 +60,17 @@ export default function Hero() {
     return (
         <section className="relative overflow-hidden py-32 lg:py-48 min-h-screen flex items-center bg-[#0B0C10]">
             {/* Ambient Background */}
+            {/* Ambient Background with CSS Animations */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-600/20 rounded-full blur-[120px]" />
-                <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-teal-600/20 rounded-full blur-[120px]" />
-                <div className="absolute top-[40%] left-[40%] w-[30%] h-[30%] bg-blue-600/10 rounded-full blur-[100px]" />
-            </div>
+                <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-600/20 rounded-full blur-[120px] animate-pulse-glow" />
+                <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-teal-600/20 rounded-full blur-[120px] animate-pulse-glow" style={{ animationDelay: '2s' }} />
+                <div className="absolute top-[40%] left-[40%] w-[30%] h-[30%] bg-blue-600/10 rounded-full blur-[100px] animate-float" />
 
-            {/* 3D Scene Background */}
-            <div className="absolute inset-0 opacity-60">
-                <Suspense fallback={null}>
-                    <Scene3D />
-                </Suspense>
+                {/* Floating Geometric Shapes (CSS replacement for 3D) */}
+                <div className="absolute top-[20%] right-[15%] w-24 h-24 border border-white/10 rounded-full animate-float-delayed" />
+                <div className="absolute bottom-[30%] left-[10%] w-16 h-16 border border-white/5 rotate-45 animate-float" />
+                <div className="absolute top-[15%] left-[20%] w-2 h-2 bg-teal-400 rounded-full animate-particle" />
+                <div className="absolute bottom-[40%] right-[25%] w-3 h-3 bg-purple-400 rounded-full animate-particle" style={{ animationDelay: '1s' }} />
             </div>
 
             <div className="container mx-auto px-4 relative z-10">
@@ -119,7 +115,7 @@ export default function Hero() {
                     </motion.div>
                 </div>
 
-                {/* 3D Preview Stage - Simplified without emoji */}
+                {/* Preview Stage */}
                 <motion.div
                     style={{ y: y2 }}
                     initial={{ opacity: 0, scale: 0.9, rotateX: 20 }}
@@ -127,7 +123,7 @@ export default function Hero() {
                     transition={{ duration: 1.2, delay: 0.2, type: "spring" }}
                     className="relative max-w-5xl mx-auto perspective-1000"
                 >
-                    <div className="relative rounded-3xl overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.7)] border border-white/10 bg-[#15161A] aspect-[16/9] group flex items-center justify-center">
+                    <div className="relative rounded-3xl overflow-hidden glass-card aspect-[16/9] group flex items-center justify-center">
                         {/* Screen Content with gradient */}
                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#1a1c23,transparent)]" />
 

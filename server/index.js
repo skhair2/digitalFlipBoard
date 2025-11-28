@@ -1,3 +1,12 @@
+// Check if session code is live (active Socket.io room)
+app.get('/api/session/exists/:code', (req, res) => {
+  const code = req.params.code?.toUpperCase()
+  if (!code || code.length !== 6) {
+    return res.json({ exists: false })
+  }
+  const room = io.sockets.adapter.rooms.get(code)
+  res.json({ exists: !!room && room.size > 0 })
+})
 // Periodically disconnect stale sockets (idle >5 min)
 const SOCKET_STALE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 setInterval(() => {
@@ -296,7 +305,7 @@ io.on('connection', (socket) => {
   const isAuthenticated = socket.isAuthenticated;
   const clientIp = socket.handshake.address;
   const userAgent = socket.handshake.headers['user-agent'] || 'unknown';
-  const { sessionCode } = socket.handshake.auth;
+  const { sessionCode, role } = socket.handshake.auth;
   const connectionTime = new Date().toISOString();
 
   socket.connectedAt = Date.now();
@@ -324,14 +333,37 @@ io.on('connection', (socket) => {
 
   if (sessionCode) {
     socket.sessionCode = sessionCode;
+    socket.role = role || 'display';
 
     logger.info('socket_joining_session', {
       socket_id: socket.id.substring(0, 12),
       session_code: sessionCode,
       user_id: userId || 'anonymous',
       user_email: userEmail || 'anonymous',
-      is_authenticated: isAuthenticated
+      is_authenticated: isAuthenticated,
+      role: socket.role
     });
+    if (socket.role === 'controller') {
+      logger.info('[CONTROLLER CONNECT] ================================')
+      logger.info(`  Socket ID: ${socket.id.substring(0, 12)}`)
+      logger.info(`  Session Code: ${sessionCode}`)
+      logger.info(`  User ID: ${userId || 'anonymous'}`)
+      logger.info(`  User Email: ${userEmail || 'anonymous'}`)
+      logger.info(`  Client IP: ${clientIp}`)
+      logger.info(`  User Agent: ${userAgent}`)
+      logger.info('  Event: connection:status_emit_attempt')
+      logger.info('====================================================')
+    } else {
+      logger.info('[DISPLAY CONNECT] ==================================')
+      logger.info(`  Socket ID: ${socket.id.substring(0, 12)}`)
+      logger.info(`  Session Code: ${sessionCode}`)
+      logger.info(`  User ID: ${userId || 'anonymous'}`)
+      logger.info(`  User Email: ${userEmail || 'anonymous'}`)
+      logger.info(`  Client IP: ${clientIp}`)
+      logger.info(`  User Agent: ${userAgent}`)
+      logger.info('  Event: display_joined')
+      logger.info('====================================================')
+    }
 
     // Initialize session in Redis
     sessionStore.save(sessionCode, {
@@ -344,7 +376,8 @@ io.on('connection', (socket) => {
         isAuthenticated,
         clientIp,
         joinedAt: connectionTime,
-        userAgent
+        userAgent,
+        role: socket.role
       }]
     }).catch(err => {
       logger.error('Failed to save session to Redis', err, { session_code: sessionCode, socket_id: socket.id.substring(0, 12) });
@@ -358,19 +391,23 @@ io.on('connection', (socket) => {
       socket_id: socket.id.substring(0, 12),
       room_size: roomSize,
       total_rooms: io.sockets.adapter.rooms.size,
-      user_id: userId || 'anonymous'
+      user_id: userId || 'anonymous',
+      role: socket.role
     });
 
-    // Notify room of connection
-    logger.debug('emitting_connection_status', {
-      session_code: sessionCode,
-      room_size: roomSize,
-      event: 'connection:status'
-    });
-    io.to(sessionCode).emit('connection:status', { connected: true });
+    // Only emit connection:status when a controller joins
+    if (socket.role === 'controller') {
+      logger.debug('emitting_connection_status', {
+        session_code: sessionCode,
+        room_size: roomSize,
+        event: 'connection:status',
+        role: socket.role
+      });
+      io.to(sessionCode).emit('connection:status', { connected: true });
+    }
 
     // Fetch and send controller's subscription tier to display (async operation)
-    if (userId) {
+    if (userId && socket.role === 'controller') {
       (async () => {
         try {
           logger.debug('fetching_user_profile_tier', {
@@ -411,7 +448,8 @@ io.on('connection', (socket) => {
     } else {
       logger.debug('no_user_id_skipping_tier_fetch', {
         session_code: sessionCode,
-        socket_id: socket.id.substring(0, 12)
+        socket_id: socket.id.substring(0, 12),
+        role: socket.role
       });
     }
   }
@@ -480,6 +518,20 @@ io.on('connection', (socket) => {
     socket.lastActivity = Date.now();
     if (data?.sessionCode) {
       await updateSessionActivity(data.sessionCode);
+    }
+  });
+
+  // Heartbeat handler to prevent stale connection disconnects
+  socket.on('client:heartbeat', async (data) => {
+    socket.lastActivity = Date.now();
+    if (data?.sessionCode) {
+      // Update Redis session activity to prevent session expiration
+      await updateSessionActivity(data.sessionCode);
+
+      logger.debug('heartbeat_received', {
+        socket_id: socket.id.substring(0, 12),
+        session_code: data.sessionCode
+      });
     }
   });
 

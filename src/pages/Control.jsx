@@ -29,6 +29,13 @@ export default function Control() {
     const [selectedTabIndex, setSelectedTabIndex] = useState(0)
 
     // Call useWebSocket hook - it handles null sessionCode internally
+    useEffect(() => {
+        const role = window.location.pathname.includes('control') ? 'controller' : 'display';
+        console.log('[Control] Attempting WebSocket connection with role:', role);
+        if (role !== 'controller') {
+            console.warn('[Control] WARNING: Role is not controller! Pairing may fail.');
+        }
+    }, []);
     useWebSocket()
 
     // Track user activity to prevent session timeout

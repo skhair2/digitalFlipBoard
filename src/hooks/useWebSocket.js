@@ -11,6 +11,12 @@ export const useWebSocket = () => {
     useEffect(() => {
         if (!sessionCode) return
 
+        // Determine role from context (window.location.pathname)
+        let role = 'display'
+        if (window.location.pathname.includes('control')) {
+            role = 'controller'
+        }
+
         // Get the latest session token for authentication
         const initializeConnection = async () => {
             let token = null
@@ -28,14 +34,14 @@ export const useWebSocket = () => {
                 }
             }
 
-            // Connect with token (optional but recommended for auth)
-            websocketService.connect(sessionCode, user?.id, token)
+            // Connect with token and role
+            websocketService.connect(sessionCode, user?.id, token, role)
         }
 
         initializeConnection()
 
         const handleConnectionStatus = ({ connected }) => {
-            console.log('[WebSocket] Connection status changed to:', connected)
+            console.log('[WebSocket] Connection status event received in Display:', connected)
             setConnected(connected)
             if (connected) {
                 recordActivity() // Record activity on reconnect

@@ -70,11 +70,11 @@ function FeatureCard({ feature, index }) {
     return (
         <motion.div
             ref={ref}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: index * 0.1 }}
             onMouseMove={handleMouseMove}
+            variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: { opacity: 1, y: 0 }
+            }}
             className={clsx(
                 "group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 overflow-hidden",
                 feature.className
@@ -136,11 +136,25 @@ export default function Features() {
                     </motion.p>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                <motion.div
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-100px" }}
+                    variants={{
+                        hidden: { opacity: 0 },
+                        visible: {
+                            opacity: 1,
+                            transition: {
+                                staggerChildren: 0.15
+                            }
+                        }
+                    }}
+                    className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto"
+                >
                     {features.map((feature, index) => (
-                        <FeatureCard key={feature.title} feature={feature} index={index} />
+                        <FeatureCard key={feature.title} feature={feature} />
                     ))}
-                </div>
+                </motion.div>
             </div>
         </section>
     )

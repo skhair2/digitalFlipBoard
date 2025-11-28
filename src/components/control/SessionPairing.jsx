@@ -111,17 +111,32 @@ export default function SessionPairing() {
     }, [isConnected, connectionStartTime, lastActivityTime, isWarning, setConnectionExpired])
 
     // Handle NEW session (uses free quota)
-    const handlePair = (e) => {
+    const handlePair = async (e) => {
         e.preventDefault()
         const trimmedCode = code.trim().toUpperCase()
-        
-        if (!trimmedCode) {
-            setError('Please enter a code')
+
+        // Controller must never generate its own code
+        // Only use code entered by user
+        if (!trimmedCode || trimmedCode === 'TEMPORARY' || trimmedCode === 'XXXXXX') {
+            setError('Please enter the pairing code shown on the display')
             return
         }
-        
+
         if (trimmedCode.length !== 6) {
             setError('Code must be 6 characters')
+            return
+        }
+
+        // Check if session code is live on backend
+        try {
+            const response = await fetch(`/api/session/exists/${trimmedCode}`)
+            const result = await response.json()
+            if (!result.exists) {
+                setError('Session code is not live. Please check the code on the display.')
+                return
+            }
+        } catch (err) {
+            setError('Unable to verify session code. Please try again.')
             return
         }
 

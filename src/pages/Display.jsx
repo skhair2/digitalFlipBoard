@@ -53,14 +53,14 @@ export default function Display() {
         }
     }, [isConnected])
 
-    // Auto-generate session code on mount if not set
+    // Ensure display always has a session code by default unless one is already set or provided via boardId.
     useEffect(() => {
         if (!sessionCode && !searchParams.get('boardId')) {
             // Generate a temporary session code for display
             const tempCode = Math.random().toString(36).substring(2, 8).toUpperCase()
             setSessionCode(tempCode)
         }
-    }, [])
+    }, [sessionCode, searchParams, setSessionCode])
 
     // Check every minute if display should disconnect due to 24h inactivity + free tier controller
     useEffect(() => {
@@ -236,9 +236,8 @@ export default function Display() {
 
     return (
         <div
-            className={`bg-black flex flex-col items-center justify-center overflow-hidden relative ${
-                isFullscreen ? 'fixed inset-0 w-screen h-screen p-0' : 'min-h-screen p-4'
-            }`}
+            className={`bg-black flex flex-col items-center justify-center overflow-hidden relative ${isFullscreen ? 'fixed inset-0 w-screen h-screen p-0' : 'min-h-screen p-4'
+                }`}
             style={{ filter: `brightness(${displaySettings.brightness}%)` }}
         >
             {/* Background glow - hide in fullscreen for cleaner look */}
@@ -248,42 +247,50 @@ export default function Display() {
 
             <div className={`z-10 w-full h-full flex flex-col items-center ${isFullscreen ? 'justify-center' : 'gap-8'}`}>
                 {/* Display Grid - Always visible */}
-                <DigitalFlipBoardGrid
-                    overrideMessage={
-                        isClockMode ? timeString : undefined
-                    }
-                    isFullscreen={isFullscreen}
-                />
 
-                {/* DEFAULT STATE: Show Pairing Code Overlay */}
-                {!isConnected && showPairingCode && sessionCode && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-20 animate-fade-in">
-                        <div className="text-center">
-                            <p className="text-white/60 text-lg md:text-xl mb-8 uppercase tracking-wider font-semibold">
-                                Display Pairing Code
-                            </p>
-                            <div className="text-7xl md:text-9xl font-mono font-bold text-teal-400 tracking-widest mb-8 drop-shadow-[0_0_30px_rgba(20,184,166,0.6)]">
-                                {sessionCode}
-                            </div>
-                            <p className="text-white/70 text-sm md:text-lg">
-                                Enter this code on your controller to connect
-                            </p>
+                {/* Flip Display Style: Show info text and session code in grid if not connected */}
+                {!isConnected && showPairingCode && sessionCode ? (
+                    <div className="flex flex-col items-center justify-center w-full">
+                        {/* Status indicator top right */}
+                        <div className="fixed top-4 right-4 flex items-center gap-2 transition-opacity duration-300 z-50">
+                            <div className={`w-2 h-2 rounded-full ${window?.digitalFlipBoardSocket?.reconnecting
+                                ? 'bg-amber-500 animate-pulse'
+                                : isConnected
+                                    ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]'
+                                    : 'bg-amber-500 animate-pulse'
+                            }`} />
+                            <span className="text-xs text-gray-500 font-mono uppercase">
+                                {window?.digitalFlipBoardSocket?.reconnecting ? 'Reconnecting...' : isConnected ? 'Connected' : 'Not Connected'}
+                            </span>
+                        </div>
+                        {/* All info and code in one flip display grid */}
+                        <div className="w-full flex justify-center">
+                            <DigitalFlipBoardGrid
+                                overrideMessage={`DISPLAY PAIRING CODE  Enter this code on your controller to connect  ${sessionCode}`}
+                                isFullscreen={isFullscreen}
+                            />
                         </div>
                     </div>
-                )}
-
-                {/* CONNECTED STATE: Show Connected Message */}
-                {isConnected && !isClockMode && !currentMessage && showConnectedMessage && (
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center z-20 animate-fade-in">
-                        <div className="text-center">
-                            <p className="text-teal-400 font-bold text-3xl md:text-6xl animate-bounce drop-shadow-[0_0_30px_rgba(20,184,166,0.4)]">
-                                ✓ CONNECTED
-                            </p>
-                            <p className="text-white/50 text-sm md:text-base mt-4">
-                                Controller is now pairing with this display
-                            </p>
+                ) : isConnected && !isClockMode && !currentMessage && showConnectedMessage ? (
+                    <div className="flex flex-col items-center justify-center w-full">
+                        <div className="w-full flex justify-center mb-2">
+                            <DigitalFlipBoardGrid
+                                overrideMessage={"✓ CONNECTED"}
+                                isFullscreen={isFullscreen}
+                            />
+                        </div>
+                        <div className="w-full flex justify-center">
+                            <DigitalFlipBoardGrid
+                                overrideMessage={"Controller is now pairing with this display"}
+                                isFullscreen={isFullscreen}
+                            />
                         </div>
                     </div>
+                ) : (
+                    <DigitalFlipBoardGrid
+                        overrideMessage={isClockMode ? timeString : undefined}
+                        isFullscreen={isFullscreen}
+                    />
                 )}
             </div>
 
@@ -292,11 +299,10 @@ export default function Display() {
 
             {/* Session Inactivity Warning/Error */}
             {sessionWarning && (
-                <div className={`fixed top-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md rounded-lg shadow-lg z-40 animate-fade-in p-4 flex gap-3 ${
-                    sessionWarning.type === 'warning' 
+                <div className={`fixed top-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md rounded-lg shadow-lg z-40 animate-fade-in p-4 flex gap-3 ${sessionWarning.type === 'warning'
                         ? 'bg-amber-500/90 border border-amber-400 text-amber-900'
                         : 'bg-red-500/90 border border-red-400 text-red-900'
-                }`}>
+                    }`}>
                     <div className="flex-shrink-0 mt-1">
                         {sessionWarning.type === 'warning' ? (
                             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -326,15 +332,7 @@ export default function Display() {
                 onShowSettings={() => setShowSettings(true)}
             />
 
-            {/* Status indicator (auto-hide in fullscreen) */}
-            {(!isFullscreen || controlsVisible) && (
-                <div className="fixed top-4 right-4 flex items-center gap-2 transition-opacity duration-300 z-50">
-                    <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
-                    <span className="text-xs text-gray-500 font-mono uppercase">
-                        {isConnected ? 'Connected' : 'Disconnected'}
-                    </span>
-                </div>
-            )}
+            {/* Status indicator removed: now shown in flip display style above */}
 
             {/* Info Overlay (triggered by 'I' key or info button) */}
             {showInfo && (

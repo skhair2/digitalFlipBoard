@@ -34,7 +34,7 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
 
     useEffect(() => {
         if (Array.isArray(boardState) && boardState.length > 0) {
-            // Flatten boardState if needed, or just use it if it matches totalChars
+            // ...existing code...
             const flat = boardState.flat().slice(0, totalChars)
             if (flat.length < totalChars) {
                 const padding = Array(totalChars - flat.length).fill({ char: ' ', color: null })
@@ -53,13 +53,110 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
                 return
             }
 
-            // Pad message to fit grid
-            const safeMessage = typeof messageToShow === 'string' ? messageToShow : "ERROR"
-            const paddedMessage = safeMessage.padEnd(totalChars, ' ').slice(0, totalChars)
-            const newChars = paddedMessage.split('').map(c => ({ char: c, color: null }))
-            setDisplayGrid(newChars)
+            // --- Smart centering and line splitting logic ---
+            // Split message into logical lines (session code always last)
+            let infoText = messageToShow.toUpperCase()
+            let sessionCode = ''
+            // Try to extract session code (assume last word of message is code if all caps and length 6-8)
+            const words = infoText.trim().split(/\s+/)
+            if (words.length > 2 && /^[A-Z0-9]{6,8}$/.test(words[words.length - 1])) {
+                sessionCode = words.pop()
+                infoText = words.join(' ')
+            }
+
+            // Split infoText into two sentences for spacing
+            let displaySentence = ''
+            let enterSentence = ''
+            if (infoText.includes('ENTER THIS CODE')) {
+                const idx = infoText.indexOf('ENTER THIS CODE')
+                displaySentence = infoText.slice(0, idx).trim()
+                enterSentence = infoText.slice(idx).trim()
+            } else {
+                displaySentence = infoText
+            }
+
+            // Split and center each sentence
+            function splitToLines(text, maxLen) {
+                const words = text.split(' ')
+                const lines = []
+                let line = ''
+                for (let w of words) {
+                    if ((line + ' ' + w).trim().length <= maxLen) {
+                        line = (line + ' ' + w).trim()
+                    } else {
+                        if (line) lines.push(line)
+                        line = w
+                    }
+                }
+                if (line) lines.push(line)
+                return lines
+            }
+
+            let lines = []
+            if (displaySentence) {
+                lines.push(...splitToLines(displaySentence, cols).map(line => {
+                    if (line.length < cols) {
+                        const pad = cols - line.length
+                        const left = Math.floor(pad / 2)
+                        const right = pad - left
+                        return ' '.repeat(left) + line + ' '.repeat(right)
+                    }
+                    return line
+                }))
+            }
+            // Add one empty line between display and enter sentences
+            if (displaySentence && enterSentence) {
+                lines.push(' '.repeat(cols))
+            }
+            if (enterSentence) {
+                lines.push(...splitToLines(enterSentence, cols).map(line => {
+                    if (line.length < cols) {
+                        const pad = cols - line.length
+                        const left = Math.floor(pad / 2)
+                        const right = pad - left
+                        return ' '.repeat(left) + line + ' '.repeat(right)
+                    }
+                    return line
+                }))
+            }
+            // Add one empty line before session code
+            if (sessionCode) {
+                lines.push(' '.repeat(cols))
+                let codeLine = sessionCode
+                if (codeLine.length < cols) {
+                    const pad = cols - codeLine.length
+                    const left = Math.floor(pad / 2)
+                    const right = pad - left
+                    codeLine = ' '.repeat(left) + codeLine + ' '.repeat(right)
+                }
+                lines.push(codeLine)
+            }
+
+            // Center each info line
+            lines = lines.map(line => {
+                if (line.length < cols) {
+                    const pad = cols - line.length
+                    const left = Math.floor(pad / 2)
+                    const right = pad - left
+                    return ' '.repeat(left) + line + ' '.repeat(right)
+                }
+                return line
+            })
+
+            // Vertically center block
+            if (lines.length < rows) {
+                const padRows = rows - lines.length
+                const top = Math.floor(padRows / 2)
+                const bottom = padRows - top
+                for (let i = 0; i < top; i++) lines.unshift(' '.repeat(cols))
+                for (let i = 0; i < bottom; i++) lines.push(' '.repeat(cols))
+            }
+
+            // Flatten to grid
+            const gridChars = lines.join('').padEnd(totalChars, ' ').slice(0, totalChars).split('').map(c => ({ char: c, color: null }))
+            setDisplayGrid(gridChars)
         }
-    }, [currentMessage, overrideMessage, boardState, totalChars])
+    }, [currentMessage, overrideMessage, boardState, totalChars, cols, rows])
 
     // Create accessible label
     const accessibleLabel = useMemo(() => {
