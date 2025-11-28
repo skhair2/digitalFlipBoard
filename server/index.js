@@ -1,3 +1,6 @@
+// ...existing code...
+
+// Place this route AFTER app is initialized
 // Check if session code is live (active Socket.io room)
 app.get('/api/session/exists/:code', (req, res) => {
   const code = req.params.code?.toUpperCase()
