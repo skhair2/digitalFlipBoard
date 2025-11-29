@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDesignStore } from '../../store/designStore'
 import { useSessionStore } from '../../store/sessionStore'
 import { useWebSocket } from '../../hooks/useWebSocket'
@@ -24,26 +24,95 @@ const COLORS = [
 ]
 
 export default function GridEditor() {
-    const { currentDesign, updateCell, clearDesign, saveDesign, designCount, maxDesigns } = useDesignStore()
+    const { currentDesign, updateCell, clearDesign, saveDesign, designCount, maxDesigns, initializeDesign } = useDesignStore()
     const { sendMessage } = useWebSocket()
     const { gridConfig } = useSessionStore()
     const { isPremium } = useAuthStore()
-
-    // Use dynamic grid config
-    const rows = gridConfig?.rows || 6
-    const cols = gridConfig?.cols || 22
+    const rows = currentDesign?.grid_rows || gridConfig?.rows || 6
+    const cols = currentDesign?.grid_cols || gridConfig?.cols || 22
+    const layout = useMemo(() => currentDesign?.layout || [], [currentDesign?.layout])
 
     const [selectedTool, setSelectedTool] = useState('char') // 'char' or 'color'
     const [selectedValue, setSelectedValue] = useState('A') // Char or Color hex
     const [designName, setDesignName] = useState('')
     const [isSaving, setIsSaving] = useState(false)
     const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+    const [selectedCellIndex, setSelectedCellIndex] = useState(0)
+    const [isGridFocused, setIsGridFocused] = useState(false)
+    const gridRef = useRef(null)
+
+    useEffect(() => {
+        if (!layout.length) {
+            initializeDesign()
+        }
+    }, [initializeDesign, layout.length])
+
+    useEffect(() => {
+        if (layout.length && selectedCellIndex >= layout.length) {
+            setSelectedCellIndex(0)
+        }
+    }, [layout.length, selectedCellIndex])
 
     const handleCellClick = (index) => {
-        if (selectedTool === 'char') {
-            updateCell(index, { char: selectedValue, color: null })
-        } else {
-            updateCell(index, { char: ' ', color: selectedValue })
+        setSelectedCellIndex(index)
+        setIsGridFocused(true)
+        gridRef.current?.focus()
+        updateCell(index, selectedTool === 'char'
+            ? { char: selectedValue, color: null }
+            : { char: ' ', color: selectedValue }
+        )
+    }
+
+    const moveSelection = (deltaRow, deltaCol) => {
+        if (!layout.length) return
+        const currentIndex = selectedCellIndex ?? 0
+        const row = Math.floor(currentIndex / cols)
+        const col = currentIndex % cols
+        const nextRow = Math.min(Math.max(row + deltaRow, 0), rows - 1)
+        const nextCol = Math.min(Math.max(col + deltaCol, 0), cols - 1)
+        setSelectedCellIndex(nextRow * cols + nextCol)
+    }
+
+    const handleGridKeyDown = (event) => {
+        if (!isGridFocused || !layout.length) return
+        const { key } = event
+
+        if (key === 'ArrowRight') {
+            event.preventDefault()
+            moveSelection(0, 1)
+            return
+        }
+        if (key === 'ArrowLeft') {
+            event.preventDefault()
+            moveSelection(0, -1)
+            return
+        }
+        if (key === 'ArrowUp') {
+            event.preventDefault()
+            moveSelection(-1, 0)
+            return
+        }
+        if (key === 'ArrowDown') {
+            event.preventDefault()
+            moveSelection(1, 0)
+            return
+        }
+
+        if (key === 'Backspace' || key === 'Delete') {
+            event.preventDefault()
+            updateCell(selectedCellIndex, { char: ' ', color: null })
+            return
+        }
+
+        if (key.length === 1) {
+            const upper = key.toUpperCase()
+            if (CHARS.includes(upper)) {
+                event.preventDefault()
+                setSelectedTool('char')
+                setSelectedValue(upper)
+                updateCell(selectedCellIndex, { char: upper, color: null })
+                moveSelection(0, 1)
+            }
         }
     }
 
@@ -92,24 +161,51 @@ export default function GridEditor() {
         }
     }
 
+    const hasDesignContent = useMemo(() => (
+        Array.isArray(layout) && layout.some(cell => {
+            const charValue = cell?.char || ''
+            return Boolean(charValue.trim()) || Boolean(cell?.color)
+        })
+    ), [layout])
+
     const handleCast = () => {
-        // Convert currentDesign to message format (just the text content)
-        const messageText = currentDesign
-            .map(cell => cell.char)
-            .join('')
-            .trim()
-        
-        if (!messageText) {
-            toast.error('Please add some content before casting')
+        if (!hasDesignContent) {
+            toast.error('Please add characters or color before casting')
             return
         }
 
+        const boardState = []
+        for (let r = 0; r < rows; r++) {
+            const rowCells = []
+            for (let c = 0; c < cols; c++) {
+                const cell = layout[r * cols + c] || { char: ' ', color: null }
+                rowCells.push({
+                    char: typeof cell?.char === 'string' && cell.char.length > 0 ? cell.char[0] : ' ',
+                    color: cell?.color || null
+                })
+            }
+            boardState.push(rowCells)
+        }
+
+        const textSnapshot = layout
+            .map(cell => cell?.char || ' ')
+            .join('')
+            .trim()
+        const fallbackContent = textSnapshot || currentDesign?.name || 'Custom Design'
+
         try {
-            sendMessage(messageText, { animationType: 'flip', colorTheme: 'monochrome' })
+            sendMessage(fallbackContent, {
+                animationType: 'flip',
+                colorTheme: 'monochrome',
+                boardState,
+                designId: currentDesign?.id,
+                designName: currentDesign?.name
+            })
             toast.success('Design cast to display!')
             mixpanel.track('Design Cast to Board', {
               gridSize: `${cols}x${rows}`,
-              messageLength: messageText.length
+              messageLength: textSnapshot.length,
+              designId: currentDesign?.id
             })
         } catch (error) {
             toast.error(error.message || 'Failed to cast to board')
@@ -206,17 +302,42 @@ export default function GridEditor() {
 
             {/* Grid Preview/Editor */}
             <div className="overflow-x-auto pb-4">
+                <div className="flex items-center justify-between mb-2 text-xs text-gray-400">
+                    <p>Tip: Click the grid and type; use arrow keys to move, Backspace to clear.</p>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            gridRef.current?.focus()
+                            setIsGridFocused(true)
+                        }}
+                        className="text-teal-400 hover:text-teal-200"
+                    >
+                        Focus grid
+                    </button>
+                </div>
                 <div
-                    className="grid gap-0.5 min-w-[800px] bg-black p-2 rounded-lg border border-slate-800"
+                    ref={gridRef}
+                    role="grid"
+                    tabIndex={0}
+                    onFocus={() => setIsGridFocused(true)}
+                    onBlur={() => setIsGridFocused(false)}
+                    onKeyDown={handleGridKeyDown}
+                    className="grid gap-0.5 min-w-[800px] bg-black p-2 rounded-lg border border-slate-800 focus:outline-none focus:border-teal-500"
                     style={{
                         gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`
                     }}
                 >
-                    {currentDesign.map((cell, index) => (
+                    {layout.map((cell, index) => (
                         <button
                             key={index}
+                            type="button"
                             onClick={() => handleCellClick(index)}
-                            className="aspect-[2/3] relative group outline-none focus:ring-1 focus:ring-teal-500 rounded-[1px] overflow-hidden"
+                            className={clsx(
+                                'aspect-[2/3] relative group outline-none rounded-[1px] overflow-hidden border border-transparent transition-colors',
+                                selectedCellIndex === index && isGridFocused
+                                    ? 'border-teal-400'
+                                    : 'border-transparent'
+                            )}
                         >
                             <div
                                 className="absolute inset-0 flex items-center justify-center font-mono font-bold text-sm sm:text-base"
