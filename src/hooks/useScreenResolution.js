@@ -27,7 +27,7 @@ export const useScreenResolution = () => {
     })
 
     // Calculate optimal character size based on screen resolution and grid dimensions
-    const calculateOptimalCharSize = useCallback((rows, cols, width, height, dpi = 1) => {
+    const calculateOptimalCharSize = useCallback((rows, cols, width, height) => {
         // Reserve space for padding and gaps
         const horizontalPadding = 16 * 2 // 2rem on each side = 32px
         const verticalPadding = 16 * 2 // 2rem on top/bottom = 32px
@@ -118,8 +118,7 @@ export const useScreenResolution = () => {
             rows,
             cols,
             screenDimensions.width,
-            screenDimensions.height,
-            screenDimensions.dpi
+            screenDimensions.height
         )
 
         setGridDimensions(gridDims)

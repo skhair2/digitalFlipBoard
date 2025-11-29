@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { googleOAuthService } from '../services/googleOAuthService'
 import { supabase } from '../services/supabaseClient'
 import Spinner from '../components/ui/Spinner'
 import Logo from '../components/ui/Logo'

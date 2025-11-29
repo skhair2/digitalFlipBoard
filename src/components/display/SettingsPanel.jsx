@@ -2,6 +2,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import PropTypes from 'prop-types'
 import { useState } from 'react'
 
+const MotionDiv = motion.div
+
 export default function SettingsPanel({ isOpen, onClose, settings, onSettingsChange }) {
     const [localSettings, setLocalSettings] = useState(settings)
 
@@ -16,7 +18,7 @@ export default function SettingsPanel({ isOpen, onClose, settings, onSettingsCha
             {isOpen && (
                 <>
                     {/* Backdrop */}
-                    <motion.div
+                    <MotionDiv
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -25,7 +27,7 @@ export default function SettingsPanel({ isOpen, onClose, settings, onSettingsCha
                     />
 
                     {/* Settings Panel */}
-                    <motion.div
+                    <MotionDiv
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -164,7 +166,7 @@ export default function SettingsPanel({ isOpen, onClose, settings, onSettingsCha
                                 </button>
                             </div>
                         </div>
-                    </motion.div>
+                    </MotionDiv>
                 </>
             )}
         </AnimatePresence>

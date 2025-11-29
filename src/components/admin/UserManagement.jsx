@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useAdminStore } from '../../store/adminStore';
 import * as adminService from '../../services/adminService';
 import Spinner from '../ui/Spinner';
@@ -18,7 +18,7 @@ export default function UserManagement() {
   const [showModal, setShowModal] = useState(false);
   const [updatingUser, setUpdatingUser] = useState(null);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
       const result = await adminService.fetchAllUsers({ limit: 50 });
@@ -30,11 +30,11 @@ export default function UserManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setUsers, setTotalUsers]);
 
   useEffect(() => {
     loadUsers();
-  }, [setUsers, setTotalUsers]);
+  }, [loadUsers]);
 
   const handleSearchUsers = async () => {
     if (!searchQuery.trim()) {

@@ -37,11 +37,9 @@ class WebSocketService {
         let wsUrl = import.meta.env.VITE_WEBSOCKET_URL
 
         if (!wsUrl) {
-            // Build URL from current window location
-            // Extract just the hostname/IP without port, then use backend port 3001
+            // Default to same origin so Vite dev proxy or reverse proxy can forward requests.
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-            const hostname = window.location.hostname // IP or domain, no port
-            wsUrl = `${protocol}//${hostname}:3001`
+            wsUrl = `${protocol}//${window.location.host}`
         }
 
         console.log('[WebSocket] Connecting to:', wsUrl, 'from origin:', window.location.origin)

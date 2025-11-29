@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/authStore'
 import { supabase } from '../services/supabaseClient'
 
 export const useWebSocket = () => {
-    const { sessionCode, isConnected, setConnected, setMessage, recordActivity, setControllerSubscriptionTier } = useSessionStore()
+    const { sessionCode, isConnected, setConnected, setMessage, recordActivity, setControllerSubscriptionTier, controllerHasPaired } = useSessionStore()
     const { user, session } = useAuthStore()
 
     useEffect(() => {
@@ -15,6 +15,11 @@ export const useWebSocket = () => {
         let role = 'display'
         if (window.location.pathname.includes('control')) {
             role = 'controller'
+        }
+
+        if (role === 'controller' && !controllerHasPaired) {
+            console.log('[WebSocket] Controller has not completed pairing yet. Skipping connection attempt.')
+            return
         }
 
         // Get the latest session token for authentication
@@ -117,7 +122,7 @@ export const useWebSocket = () => {
             websocketService.off('session:force-disconnect', handleForceDisconnect)
             websocketService.disconnect()
         }
-    }, [sessionCode, user, session, setConnected, setMessage, recordActivity, setControllerSubscriptionTier])
+    }, [sessionCode, user, session, setConnected, setMessage, recordActivity, setControllerSubscriptionTier, controllerHasPaired])
 
     const sendMessage = useCallback((message, options) => {
         try {

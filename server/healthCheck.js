@@ -132,7 +132,7 @@ export async function handleHealthReady(req, res) {
       logger.warn('health_check_ready', {
         status: 'some_checks_failed',
         failed_checks: Object.entries(checks)
-          .filter(([_, check]) => check.status !== 'healthy')
+          .filter(([, check]) => check.status !== 'healthy')
           .map(([key]) => key)
       });
     }

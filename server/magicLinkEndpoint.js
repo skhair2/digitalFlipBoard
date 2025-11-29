@@ -1,9 +1,19 @@
-/**
- * Standalone Magic Link Endpoint
- * Add this to server/index.js after the send-public-email endpoint
- */
+import { createClient } from '@supabase/supabase-js';
+import { Resend } from 'resend';
+import logger from './logger.js';
 
-app.post('/api/auth/send-magic-link', async (req, res) => {
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+/**
+ * Registers the magic link endpoint on the provided Express app instance.
+ */
+export function registerMagicLinkEndpoint(app) {
+    app.post('/api/auth/send-magic-link', async (req, res) => {
     try {
         const { email } = req.body;
 
@@ -117,4 +127,5 @@ app.post('/api/auth/send-magic-link', async (req, res) => {
             message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
         });
     }
-});
+    });
+}

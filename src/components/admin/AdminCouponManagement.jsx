@@ -68,7 +68,7 @@ export default function AdminCouponManagement() {
     } else if (activeTab === 'analytics') {
       fetchCouponAnalytics();
     }
-  }, [activeTab]);
+  }, [activeTab, fetchCoupons, fetchTemplates, fetchCouponAnalytics]);
 
   // ============================================
   // COUPON GENERATION

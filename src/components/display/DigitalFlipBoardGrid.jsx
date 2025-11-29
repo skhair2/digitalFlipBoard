@@ -6,7 +6,7 @@ import { useScreenResolution, calculateFontSize, getBreakpointSettings } from '.
 
 export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) {
     const { currentMessage, boardState, lastAnimationType, lastColorTheme, gridConfig } = useSessionStore()
-    const { screen, grid, calculateOptimalCharSize } = useScreenResolution()
+    const { screen, calculateOptimalCharSize } = useScreenResolution()
 
     // Use config or defaults
     const rows = gridConfig?.rows || 6
@@ -31,6 +31,22 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
     }, [optimalGridDims, screen.dpi])
 
     const [displayGrid, setDisplayGrid] = useState(Array(totalChars).fill({ char: ' ', color: null }))
+
+    const splitToLines = (text, maxLen) => {
+        const words = text.split(' ')
+        const lines = []
+        let line = ''
+        for (const word of words) {
+            if ((line + ' ' + word).trim().length <= maxLen) {
+                line = (line + ' ' + word).trim()
+            } else {
+                if (line) lines.push(line)
+                line = word
+            }
+        }
+        if (line) lines.push(line)
+        return lines
+    }
 
     useEffect(() => {
         if (Array.isArray(boardState) && boardState.length > 0) {
@@ -76,22 +92,6 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
             }
 
             // Split and center each sentence
-            function splitToLines(text, maxLen) {
-                const words = text.split(' ')
-                const lines = []
-                let line = ''
-                for (let w of words) {
-                    if ((line + ' ' + w).trim().length <= maxLen) {
-                        line = (line + ' ' + w).trim()
-                    } else {
-                        if (line) lines.push(line)
-                        line = w
-                    }
-                }
-                if (line) lines.push(line)
-                return lines
-            }
-
             let lines = []
             if (displaySentence) {
                 lines.push(...splitToLines(displaySentence, cols).map(line => {

@@ -3,43 +3,17 @@
 
 import { supabase } from './supabaseClient'
 const GOOGLE_REDIRECT_URI = `${import.meta.env.VITE_APP_URL}/auth/callback`
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 const GOOGLE_AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
 const GOOGLE_USERINFO_ENDPOINT = 'https://www.googleapis.com/oauth2/v2/userinfo'
-
-// Generate a random state for CSRF protection
-function generateState() {
-    const array = new Uint8Array(32)
-    crypto.getRandomValues(array)
-    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
-}
-
-// Generate code verifier and challenge for PKCE flow
-function generatePKCE() {
-    const verifier = generateState()
-    
-    // Create code challenge from verifier
-    const encoder = new TextEncoder()
-    const data = encoder.encode(verifier)
-    
-    return crypto.subtle.digest('SHA-256', data).then(hashBuffer => {
-        const hashArray = Array.from(new Uint8Array(hashBuffer))
-        const hashString = hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('')
-        const challenge = btoa(hashString)
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=/g, '')
-        
-        return { verifier, challenge }
-    })
-}
 
 export const googleOAuthService = {
     // Start the OAuth flow using Supabase
     startOAuthFlow: async () => {
         try {
             // Use Supabase's built-in Google OAuth provider
-            const { data, error } = await supabase.auth.signInWithOAuth({
+            const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
                     redirectTo: `${import.meta.env.VITE_APP_URL}/auth/callback`

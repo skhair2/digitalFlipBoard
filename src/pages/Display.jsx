@@ -13,7 +13,7 @@ import { useActivityTracking } from '../hooks/useActivityTracking'
 import mixpanel from '../services/mixpanelService'
 
 export default function Display() {
-    const { isConnected, setSessionCode, setBoardId, setConnected, isClockMode, setClockMode, currentMessage, sessionCode, lastSessionCode, controllerSubscriptionTier } = useSessionStore()
+    const { isConnected, setSessionCode, setBoardId, setConnected, isClockMode, setClockMode, currentMessage, sessionCode, controllerSubscriptionTier } = useSessionStore()
     const [searchParams] = useSearchParams()
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [timeString, setTimeString] = useState('')
