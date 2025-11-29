@@ -25,15 +25,32 @@ export const useSessionStore = create(
             controllerSubscriptionTier: 'free', // Track controller's subscription tier (free/pro/premium)
 
             boardState: null, // Array of { char, color }
+            controllerHasPaired: false,
 
-            setSessionCode: (code, isReconnecting = false) => set({ 
-                sessionCode: code,
-                lastSessionCode: code, // Remember this code
-                connectionStartTime: Date.now(),
-                lastActivityTime: Date.now(),
-                isConnectionExpired: false,
-                disconnectReason: null,
-                isReconnect: isReconnecting
+            setSessionCode: (code, options = {}) => set((state) => {
+                const normalizedOptions = typeof options === 'boolean'
+                    ? { isReconnecting: options }
+                    : (options || {})
+
+                const {
+                    isReconnecting = false,
+                    markControllerPaired = false,
+                } = normalizedOptions
+
+                const hasCode = Boolean(code)
+
+                return {
+                    sessionCode: code,
+                    lastSessionCode: hasCode ? code : state.lastSessionCode,
+                    connectionStartTime: hasCode ? Date.now() : null,
+                    lastActivityTime: hasCode ? Date.now() : null,
+                    isConnectionExpired: hasCode ? false : state.isConnectionExpired,
+                    disconnectReason: hasCode ? null : state.disconnectReason,
+                    isReconnect: isReconnecting,
+                    controllerHasPaired: hasCode
+                        ? (markControllerPaired ? true : state.controllerHasPaired)
+                        : false,
+                }
             }),
             recordActivity: () => set({ lastActivityTime: Date.now() }),
             setBoardId: (id) => set({ boardId: id }),
@@ -74,8 +91,10 @@ export const useSessionStore = create(
                 connectionStartTime: null,
                 lastActivityTime: null,
                 isConnectionExpired: true,
-                isReconnect: false
+                isReconnect: false,
+                controllerHasPaired: false,
             }),
+            setControllerPaired: (paired) => set({ controllerHasPaired: paired }),
         }),
         {
             name: 'session-storage',

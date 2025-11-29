@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
+import PropTypes from 'prop-types'
 import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from '../../store/sessionStore'
 import { useAuthStore } from '../../store/authStore'
 import { useUsageStore } from '../../store/usageStore'
-import { useWebSocket } from '../../hooks/useWebSocket'
 import { Button, Input, Card } from '../ui/Components'
 import { ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import mixpanelService from '../../services/mixpanelService'
@@ -11,7 +11,7 @@ import mixpanelService from '../../services/mixpanelService'
 const CONNECTION_TIMEOUT_MS = 15 * 60 * 1000 // 15 minutes
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
 
-export default function SessionPairing() {
+export default function SessionPairing({ suggestedCode }) {
     const [code, setCode] = useState('')
     const [error, setError] = useState('')
     const [showReconnect, setShowReconnect] = useState(false)
@@ -30,10 +30,17 @@ export default function SessionPairing() {
         isConnectionExpired,
         disconnectReason,
         recordActivity,
-        setConnectionExpired
+        setConnectionExpired,
+        sessionCode,
     } = useSessionStore()
     const { user } = useAuthStore()
     const { freeSessionUsed, incrementSession } = useUsageStore()
+
+    useEffect(() => {
+        if (suggestedCode && !code) {
+            setCode(suggestedCode.toUpperCase())
+        }
+    }, [suggestedCode, code])
 
     // Initialize: Check if last session was within 24 hours
     useEffect(() => {
@@ -151,7 +158,7 @@ export default function SessionPairing() {
             incrementSession()
         }
 
-        setSessionCode(trimmedCode, false) // false = new connection, not reconnect
+        setSessionCode(trimmedCode, { isReconnecting: false, markControllerPaired: true })
         localStorage.setItem('lastSessionTime', Date.now().toString()) // Save current time for 24h tracking
         setShowReconnect(false)
         setShowQuickReconnect(false)
@@ -170,7 +177,7 @@ export default function SessionPairing() {
     const handleContinueSession = () => {
         if (!lastSessionCode) return
         
-        setSessionCode(lastSessionCode, true) // true = this is a reconnect (no quota)
+        setSessionCode(lastSessionCode, { isReconnecting: true, markControllerPaired: true })
         localStorage.setItem('lastSessionTime', Date.now().toString()) // Save current time
         setShowReconnect(false)
         setShowQuickReconnect(false)
@@ -198,6 +205,7 @@ export default function SessionPairing() {
     if (isConnected && !isConnectionExpired) {
         const minutes = Math.floor((remainingTime || 0) / 60)
         const seconds = (remainingTime || 0) % 60
+        const activeCode = sessionCode || lastSessionCode || code
 
         // Show amber warning when <2 minutes remaining
         const timerBgColor = isWarning ? 'bg-amber-500/10 border-amber-500/30' : 'bg-teal-500/10 border-teal-500/30'
@@ -230,7 +238,7 @@ export default function SessionPairing() {
                     {/* Connected Code Display */}
                     <div className={`mb-6 border rounded-lg px-4 py-3 ${timerBgColor}`}>
                         <p className="text-xs text-gray-400 mb-1">Connected to</p>
-                        <p className="text-2xl font-mono font-bold text-white tracking-widest">{code}</p>
+                        <p className="text-2xl font-mono font-bold text-white tracking-widest">{activeCode}</p>
                     </div>
                     
                     {/* Connection Timer with Warning */}
@@ -480,4 +488,8 @@ export default function SessionPairing() {
             )}
         </Card>
     )
+}
+
+SessionPairing.propTypes = {
+    suggestedCode: PropTypes.string,
 }

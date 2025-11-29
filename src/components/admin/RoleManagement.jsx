@@ -63,10 +63,13 @@ export default function RoleManagement() {
   // Load data on mount
   useEffect(() => {
     fetchAllAdmins();
+  }, [fetchAllAdmins]);
+
+  useEffect(() => {
     if (activeTab === 'audit') {
       fetchAuditLog();
     }
-  }, []);
+  }, [activeTab, fetchAuditLog]);
 
   // Debounced search
   const handleSearchChange = (email) => {

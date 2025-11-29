@@ -1,37 +1,3 @@
-// ...existing code...
-
-// Place this route AFTER app is initialized
-// Check if session code is live (active Socket.io room)
-app.get('/api/session/exists/:code', (req, res) => {
-  const code = req.params.code?.toUpperCase()
-  if (!code || code.length !== 6) {
-    return res.json({ exists: false })
-  }
-  const room = io.sockets.adapter.rooms.get(code)
-  res.json({ exists: !!room && room.size > 0 })
-})
-// Periodically disconnect stale sockets (idle >5 min)
-const SOCKET_STALE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-setInterval(() => {
-  for (const socket of io.sockets.sockets.values()) {
-    if (!socket.lastActivity) continue;
-    if (Date.now() - socket.lastActivity > SOCKET_STALE_TIMEOUT) {
-      const reason = `Stale socket: idle >${SOCKET_STALE_TIMEOUT / 60000} min`;
-      logger.info('socket_stale_disconnect', {
-        socket_id: socket.id.substring(0, 12),
-        session_code: socket.sessionCode || 'none',
-        user_id: socket.userId || 'anonymous',
-        user_email: socket.userEmail || 'anonymous',
-        client_ip: socket.handshake.address,
-        user_agent: socket.handshake.headers['user-agent'] || 'unknown',
-        last_activity: socket.lastActivity,
-        reason
-      });
-      socket.emit('session:force-disconnect', { reason });
-      socket.disconnect(true);
-    }
-  }
-}, 60 * 1000); // every minute
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -49,6 +15,7 @@ import logger from './logger.js';
 import { connectRedis, sessionStore, activityStore } from './redis.js';
 import { createRateLimiter } from './redisRateLimiter.js';
 import { registerHealthCheckRoutes, readinessMiddleware } from './healthCheck.js';
+import { registerMagicLinkEndpoint } from './magicLinkEndpoint.js';
 
 dotenv.config();
 
@@ -72,7 +39,22 @@ app.use((req, res, next) => {
 });
 
 // Security: CORS Configuration - Only allow specific origins
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',');
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+// Validate ALLOWED_ORIGINS in production
+if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
+  logger.error('ALLOWED_ORIGINS must be set in production', new Error('Missing ALLOWED_ORIGINS'));
+  throw new Error('FATAL: ALLOWED_ORIGINS environment variable must be set in production. Example: ALLOWED_ORIGINS=https://flipdisplay.online,https://www.flipdisplay.online');
+}
+
+// Default to localhost in development
+if (process.env.NODE_ENV !== 'production' && allowedOrigins.length === 0) {
+  allowedOrigins.push('http://localhost:5173', 'http://localhost:3000');
+  logger.info('Using default CORS origins for development', { origins: allowedOrigins });
+}
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -82,6 +64,7 @@ app.use(cors({
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      logger.warn('CORS blocked origin', { origin, allowed_origins: allowedOrigins });
       callback(new Error(`CORS not allowed for origin: ${origin}`));
     }
   },
@@ -148,6 +131,7 @@ app.use((req, res, next) => {
 
 // Register health check routes before protected routes
 registerHealthCheckRoutes(app);
+registerMagicLinkEndpoint(app);
 
 // Security: Apply authentication middleware to all socket connections
 io.use(createAuthMiddleware());
@@ -817,6 +801,41 @@ app.post('/api/admin/sessions/:sessionCode/terminate', (req, res) => {
     });
   }
 });
+
+/**
+ * Check if session code is live (active Socket.io room)
+ */
+app.get('/api/session/exists/:code', (req, res) => {
+  const code = req.params.code?.toUpperCase()
+  if (!code || code.length !== 6) {
+    return res.json({ exists: false })
+  }
+  const room = io.sockets.adapter.rooms.get(code)
+  res.json({ exists: !!room && room.size > 0 })
+})
+
+// Periodically disconnect stale sockets (idle >5 min)
+const SOCKET_STALE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+setInterval(() => {
+  for (const socket of io.sockets.sockets.values()) {
+    if (!socket.lastActivity) continue;
+    if (Date.now() - socket.lastActivity > SOCKET_STALE_TIMEOUT) {
+      const reason = `Stale socket: idle >${SOCKET_STALE_TIMEOUT / 60000} min`;
+      logger.info('socket_stale_disconnect', {
+        socket_id: socket.id.substring(0, 12),
+        session_code: socket.sessionCode || 'none',
+        user_id: socket.userId || 'anonymous',
+        user_email: socket.userEmail || 'anonymous',
+        client_ip: socket.handshake.address,
+        user_agent: socket.handshake.headers['user-agent'] || 'unknown',
+        last_activity: socket.lastActivity,
+        reason
+      });
+      socket.emit('session:force-disconnect', { reason });
+      socket.disconnect(true);
+    }
+  }
+}, 60 * 1000); // every minute
 
 /**
  * 404 handler

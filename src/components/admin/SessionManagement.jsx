@@ -18,7 +18,7 @@ export default function SessionManagement() {
   const [selectedSessionCode, setSelectedSessionCode] = useState(null)
   const [loading, setLoading] = useState(false)
   const [autoRefresh, setAutoRefresh] = useState(true)
-  const [refreshInterval, setRefreshInterval] = useState(5000) // 5 seconds
+  const refreshInterval = 5000 // 5 seconds
   const [filterStatus, setFilterStatus] = useState('all') // all, active, idle, dead
   const [sortBy, setSortBy] = useState('clients') // clients, joined, activity
   const [selectedTabIndex, setSelectedTabIndex] = useState(0)

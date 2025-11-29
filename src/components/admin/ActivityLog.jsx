@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useAdminStore } from '../../store/adminStore';
 import * as adminService from '../../services/adminService';
 import Spinner from '../ui/Spinner';
@@ -14,7 +14,7 @@ export default function ActivityLog() {
   const [error, setError] = useState(null);
   const [filterType, setFilterType] = useState('all');
 
-  const loadActivityLog = async () => {
+  const loadActivityLog = useCallback(async () => {
     try {
       setLoading(true);
       const log = await adminService.fetchAdminActivityLog({ limit: 100 });
@@ -25,11 +25,11 @@ export default function ActivityLog() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setActivityLog]);
 
   useEffect(() => {
     loadActivityLog();
-  }, [setActivityLog]);
+  }, [loadActivityLog]);
 
   const getActivityIcon = (type) => {
     const icons = {

@@ -4,6 +4,8 @@ import { motion, useScroll, useTransform, useMotionValue } from 'framer-motion'
 import { Button } from '../ui/Components'
 import DigitalFlipBoardGrid from '../display/DigitalFlipBoardGrid'
 
+const MotionDiv = motion.div
+
 const MagneticButton = ({ children, ...props }) => {
     const ref = useRef(null)
     const x = useMotionValue(0)
@@ -23,7 +25,7 @@ const MagneticButton = ({ children, ...props }) => {
     }
 
     return (
-        <motion.div
+        <MotionDiv
             ref={ref}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
@@ -31,7 +33,7 @@ const MagneticButton = ({ children, ...props }) => {
             transition={{ type: "spring", stiffness: 150, damping: 15, mass: 0.1 }}
         >
             <Button {...props}>{children}</Button>
-        </motion.div>
+        </MotionDiv>
     )
 }
 
@@ -75,7 +77,7 @@ export default function Hero() {
 
             <div className="container mx-auto px-4 relative z-10">
                 <div className="flex flex-col items-center text-center mb-20">
-                    <motion.div
+                    <MotionDiv
                         initial={{ opacity: 0, y: 30 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, ease: "easeOut" }}
@@ -112,11 +114,11 @@ export default function Hero() {
                                 Open Controller
                             </MagneticButton>
                         </div>
-                    </motion.div>
+                    </MotionDiv>
                 </div>
 
                 {/* Preview Stage */}
-                <motion.div
+                <MotionDiv
                     style={{ y: y2 }}
                     initial={{ opacity: 0, scale: 0.9, rotateX: 20 }}
                     animate={{ opacity: 1, scale: 1, rotateX: 0 }}
@@ -135,26 +137,26 @@ export default function Hero() {
                         <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent opacity-50 pointer-events-none" />
 
                         {/* Floating UI Elements */}
-                        <motion.div
+                        <MotionDiv
                             animate={{ y: [0, -20, 0] }}
                             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                             className="absolute top-12 right-12 glass-panel px-6 py-3 rounded-2xl text-teal-300 font-bold text-sm tracking-wide uppercase"
                         >
                             Live Sync
-                        </motion.div>
+                        </MotionDiv>
 
-                        <motion.div
+                        <MotionDiv
                             animate={{ y: [0, 20, 0] }}
                             transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
                             className="absolute bottom-12 left-12 glass-panel px-6 py-3 rounded-2xl text-purple-300 font-bold text-sm tracking-wide uppercase"
                         >
                             Zero Latency
-                        </motion.div>
+                        </MotionDiv>
                     </div>
 
                     {/* Floor Reflection */}
                     <div className="absolute -bottom-20 left-10 right-10 h-20 bg-gradient-to-b from-teal-500/20 to-transparent blur-3xl opacity-30" />
-                </motion.div>
+                </MotionDiv>
             </div>
         </section>
     )

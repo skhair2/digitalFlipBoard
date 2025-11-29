@@ -1,7 +1,7 @@
 import React from 'react';
 import { emailStyles } from '../styles';
 
-export const MagicLinkEmail = ({ magicLink, email }) => {
+export const MagicLinkEmail = ({ magicLink }) => {
     return (
         <div style={emailStyles.main}>
             <div style={emailStyles.container}>

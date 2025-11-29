@@ -1,17 +1,8 @@
-import crypto from 'crypto';
-
-/**
- * Generate a secure magic link token
- */
-function generateMagicLinkToken() {
-    return crypto.randomBytes(32).toString('hex');
-}
-
 /**
  * POST /api/auth/send-magic-link
  * Generate and send a magic link via Resend (not Supabase)
  */
-export const sendMagicLinkHandler = async (req, res, supabase, resend, logger) => {
+export const sendMagicLinkHandler = async (req, res, supabase, logger) => {
     try {
         const { email } = req.body;
 
@@ -37,7 +28,7 @@ export const sendMagicLinkHandler = async (req, res, supabase, resend, logger) =
         const redirectUrl = process.env.VITE_APP_URL || 'http://localhost:5173';
         const callbackUrl = `${redirectUrl}/auth/callback`;
 
-        const { data: otpData, error: otpError } = await supabase.auth.signInWithOtp({
+        const { error: otpError } = await supabase.auth.signInWithOtp({
             email,
             options: {
                 emailRedirectTo: callbackUrl,

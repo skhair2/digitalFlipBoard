@@ -1,15 +1,17 @@
 import { motion } from 'framer-motion'
 import { usePlanLimits } from '../../hooks/usePlanLimits'
 
+const MotionDiv = motion.div
+
 export default function PlanLimitsBanner({ feature, message, showUpgradeButton = true }) {
-  const { plan, limits, isPro, isPremium } = usePlanLimits()
+  const { plan, isPro, isPremium } = usePlanLimits()
 
   if (!feature || (isPro && feature !== 'advanced')) {
     return null
   }
 
   return (
-    <motion.div
+    <MotionDiv
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 mb-4"
@@ -30,6 +32,6 @@ export default function PlanLimitsBanner({ feature, message, showUpgradeButton =
           </a>
         )}
       </div>
-    </motion.div>
+    </MotionDiv>
   )
 }

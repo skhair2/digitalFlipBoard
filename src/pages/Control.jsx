@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import SessionPairing from '../components/control/SessionPairing'
 import MessageInput from '../components/control/MessageInput'
@@ -23,10 +23,14 @@ import RoleManagement from '../components/control/RoleManagement'
 import SessionManagement from '../components/admin/SessionManagement'
 
 export default function Control() {
-    const { sessionCode, isConnected, setSessionCode, setConnected, setBoardId, isClockMode, setClockMode } = useSessionStore()
+    const { sessionCode, isConnected, setSessionCode, setConnected, setBoardId, isClockMode, setClockMode, controllerHasPaired } = useSessionStore()
     const [searchParams] = useSearchParams()
     const [message, setMessage] = useState('')
     const [selectedTabIndex, setSelectedTabIndex] = useState(0)
+    const boardIdFromQuery = useMemo(() => {
+        const boardId = searchParams.get('boardId')
+        return boardId ? boardId.toUpperCase() : null
+    }, [searchParams])
 
     // Call useWebSocket hook - it handles null sessionCode internally
     useEffect(() => {
@@ -50,10 +54,11 @@ export default function Control() {
             const connectionTime = useSessionStore.getState().connectionStartTime
             if (!connectionTime || Date.now() - connectionTime > 15 * 60 * 1000) {
                 // Session is expired or connection time is missing - clear it
-                setSessionCode(null)
+                setConnected(false)
+                setSessionCode(null, { markControllerPaired: false })
             }
         }
-    }, [])
+    }, [sessionCode, searchParams, setConnected, setSessionCode])
 
     // Check for boardId in URL
     useEffect(() => {
@@ -62,8 +67,6 @@ export default function Control() {
         
         if (boardId) {
             setBoardId(boardId)
-            setSessionCode(boardId) // Use boardId as session code for now
-            setConnected(true) // Assume connected for managed boards
         }
 
         // Set active tab if specified in URL
@@ -73,16 +76,18 @@ export default function Control() {
                 setSelectedTabIndex(tabIndex)
             }
         }
-    }, [searchParams, setBoardId, setSessionCode, setConnected])
+    }, [searchParams, setBoardId])
 
     useEffect(() => {
         mixpanel.track('Control Page Viewed')
     }, [])
 
-    if (!sessionCode && !searchParams.get('boardId')) {
+    const shouldShowPairing = !controllerHasPaired || !sessionCode
+
+    if (shouldShowPairing) {
         return (
             <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-4">
-                <SessionPairing />
+                <SessionPairing suggestedCode={boardIdFromQuery || undefined} />
             </div>
         )
     }
@@ -223,7 +228,10 @@ export default function Control() {
                     <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
                     {isConnected && (
                         <button
-                            onClick={() => setSessionCode(null)}
+                            onClick={() => {
+                                setConnected(false)
+                                setSessionCode(null, { markControllerPaired: false })
+                            }}
                             className="px-3 py-2 text-sm font-medium bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
                             title="Disconnect and connect to a new display"
                         >

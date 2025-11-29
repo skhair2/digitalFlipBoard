@@ -1,5 +1,4 @@
 import { useRef } from 'react'
-// eslint-disable-next-line no-unused-vars
 import { motion, useMotionTemplate, useMotionValue } from 'framer-motion'
 import {
     SparklesIcon,
@@ -10,6 +9,10 @@ import {
     ShieldCheckIcon
 } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
+
+const MotionDiv = motion.div
+const MotionHeading = motion.h2
+const MotionParagraph = motion.p
 
 const features = [
     {
@@ -56,7 +59,7 @@ const features = [
     }
 ]
 
-function FeatureCard({ feature, index }) {
+function FeatureCard({ feature }) {
     const ref = useRef(null)
     const mouseX = useMotionValue(0)
     const mouseY = useMotionValue(0)
@@ -68,7 +71,7 @@ function FeatureCard({ feature, index }) {
     }
 
     return (
-        <motion.div
+        <MotionDiv
             ref={ref}
             onMouseMove={handleMouseMove}
             variants={{
@@ -81,7 +84,7 @@ function FeatureCard({ feature, index }) {
             )}
         >
             {/* Spotlight Effect */}
-            <motion.div
+            <MotionDiv
                 className="pointer-events-none absolute -inset-px rounded-3xl opacity-0 transition duration-300 group-hover:opacity-100"
                 style={{
                     background: useMotionTemplate`
@@ -105,7 +108,7 @@ function FeatureCard({ feature, index }) {
             <p className="text-gray-400 leading-relaxed">
                 {feature.description}
             </p>
-        </motion.div>
+        </MotionDiv>
     )
 }
 
@@ -117,15 +120,15 @@ export default function Features() {
 
             <div className="container mx-auto px-4 relative z-10">
                 <div className="text-center mb-20">
-                    <motion.h2
+                    <MotionHeading
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         className="text-4xl lg:text-5xl font-bold text-white mb-6"
                     >
                         Everything You Need
-                    </motion.h2>
-                    <motion.p
+                    </MotionHeading>
+                    <MotionParagraph
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
@@ -133,10 +136,10 @@ export default function Features() {
                         className="text-xl text-gray-400 max-w-2xl mx-auto"
                     >
                         Powerful features wrapped in a simple, beautiful interface
-                    </motion.p>
+                    </MotionParagraph>
                 </div>
 
-                <motion.div
+                <MotionDiv
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true, margin: "-100px" }}
@@ -151,10 +154,10 @@ export default function Features() {
                     }}
                     className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto"
                 >
-                    {features.map((feature, index) => (
+                    {features.map((feature) => (
                         <FeatureCard key={feature.title} feature={feature} />
                     ))}
-                </motion.div>
+                </MotionDiv>
             </div>
         </section>
     )
