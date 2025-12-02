@@ -1,6 +1,5 @@
 import { supabase } from './supabaseClient';
 import mixpanel from './mixpanelService';
-import { checkAdminRateLimit } from './adminRateLimit';
 import DOMPurify from 'dompurify';
 
 /**
@@ -12,55 +11,83 @@ import DOMPurify from 'dompurify';
 // CSRF token storage (in production, use Redis or Supabase)
 const csrfTokens = new Map();
 
-/**
- * Generate a CSRF token for admin operations
- * @param {string} userId - User ID
- * @returns {string} CSRF token
- */
-export function generateCSRFToken(userId) {
-  // Generate random token
-  const token = Math.random().toString(36).substring(2, 15) + 
-                Math.random().toString(36).substring(2, 15);
-  
-  // Store token with expiry (10 minutes)
-  const expiryTime = Date.now() + 600000;
-  csrfTokens.set(token, { userId, expiryTime });
-  
-  // Cleanup expired tokens
-  for (const [key, value] of csrfTokens) {
-    if (Date.now() > value.expiryTime) {
-      csrfTokens.delete(key);
+const TOKEN_CLEANUP_INTERVAL = 60 * 1000;
+
+function cleanupExpiredCsrfTokens() {
+  const now = Date.now();
+  for (const [token, meta] of csrfTokens) {
+    if (now > meta.expiresAt) {
+      csrfTokens.delete(token);
     }
   }
-  
-  return token;
+}
+
+setInterval(cleanupExpiredCsrfTokens, TOKEN_CLEANUP_INTERVAL);
+
+/**
+ * Generate a CSRF token by calling the secure backend endpoint
+ * @param {string} userId
+ * @param {'grant'|'revoke'} operation
+ */
+export async function generateCSRFToken(userId, operation = 'grant') {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const sessionResponse = await supabase.auth.getSession();
+  const session = sessionResponse?.data?.session || sessionResponse.session;
+  const accessToken = session?.access_token;
+
+  if (!accessToken) {
+    throw new Error('Authentication required to generate CSRF token');
+  }
+
+  const url = new URL(`${API_URL}/api/admin/csrf-token`);
+  url.searchParams.set('operation', operation);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => ({ error: 'Unknown error' }));
+
+  if (!response.ok) {
+    const error = new Error(payload.error || 'Failed to fetch CSRF token');
+    error.rateLimit = payload.rateLimit || null;
+    throw error;
+  }
+
+  const expiresAt = typeof payload.expiresAt === 'string'
+    ? Date.parse(payload.expiresAt)
+    : payload.expiresAt;
+
+  csrfTokens.set(payload.csrfToken, {
+    userId,
+    operation,
+    expiresAt,
+  });
+
+  return {
+    csrfToken: payload.csrfToken,
+    expiresAt,
+    rateLimit: payload.rateLimit || null,
+  };
 }
 
 /**
- * Validate CSRF token
- * @param {string} token - CSRF token
- * @param {string} userId - User ID
- * @returns {boolean} True if valid
+ * Validate CSRF token stored locally
  */
-export function validateCSRFToken(token, userId) {
-  if (!csrfTokens.has(token)) {
+export function validateCSRFToken(token, userId, operation) {
+  const tokenData = csrfTokens.get(token);
+  if (!tokenData) {
     return false;
   }
-  
-  const tokenData = csrfTokens.get(token);
-  
-  // Check expiry
-  if (Date.now() > tokenData.expiryTime) {
+  if (tokenData.userId !== userId || tokenData.operation !== operation) {
+    return false;
+  }
+  if (Date.now() > tokenData.expiresAt) {
     csrfTokens.delete(token);
     return false;
   }
-  
-  // Check user match
-  if (tokenData.userId !== userId) {
-    return false;
-  }
-  
-  // Token is valid - consume it (one-time use)
   csrfTokens.delete(token);
   return true;
 }
@@ -189,16 +216,9 @@ export async function getUserWithRoles(userId) {
  * @param {string} reason - Optional reason for audit log
  * @returns {Promise<Object>} Success/error result
  */
-export async function grantAdminRole(targetUserId, adminId, reason = null, csrfToken = null) {
+export async function grantAdminRole(targetUserId, adminId, reason = null, csrfToken = null, operation = 'grant') {
   try {
-    // SECURITY: Check rate limit
-    const rateLimitCheck = checkAdminRateLimit(adminId, 'grant');
-    if (!rateLimitCheck.allowed) {
-      throw new Error(`Rate limited. Try again in ${rateLimitCheck.retryAfter} seconds.`);
-    }
-
-    // SECURITY: Validate CSRF token
-    if (!csrfToken || !validateCSRFToken(csrfToken, adminId)) {
+    if (!csrfToken || !validateCSRFToken(csrfToken, adminId, operation)) {
       throw new Error('Invalid or missing CSRF token. Request a new one.');
     }
 
@@ -324,16 +344,9 @@ export async function grantAdminRole(targetUserId, adminId, reason = null, csrfT
  * @param {string} reason - Optional reason for audit log
  * @returns {Promise<Object>} Success/error result
  */
-export async function revokeAdminRole(targetUserId, adminId, reason = null, csrfToken = null) {
+export async function revokeAdminRole(targetUserId, adminId, reason = null, csrfToken = null, operation = 'revoke') {
   try {
-    // SECURITY: Check rate limit
-    const rateLimitCheck = checkAdminRateLimit(adminId, 'revoke');
-    if (!rateLimitCheck.allowed) {
-      throw new Error(`Rate limited. Try again in ${rateLimitCheck.retryAfter} seconds.`);
-    }
-
-    // SECURITY: Validate CSRF token
-    if (!csrfToken || !validateCSRFToken(csrfToken, adminId)) {
+    if (!csrfToken || !validateCSRFToken(csrfToken, adminId, operation)) {
       throw new Error('Invalid or missing CSRF token. Request a new one.');
     }
 
