@@ -8,7 +8,7 @@ import { useAuthStore } from '../../store/authStore';
  */
 
 export default function ProtectedAdminRoute({ children }) {
-  const { user, profile, loading } = useAuthStore();
+  const { user, isAdmin, loading } = useAuthStore();
 
   if (loading) {
     return (
@@ -28,7 +28,7 @@ export default function ProtectedAdminRoute({ children }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (profile?.role !== 'admin') {
+  if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
