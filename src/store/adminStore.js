@@ -9,7 +9,7 @@ import * as adminService from '../services/adminService';
 
 export const useAdminStore = create(
   persist(
-    (set) => ({
+    (set, get) => ({
       // State
       isAdminViewActive: false,
       currentAdminUserId: null,
@@ -30,6 +30,12 @@ export const useAdminStore = create(
       usersPerPage: 25,
       sortBy: 'created_at',
       sortOrder: 'desc',
+      invoiceRows: [],
+      invoiceLoading: false,
+      invoiceError: null,
+      invoiceSummary: null,
+      invoiceFilterEmail: '',
+      invoicePagination: null,
 
       // Admin View Toggle
       setAdminViewActive: (isActive) => set({ isAdminViewActive: isActive }),
@@ -174,6 +180,65 @@ export const useAdminStore = create(
         return { success, error };
       },
 
+
+      setInvoiceFilterEmail: (value) => set({ invoiceFilterEmail: value, invoicePagination: null }),
+
+      loadInvoiceLedger: async (options = {}) => {
+        const emailFilter = options.emailFilter ?? get().invoiceFilterEmail;
+        const limit = options.limit ?? 25;
+        set({ invoiceLoading: true, invoiceError: null });
+
+        const payload = await adminService.fetchInvoiceLedger({
+          emailFilter,
+          limit
+        });
+
+        if (payload.error) {
+          set({ invoiceLoading: false, invoiceError: payload.error });
+          return payload;
+        }
+
+        set({
+          invoiceRows: payload.invoices || [],
+          invoiceSummary: payload.summary || null,
+          invoicePagination: payload.pagination || null,
+          invoiceLoading: false,
+          invoiceError: null,
+          invoiceFilterEmail: emailFilter
+        });
+
+        return payload;
+      },
+
+      loadMoreInvoices: async () => {
+        const { invoicePagination, invoiceFilterEmail, invoiceRows, invoiceSummary } = get();
+
+        if (!invoicePagination?.nextCursor) {
+          return { success: false, error: 'No more invoices' };
+        }
+
+        set({ invoiceLoading: true, invoiceError: null });
+
+        const payload = await adminService.fetchInvoiceLedger({
+          emailFilter: invoiceFilterEmail,
+          cursor: invoicePagination.nextCursor,
+          limit: invoicePagination.limit || 25
+        });
+
+        if (payload.error) {
+          set({ invoiceLoading: false, invoiceError: payload.error });
+          return payload;
+        }
+
+        set({
+          invoiceRows: [...invoiceRows, ...(payload.invoices || [])],
+          invoiceSummary: payload.summary || invoiceSummary,
+          invoicePagination: payload.pagination || null,
+          invoiceLoading: false
+        });
+
+        return payload;
+      },
       demoteFromAdmin: async (userId, adminId) => {
         const { success, error } = await adminService.demoteAdminToUser(userId, adminId);
         

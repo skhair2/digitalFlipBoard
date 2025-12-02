@@ -33,16 +33,40 @@ export default function AdminSidebar({ currentSection, onSectionChange }) {
       description: 'Coupon Management'
     },
     {
+      id: 'invoices',
+      label: 'Invoices',
+      icon: '💳',
+      description: 'Customer billing ledger'
+    },
+    {
       id: 'activity',
       label: 'Activity',
       icon: '📋',
       description: 'Admin Activity Log'
     },
     {
+      id: 'sessions',
+      label: 'Sessions',
+      icon: '🔌',
+      description: 'Live Connections'
+    },
+    {
       id: 'health',
       label: 'Health',
       icon: '🔧',
       description: 'System Status'
+    },
+    {
+      id: 'moderation',
+      label: 'Moderation',
+      icon: '🛡️',
+      description: 'Content Log'
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      icon: '⚙️',
+      description: 'Global Config'
     }
   ];
 
@@ -60,11 +84,10 @@ export default function AdminSidebar({ currentSection, onSectionChange }) {
           <button
             key={section.id}
             onClick={() => onSectionChange(section.id)}
-            className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center gap-3 ${
-              currentSection === section.id
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-300 hover:bg-gray-700'
-            }`}
+            className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center gap-3 ${currentSection === section.id
+              ? 'bg-indigo-600 text-white'
+              : 'text-gray-300 hover:bg-gray-700'
+              }`}
           >
             <span className="text-xl">{section.icon}</span>
             <div>
