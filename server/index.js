@@ -447,8 +447,18 @@ io.on('connection', (socket) => {
       logger.error('Failed to save session to Redis', err, { session_code: sessionCode, socket_id: socket.id.substring(0, 12) });
     });
 
+    const roomBeforeJoin = io.sockets.adapter.rooms.get(sessionCode);
+    const roomSizeBeforeJoin = roomBeforeJoin?.size || 0;
+
     socket.join(sessionCode);
-    const roomSize = io.sockets.adapter.rooms.get(sessionCode)?.size || 1;
+    const roomSize = io.sockets.adapter.rooms.get(sessionCode)?.size || roomSizeBeforeJoin + 1;
+
+    logger.debug('session_room_state', {
+      session_code: sessionCode,
+      role: socket.role,
+      room_size_before: roomSizeBeforeJoin,
+      room_size_after: roomSize
+    });
 
     recordSessionEvent({
       type: 'socket_connected',
@@ -472,6 +482,25 @@ io.on('connection', (socket) => {
       role: socket.role
     });
 
+    if (socket.role === 'controller' && roomSizeBeforeJoin === 0) {
+      logger.warn('controller_connected_before_display', {
+        session_code: sessionCode,
+        socket_id: socket.id.substring(0, 12),
+        client_ip: clientIp,
+        user_agent: userAgent,
+        room_size: roomSize
+      });
+
+      recordSessionEvent({
+        type: 'controller_connected_before_display',
+        sessionCode,
+        clientIp,
+        userAgent,
+        roomSize,
+        socketId: socket.id.substring(0, 12)
+      });
+    }
+
     // Only emit connection:status when a controller joins
     if (socket.role === 'controller') {
       logger.debug('emitting_connection_status', {
@@ -492,7 +521,7 @@ io.on('connection', (socket) => {
 
     // Fetch and send controller's subscription tier to display (async operation)
     if (userId && socket.role === 'controller') {
-      (async () => {
+      const emitControllerTier = async () => {
         try {
           logger.debug('fetching_user_profile_tier', {
             user_id: userId,
@@ -511,24 +540,27 @@ io.on('connection', (socket) => {
               error: error.message,
               session_code: sessionCode
             });
-          } else {
-            const tier = profile?.subscription_tier || 'free';
-            logger.info('sending_controller_tier', {
-              session_code: sessionCode,
-              user_id: userId,
-              subscription_tier: tier,
-              room_size: io.sockets.adapter.rooms.get(sessionCode)?.size || 0
-            });
-            // Send controller's tier to all clients in the room
-            io.to(sessionCode).emit('controller:tier', { tier });
+            return;
           }
+
+          const tier = profile?.subscription_tier || 'free';
+          logger.info('sending_controller_tier', {
+            session_code: sessionCode,
+            user_id: userId,
+            subscription_tier: tier,
+            room_size: io.sockets.adapter.rooms.get(sessionCode)?.size || 0
+          });
+          // Send controller's tier to all clients in the room
+          io.to(sessionCode).emit('controller:tier', { tier });
         } catch (error) {
           logger.error('Error fetching controller tier', error, {
             user_id: userId,
             session_code: sessionCode
           });
         }
-      })();
+      };
+
+      emitControllerTier();
     } else {
       logger.debug('no_user_id_skipping_tier_fetch', {
         session_code: sessionCode,
@@ -1138,27 +1170,51 @@ app.get('/api/admin/invoices', async (req, res) => {
  */
 app.get('/api/session/exists/:code', (req, res) => {
   const code = req.params.code?.toUpperCase()
+  const clientIp = req.ip || req.socket?.remoteAddress
+  const origin = req.headers.origin || 'direct'
+  const userAgent = req.headers['user-agent'] || 'unknown'
+
   if (!code || code.length !== 6) {
+    logger.warn('session_exists_check_invalid_code', {
+      session_code: code || 'invalid',
+      origin,
+      ip: clientIp,
+      user_agent: userAgent
+    })
+
     recordSessionEvent({
       type: 'session_exists_check',
       sessionCode: code || 'invalid',
       status: 'invalid_code',
-      origin: req.headers.origin || 'direct',
-      ip: req.ip || req.socket?.remoteAddress,
-      userAgent: req.headers['user-agent'] || 'unknown',
+      origin,
+      ip: clientIp,
+      userAgent,
     })
+
     return res.json({ exists: false })
   }
+
   const room = io.sockets.adapter.rooms.get(code)
   const exists = !!room && room.size > 0
+
+  const logPayload = {
+    session_code: code,
+    status: exists ? 'online' : 'offline',
+    room_size: room?.size || 0,
+    origin,
+    ip: clientIp,
+    user_agent: userAgent
+  }
+
+  logger.info('session_exists_check', logPayload)
 
   recordSessionEvent({
     type: 'session_exists_check',
     sessionCode: code,
     status: exists ? 'online' : 'offline',
-    origin: req.headers.origin || 'direct',
-    ip: req.ip || req.socket?.remoteAddress,
-    userAgent: req.headers['user-agent'] || 'unknown',
+    origin,
+    ip: clientIp,
+    userAgent,
     roomSize: room?.size || 0,
   })
 
