@@ -37,6 +37,8 @@ export default function RoleManagement() {
     revokingRole,
     grantError,
     revokeError,
+    grantRateLimit,
+    revokeRateLimit,
     auditLogs,
     auditLoading,
     auditHasMore,
@@ -99,6 +101,12 @@ export default function RoleManagement() {
     if (result.success) {
       setRevokeReason('');
     }
+  };
+
+  const getCooldownSeconds = (rateLimit) => {
+    if (!rateLimit?.resetAt) return null;
+    const remaining = Math.max(0, Math.ceil((rateLimit.resetAt - Date.now()) / 1000));
+    return remaining;
   };
 
   // Tab switching with data fetch
@@ -463,6 +471,16 @@ export default function RoleManagement() {
                   <p>✓ View audit logs</p>
                 </div>
               </div>
+
+              {grantRateLimit && (
+                <div className="pt-3">
+                  <div className="px-3 py-2 bg-amber-500/10 border border-amber-500/50 rounded-lg text-amber-200 text-xs">
+                    {grantRateLimit.remaining === 0
+                      ? `Rate limited. Try again in ${getCooldownSeconds(grantRateLimit)}s`
+                      : `${grantRateLimit.remaining}/${grantRateLimit.limit} grant attempts remaining`}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
@@ -475,7 +493,7 @@ export default function RoleManagement() {
               </button>
               <button
                 onClick={handleGrantClick}
-                disabled={!grantVerificationConfirmed || grantingRole === selectedUser.id}
+                disabled={!grantVerificationConfirmed || grantingRole === selectedUser.id || grantRateLimit?.remaining === 0}
                 className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg transition-colors font-medium"
               >
                 {grantingRole === selectedUser.id ? 'Granting...' : 'Grant Admin'}
@@ -522,6 +540,16 @@ export default function RoleManagement() {
               <div className="p-3 bg-amber-500/10 border border-amber-500/50 rounded text-amber-300 text-sm">
                 This action cannot be undone. The user will lose all admin privileges immediately.
               </div>
+
+              {revokeRateLimit && (
+                <div className="pt-3">
+                  <div className="px-3 py-2 bg-amber-500/10 border border-amber-500/50 rounded-lg text-amber-200 text-xs">
+                    {revokeRateLimit.remaining === 0
+                      ? `Rate limited. Try again in ${getCooldownSeconds(revokeRateLimit)}s`
+                      : `${revokeRateLimit.remaining}/${revokeRateLimit.limit} revoke attempts remaining`}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
@@ -534,7 +562,7 @@ export default function RoleManagement() {
               </button>
               <button
                 onClick={handleRevokeConfirm}
-                disabled={revokingRole === selectedUser.userId}
+                disabled={revokingRole === selectedUser.userId || revokeRateLimit?.remaining === 0}
                 className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg transition-colors font-medium"
               >
                 {revokingRole === selectedUser.userId ? 'Revoking...' : 'Revoke'}

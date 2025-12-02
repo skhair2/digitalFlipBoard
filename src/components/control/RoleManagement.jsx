@@ -65,7 +65,14 @@ export default function RoleManagement() {
       setSuccess(null)
 
       // Generate CSRF token
-      const csrfToken = generateCSRFToken(user.id)
+      const { csrfToken, rateLimit } = await generateCSRFToken(user.id, 'grant')
+
+      if (rateLimit && rateLimit.remaining === 0) {
+        setRateLimitError('Rate limited. Try again shortly.')
+        const resetAt = rateLimit.resetAt || 0
+        const seconds = Math.max(0, Math.ceil((resetAt - Date.now()) / 1000))
+        setShowRateLimitCountdown(seconds)
+      }
 
       // Grant role
       await grantAdminRole(searchEmail, user.id, reason || null, csrfToken)
@@ -110,6 +117,12 @@ export default function RoleManagement() {
       } else {
         setError(`Failed to grant admin role: ${message}`)
       }
+
+        if (err.rateLimit?.remaining === 0) {
+          const resetAt = err.rateLimit.resetAt || 0
+          const seconds = Math.max(0, Math.ceil((resetAt - Date.now()) / 1000))
+          setShowRateLimitCountdown(seconds)
+        }
       
       mixpanel.track('Admin Grant Failed', { email: searchEmail, error: message })
     } finally {
@@ -136,7 +149,14 @@ export default function RoleManagement() {
       setSuccess(null)
 
       // Generate CSRF token
-      const csrfToken = generateCSRFToken(user.id)
+      const { csrfToken, rateLimit } = await generateCSRFToken(user.id, 'revoke')
+
+      if (rateLimit && rateLimit.remaining === 0) {
+        setRateLimitError('Rate limited. Try again shortly.')
+        const resetAt = rateLimit.resetAt || 0
+        const seconds = Math.max(0, Math.ceil((resetAt - Date.now()) / 1000))
+        setShowRateLimitCountdown(seconds)
+      }
 
       // Revoke role
       await revokeAdminRole(revokeEmail, user.id, revokeReason || null, csrfToken)
@@ -181,6 +201,12 @@ export default function RoleManagement() {
       } else {
         setError(`Failed to revoke admin role: ${message}`)
       }
+
+        if (err.rateLimit?.remaining === 0) {
+          const resetAt = err.rateLimit.resetAt || 0
+          const seconds = Math.max(0, Math.ceil((resetAt - Date.now()) / 1000))
+          setShowRateLimitCountdown(seconds)
+        }
       
       mixpanel.track('Admin Revoke Failed', { email: revokeEmail, error: message })
     } finally {

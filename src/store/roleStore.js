@@ -38,6 +38,8 @@ export const useRoleStore = create(
       revokingRole: null,
       grantError: null,
       revokeError: null,
+      grantRateLimit: null,
+      revokeRateLimit: null,
 
       // ============================================
       // STATE: Audit Log
@@ -225,12 +227,19 @@ export const useRoleStore = create(
           return;
         }
 
-        set({ grantingRole: selectedUser.id, grantError: null });
+        set({ grantingRole: selectedUser.id, grantError: null, grantRateLimit: null });
         try {
+          const { csrfToken, rateLimit } = await permissionService.generateCSRFToken(adminId, 'grant');
+          if (rateLimit) {
+            set({ grantRateLimit: rateLimit });
+          }
+
           const result = await permissionService.grantAdminRole(
             selectedUser.id,
             adminId,
-            reason
+            reason,
+            csrfToken,
+            'grant'
           );
 
           if (result.success) {
@@ -242,6 +251,7 @@ export const useRoleStore = create(
               showGrantModal: false,
               grantVerificationEmail: '',
               grantVerificationConfirmed: false,
+              grantRateLimit: rateLimit || null,
             });
 
             mixpanel.track('Admin Role Granted UI', {
@@ -254,11 +264,13 @@ export const useRoleStore = create(
             throw new Error(result.error);
           }
         } catch (error) {
+          const rateLimit = error?.rateLimit || null;
           set({
-            grantError: error.message,
+            grantError: error?.message || 'Failed to grant admin role',
             grantingRole: null,
+            grantRateLimit: rateLimit,
           });
-          return { success: false, error: error.message };
+          return { success: false, error: error?.message || 'Failed to grant admin role', rateLimit };
         }
       },
 
@@ -297,12 +309,19 @@ export const useRoleStore = create(
           return;
         }
 
-        set({ revokingRole: selectedUser.userId, revokeError: null });
+        set({ revokingRole: selectedUser.userId, revokeError: null, revokeRateLimit: null });
         try {
+          const { csrfToken, rateLimit } = await permissionService.generateCSRFToken(adminId, 'revoke');
+          if (rateLimit) {
+            set({ revokeRateLimit: rateLimit });
+          }
+
           const result = await permissionService.revokeAdminRole(
             selectedUser.userId,
             adminId,
-            reason
+            reason,
+            csrfToken,
+            'revoke'
           );
 
           if (result.success) {
@@ -313,6 +332,7 @@ export const useRoleStore = create(
               revokingRole: null,
               showRevokeConfirmModal: false,
               selectedUser: null,
+              revokeRateLimit: rateLimit || null,
             });
 
             mixpanel.track('Admin Role Revoked UI', {
@@ -325,11 +345,13 @@ export const useRoleStore = create(
             throw new Error(result.error);
           }
         } catch (error) {
+          const rateLimit = error?.rateLimit || null;
           set({
-            revokeError: error.message,
+            revokeError: error?.message || 'Failed to revoke admin role',
             revokingRole: null,
+            revokeRateLimit: rateLimit,
           });
-          return { success: false, error: error.message };
+          return { success: false, error: error?.message || 'Failed to revoke admin role', rateLimit };
         }
       },
 

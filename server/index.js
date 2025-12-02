@@ -9,6 +9,8 @@ import { createClient } from '@supabase/supabase-js';
 // Import security modules
 import { createAuthMiddleware, verifyToken } from './auth.js';
 import { messageSchema, emailSchema, validatePayload } from './validation.js';
+import { recordSessionEvent, getRecentSessionEvents, getSessionEvents } from './sessionTracker.js';
+import { issueCsrfToken, RateLimitError } from './adminSecurity.js';
 
 // Import infrastructure modules
 import logger from './logger.js';
@@ -38,6 +40,8 @@ app.use((req, res, next) => {
   next();
 });
 
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
 // Security: CORS Configuration - Only allow specific origins
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
@@ -45,21 +49,26 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .filter(Boolean);
 
 // Validate ALLOWED_ORIGINS in production
-if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
+if (!isDevelopment && allowedOrigins.length === 0) {
   logger.error('ALLOWED_ORIGINS must be set in production', new Error('Missing ALLOWED_ORIGINS'));
   throw new Error('FATAL: ALLOWED_ORIGINS environment variable must be set in production. Example: ALLOWED_ORIGINS=https://flipdisplay.online,https://www.flipdisplay.online');
 }
 
-// Default to localhost in development
-if (process.env.NODE_ENV !== 'production' && allowedOrigins.length === 0) {
+// Default to localhost in development when explicit origins exist
+if (isDevelopment && allowedOrigins.length === 0) {
   allowedOrigins.push('http://localhost:5173', 'http://localhost:3000');
-  logger.info('Using default CORS origins for development', { origins: allowedOrigins });
+  logger.info('Using default CORS origins list for reference', { origins: allowedOrigins });
 }
 
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
+
+    if (isDevelopment) {
+      // Dev mode: permit any browser origin on the LAN so controllers can pair
+      return callback(null, true);
+    }
 
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -220,6 +229,12 @@ function terminateSession(sessionCode, reason = 'inactivity') {
         reason,
         message: `Session terminated: ${reason}`
       });
+      recordSessionEvent({
+        type: 'socket_force_disconnected',
+        sessionCode,
+        reason,
+        socketId: socket.id.substring(0, 12),
+      });
       socket.leave(sessionCode);
       socket.disconnect(true);
     }
@@ -228,6 +243,12 @@ function terminateSession(sessionCode, reason = 'inactivity') {
   // Clean up Redis session data
   sessionStore.delete(sessionCode).catch(err => {
     logger.error('Failed to delete session from Redis', err, { session_code: sessionCode });
+  });
+
+  recordSessionEvent({
+    type: 'session_terminated',
+    sessionCode,
+    reason,
   });
 }
 
@@ -315,6 +336,13 @@ io.on('connection', (socket) => {
       user_id: userId || 'anonymous',
       client_ip: clientIp
     });
+    recordSessionEvent({
+      type: 'socket_connection_rejected',
+      reason: 'missing_session_code',
+      userId: userId || 'anonymous',
+      clientIp,
+      userAgent,
+    });
     return;
   }
 
@@ -373,6 +401,19 @@ io.on('connection', (socket) => {
     socket.join(sessionCode);
     const roomSize = io.sockets.adapter.rooms.get(sessionCode)?.size || 1;
 
+    recordSessionEvent({
+      type: 'socket_connected',
+      sessionCode,
+      role: socket.role,
+      userId: userId || 'anonymous',
+      userEmail: userEmail || 'anonymous',
+      clientIp,
+      userAgent,
+      roomSize,
+      transport: socket.conn?.transport?.name || 'unknown',
+      authenticated: isAuthenticated,
+    });
+
     logger.info('client_joined_session', {
       session_code: sessionCode,
       socket_id: socket.id.substring(0, 12),
@@ -391,6 +432,13 @@ io.on('connection', (socket) => {
         role: socket.role
       });
       io.to(sessionCode).emit('connection:status', { connected: true });
+      recordSessionEvent({
+        type: 'session_controller_connected',
+        sessionCode,
+        userId: userId || 'anonymous',
+        clientIp,
+        roomSize,
+      });
     }
 
     // Fetch and send controller's subscription tier to display (async operation)
@@ -500,6 +548,87 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('controller:preferences:update', async (payload = {}) => {
+    try {
+      if (socket.role !== 'controller') {
+        logger.warn('non_controller_preference_update_attempt', {
+          socket_id: socket.id.substring(0, 12),
+          attempted_role: socket.role
+        });
+        return;
+      }
+
+      if (typeof payload.flipSoundEnabled !== 'boolean') {
+        logger.debug('controller_preference_missing_payload', {
+          socket_id: socket.id.substring(0, 12),
+          session_code: socket.sessionCode
+        });
+        return;
+      }
+
+      await updateSessionActivity(socket.sessionCode);
+
+      io.to(socket.sessionCode).emit('controller:preferences', {
+        flipSoundEnabled: payload.flipSoundEnabled
+      });
+
+      recordSessionEvent({
+        type: 'controller_preferences_updated',
+        sessionCode: socket.sessionCode,
+        flipSoundEnabled: payload.flipSoundEnabled,
+        socketId: socket.id.substring(0, 12)
+      });
+
+      logger.info('controller_preferences_broadcast', {
+        session_code: socket.sessionCode,
+        flip_sound_enabled: payload.flipSoundEnabled
+      });
+    } catch (error) {
+      logger.error('controller_preferences_update_failed', error, {
+        session_code: socket.sessionCode,
+        socket_id: socket.id.substring(0, 12)
+      });
+    }
+  });
+
+  socket.on('display:grid-info', (payload = {}) => {
+    if (socket.role !== 'display') {
+      logger.warn('non_display_grid_info_attempt', {
+        socket_id: socket.id.substring(0, 12),
+        role: socket.role
+      });
+      return;
+    }
+
+    const gridInfo = {
+      sessionCode: socket.sessionCode,
+      rows: typeof payload.rows === 'number' ? payload.rows : 6,
+      cols: typeof payload.cols === 'number' ? payload.cols : 22,
+      characterWidth: payload.characterWidth,
+      characterHeight: payload.characterHeight,
+      containerWidth: payload.containerWidth,
+      containerHeight: payload.containerHeight,
+      gap: payload.gap,
+      isFullscreen: payload.isFullscreen,
+      timestamp: new Date().toISOString()
+    };
+
+    io.to(socket.sessionCode).emit('display:grid-info', gridInfo);
+
+    recordSessionEvent({
+      type: 'display_grid_info_broadcast',
+      sessionCode: socket.sessionCode,
+      rows: gridInfo.rows,
+      cols: gridInfo.cols,
+    });
+
+    logger.info('display_grid_info_broadcast', {
+      session_code: socket.sessionCode,
+      rows: gridInfo.rows,
+      cols: gridInfo.cols,
+    });
+  });
+
   // Track activity for any client interaction
   socket.on('client:activity', async (data) => {
     socket.lastActivity = Date.now();
@@ -544,6 +673,15 @@ io.on('connection', (socket) => {
           session_code: socket.sessionCode,
           socket_id: socket.id.substring(0, 12)
         });
+      });
+
+      recordSessionEvent({
+        type: 'socket_disconnected',
+        sessionCode: socket.sessionCode,
+        role: socket.role,
+        userId: userId || 'anonymous',
+        durationMs: Date.now() - socket.connectedAt,
+        roomSizeAfter: Math.max(0, roomSize - 1),
       });
     }
   });
@@ -803,15 +941,108 @@ app.post('/api/admin/sessions/:sessionCode/terminate', (req, res) => {
 });
 
 /**
+ * Admin CSRF token issuance endpoint
+ */
+app.get('/api/admin/csrf-token', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    if (!authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const token = authHeader.substring(7);
+    const { valid, user } = await verifyToken(token);
+    if (!valid || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const operation = (req.query.operation || 'grant').toLowerCase();
+    if (!['grant', 'revoke'].includes(operation)) {
+      return res.status(400).json({ error: 'Invalid operation' });
+    }
+
+    const { data: roles, error: roleError } = await supabase
+      .from('admin_roles')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .eq('status', 'active')
+      .limit(1);
+
+    if (roleError) {
+      throw roleError;
+    }
+
+    if (!roles?.length) {
+      return res.status(403).json({ error: 'Admin privileges required' });
+    }
+
+    const csrfPayload = issueCsrfToken(user.id, operation);
+    return res.json({
+      success: true,
+      csrfToken: csrfPayload.token,
+      expiresAt: new Date(csrfPayload.expiresAt).toISOString(),
+      rateLimit: csrfPayload.rateLimit,
+      operation: csrfPayload.operation,
+    });
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      return res.status(429).json({
+        error: error.message,
+        rateLimit: error.rateLimit,
+        retryAfter: error.retryAfter,
+      });
+    }
+
+    logger.error('csrf_token_issue_failed', error);
+    return res.status(500).json({ error: 'Failed to issue CSRF token' });
+  }
+});
+
+/**
  * Check if session code is live (active Socket.io room)
  */
 app.get('/api/session/exists/:code', (req, res) => {
   const code = req.params.code?.toUpperCase()
   if (!code || code.length !== 6) {
+    recordSessionEvent({
+      type: 'session_exists_check',
+      sessionCode: code || 'invalid',
+      status: 'invalid_code',
+      origin: req.headers.origin || 'direct',
+      ip: req.ip || req.socket?.remoteAddress,
+      userAgent: req.headers['user-agent'] || 'unknown',
+    })
     return res.json({ exists: false })
   }
   const room = io.sockets.adapter.rooms.get(code)
-  res.json({ exists: !!room && room.size > 0 })
+  const exists = !!room && room.size > 0
+
+  recordSessionEvent({
+    type: 'session_exists_check',
+    sessionCode: code,
+    status: exists ? 'online' : 'offline',
+    origin: req.headers.origin || 'direct',
+    ip: req.ip || req.socket?.remoteAddress,
+    userAgent: req.headers['user-agent'] || 'unknown',
+    roomSize: room?.size || 0,
+  })
+
+  res.json({ exists })
+})
+
+app.get('/api/debug/session-events', (req, res) => {
+  const { sessionCode, limit } = req.query
+  const events = sessionCode
+    ? getSessionEvents(sessionCode.toUpperCase(), limit)
+    : getRecentSessionEvents(limit)
+
+  res.json({
+    timestamp: new Date().toISOString(),
+    sessionCode: sessionCode?.toUpperCase() || null,
+    count: events.length,
+    events,
+  })
 })
 
 // Periodically disconnect stale sockets (idle >5 min)
