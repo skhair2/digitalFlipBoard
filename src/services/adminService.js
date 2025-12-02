@@ -403,6 +403,44 @@ export async function getSystemHealth() {
   }
 }
 
+export async function fetchInvoiceLedger(options = {}) {
+  const { emailFilter = '', limit = 25, cursor = null } = options;
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const session = sessionData?.session || sessionData;
+    const accessToken = session?.access_token;
+
+    if (!accessToken) {
+      throw new Error('Admin authentication required to load invoices');
+    }
+
+    const params = new URLSearchParams();
+    if (emailFilter) params.set('email', emailFilter);
+    if (limit) params.set('limit', String(limit));
+    if (cursor) params.set('cursor', cursor);
+
+    const response = await fetch(`${API_URL}/api/admin/invoices?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+
+    const payload = await response.json().catch(() => ({ error: 'Invalid response from payments API' }));
+
+    if (!response.ok || !payload.success) {
+      const error = payload.error || 'Failed to load invoices';
+      throw new Error(error);
+    }
+
+    return payload;
+  } catch (error) {
+    console.error('Error fetching invoice ledger:', error);
+    return { invoices: [], summary: null, pagination: null, error: error.message, success: false };
+  }
+}
+
 // ============================================
 // UTILITY FUNCTIONS
 // ============================================
