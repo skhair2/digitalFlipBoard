@@ -17,6 +17,7 @@ export const useAdminStore = create(
       usersLoading: false,
       selectedUser: null,
       analytics: null,
+      systemStats: null,
       analyticsLoading: false,
       activityLog: [],
       activityLogLoading: false,
@@ -131,6 +132,8 @@ export const useAdminStore = create(
         });
         return { success, error };
       },
+
+      setSystemStats: (stats) => set({ systemStats: stats }),
 
       fetchRevenueMetrics: async () => {
         set({ revenueMetricsLoading: true });
