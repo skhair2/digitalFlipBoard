@@ -8,6 +8,10 @@ import ActivityLog from './ActivityLog';
 import SystemHealth from './SystemHealth';
 import AdminCouponManagement from './AdminCouponManagement';
 import RoleManagement from './RoleManagement';
+import SessionManagement from './SessionManagement';
+import GlobalSettings from './GlobalSettings';
+import MessageLog from './MessageLog';
+import InvoiceLedger from './InvoiceLedger';
 
 /**
  * Admin Layout
@@ -33,10 +37,18 @@ export default function AdminLayout() {
         return <RoleManagement />;
       case 'activity':
         return <ActivityLog />;
+      case 'sessions':
+        return <SessionManagement />;
       case 'health':
         return <SystemHealth />;
       case 'coupons':
         return <AdminCouponManagement />;
+      case 'invoices':
+        return <InvoiceLedger />;
+      case 'moderation':
+        return <MessageLog />;
+      case 'settings':
+        return <GlobalSettings />;
       default:
         return <AdminDashboard />;
     }
@@ -45,7 +57,7 @@ export default function AdminLayout() {
   return (
     <div className="admin-layout flex h-screen bg-gray-900">
       {/* Sidebar */}
-      <AdminSidebar 
+      <AdminSidebar
         currentSection={currentSection}
         onSectionChange={setCurrentSection}
       />

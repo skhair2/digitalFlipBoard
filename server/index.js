@@ -11,6 +11,13 @@ import { createAuthMiddleware, verifyToken } from './auth.js';
 import { messageSchema, emailSchema, validatePayload } from './validation.js';
 import { recordSessionEvent, getRecentSessionEvents, getSessionEvents } from './sessionTracker.js';
 import { issueCsrfToken, RateLimitError } from './adminSecurity.js';
+import {
+  createCheckoutSession,
+  constructStripeEvent,
+  handleCheckoutSessionCompleted,
+  fetchAdminInvoiceLedger,
+  fetchAdminCustomerSummary
+} from './payments.js';
 
 // Import infrastructure modules
 import logger from './logger.js';
@@ -27,7 +34,11 @@ const app = express();
 const rateLimiter = createRateLimiter();
 
 // Middleware
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Add request logging middleware
@@ -129,6 +140,44 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+async function ensureAdminUser(req) {
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    const err = new Error('Unauthorized');
+    err.status = 401;
+    throw err;
+  }
+
+  const token = authHeader.substring(7);
+  const { valid, user } = await verifyToken(token);
+
+  if (!valid || !user) {
+    const err = new Error('Invalid token');
+    err.status = 401;
+    throw err;
+  }
+
+  const { data: roles, error: roleError } = await supabase
+    .from('admin_roles')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('role', 'admin')
+    .eq('status', 'active')
+    .limit(1);
+
+  if (roleError) {
+    throw roleError;
+  }
+
+  if (!roles?.length) {
+    const err = new Error('Admin privileges required');
+    err.status = 403;
+    throw err;
+  }
+
+  return user;
+}
 
 // Apply readiness middleware to API routes (skip health checks)
 app.use((req, res, next) => {
@@ -785,6 +834,57 @@ app.post('/api/auth/send-magic-link', async (req, res) => {
   }
 });
 
+app.post('/api/payments/create-checkout-session', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const token = authHeader.substring(7);
+    const { valid, user } = await verifyToken(token);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const planId = req.body?.planId || 'pro';
+    const couponCode = req.body?.couponCode || null;
+    const finalPriceCents = Number(req.body?.finalPriceCents ?? NaN);
+
+    if (Number.isNaN(finalPriceCents)) {
+      return res.status(400).json({ error: 'finalPriceCents is required' });
+    }
+
+    const payload = await createCheckoutSession({
+      userId: user.id,
+      userEmail: user.email,
+      planId,
+      finalPriceCents: Math.round(finalPriceCents),
+      couponCode
+    });
+
+    res.json(payload);
+  } catch (error) {
+    logger.error('Stripe checkout session creation failed', error, { path: req.path });
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.post('/api/payments/webhook', async (req, res) => {
+  const signature = req.headers['stripe-signature'];
+
+  try {
+    const event = constructStripeEvent(req.rawBody, signature);
+    if (event.type === 'checkout.session.completed') {
+      await handleCheckoutSessionCompleted(event.data.object);
+    }
+    res.json({ received: true });
+  } catch (error) {
+    logger.error('Stripe webhook verification failed', error, { headers: req.headers });
+    res.status(400).json({ error: 'Webhook verification failed' });
+  }
+});
+
 /**
  * Health check endpoint
  */
@@ -996,6 +1096,40 @@ app.get('/api/admin/csrf-token', async (req, res) => {
 
     logger.error('csrf_token_issue_failed', error);
     return res.status(500).json({ error: 'Failed to issue CSRF token' });
+  }
+});
+
+app.get('/api/admin/invoices', async (req, res) => {
+  let adminUser = null;
+  try {
+    adminUser = await ensureAdminUser(req);
+    const emailFilter = typeof req.query.email === 'string'
+      ? req.query.email.trim()
+      : '';
+    const limit = Number(req.query.limit) || undefined;
+    const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : null;
+
+    const ledger = await fetchAdminInvoiceLedger({
+      emailFilter,
+      limit,
+      cursor
+    });
+
+    const summary = await fetchAdminCustomerSummary();
+
+    res.json({
+      success: true,
+      invoices: ledger.invoices,
+      summary,
+      pagination: ledger.pagination
+    });
+  } catch (error) {
+    const status = error.status || 500;
+    logger.error('admin_invoices_fetch_failed', error, {
+      path: req.path,
+      admin_email: adminUser?.email || 'unknown'
+    });
+    res.status(status).json({ error: error.message || 'Failed to load invoices' });
   }
 });
 
