@@ -11,17 +11,47 @@ class RedisRateLimiter {
     this.keyPrefix = options.keyPrefix || 'ratelimit:';
   }
 
+  normalizeIdentifier(value) {
+    if (value === undefined || value === null) {
+      return null;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length ? trimmed : null;
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+
+    if (typeof value === 'object') {
+      if (value.toString && value.toString !== Object.prototype.toString) {
+        return String(value.toString());
+      }
+      try {
+        return JSON.stringify(value);
+      } catch (err) {
+        console.error('Failed to normalize identifier for rate limiter', err);
+        return null;
+      }
+    }
+
+    return null;
+  }
+
   /**
    * Check user rate limit
    * Returns { allowed: boolean, remaining: number, reset: timestamp, retryAfter: seconds }
    */
   async checkUserLimit(userId) {
-    if (!userId) {
+    const normalizedUserId = this.normalizeIdentifier(userId);
+    if (!normalizedUserId) {
       return { allowed: false, error: 'No user ID' };
     }
 
     try {
-      const key = `${this.keyPrefix}user:${userId}`;
+      const key = `${this.keyPrefix}user:${normalizedUserId}`;
       const now = Date.now();
       const windowStart = now - this.windowMs;
 
@@ -68,12 +98,13 @@ class RedisRateLimiter {
    * Check IP rate limit (stricter than user limit)
    */
   async checkIpLimit(ip, multiplier = 2) {
-    if (!ip) {
+    const normalizedIp = this.normalizeIdentifier(ip);
+    if (!normalizedIp) {
       return { allowed: false, error: 'No IP provided' };
     }
 
     try {
-      const key = `${this.keyPrefix}ip:${ip}`;
+      const key = `${this.keyPrefix}ip:${normalizedIp}`;
       const now = Date.now();
       const windowStart = now - this.windowMs;
 
@@ -114,12 +145,13 @@ class RedisRateLimiter {
    * Check connection rate limit (prevent connection bomb)
    */
   async checkConnectionLimit(ip, maxConnections = 5) {
-    if (!ip) {
+    const normalizedIp = this.normalizeIdentifier(ip);
+    if (!normalizedIp) {
       return { allowed: false, error: 'No IP provided' };
     }
 
     try {
-      const key = `${this.keyPrefix}conn:${ip}`;
+      const key = `${this.keyPrefix}conn:${normalizedIp}`;
       const now = Date.now();
       const windowStart = now - (60 * 1000); // 1 minute window
 
@@ -151,8 +183,13 @@ class RedisRateLimiter {
    * Reset rate limit for a user (admin only)
    */
   async resetUserLimit(userId) {
+    const normalizedUserId = this.normalizeIdentifier(userId);
+    if (!normalizedUserId) {
+      return false;
+    }
+
     try {
-      const key = `${this.keyPrefix}user:${userId}`;
+      const key = `${this.keyPrefix}user:${normalizedUserId}`;
       await redisClient.del(key);
       return true;
     } catch (error) {
@@ -165,8 +202,13 @@ class RedisRateLimiter {
    * Get current usage stats for a user
    */
   async getUserStats(userId) {
+    const normalizedUserId = this.normalizeIdentifier(userId);
+    if (!normalizedUserId) {
+      return null;
+    }
+
     try {
-      const key = `${this.keyPrefix}user:${userId}`;
+      const key = `${this.keyPrefix}user:${normalizedUserId}`;
       const count = await redisClient.zCard(key);
       const ttl = await redisClient.ttl(key);
 
