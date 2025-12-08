@@ -600,6 +600,175 @@ SELECT * FROM messages... (took 5000ms)
 
 ---
 
+## 7. Message History & Presence Tracking (NEW)
+
+### Message History Service
+
+**Purpose**: Persist messages with pagination and search capabilities
+
+**Implementation** (`server/messageHistory.js`, 200 lines):
+```javascript
+class MessageHistoryService {
+  // Store messages in Redis list: session:{code}:messages
+  async addMessage(sessionCode, message) {
+    // Store with auto-incremented ID, timestamp
+    // Limit to 100 messages per session
+    // Set 24-hour TTL
+  }
+  
+  // Retrieve paginated messages
+  async getHistory(sessionCode, page, pageSize) {
+    // Default: 20 messages per page
+    // Return: { messages, pagination }
+  }
+  
+  // Search across messages
+  async search(sessionCode, query) {
+    // Full-text search matching
+    // Return: matching messages
+  }
+  
+  // Statistics
+  async getStats(sessionCode) {
+    // Count, duration, first/last timestamp
+  }
+}
+```
+
+**Features**:
+- ✅ Pagination (configurable page size)
+- ✅ Full-text search
+- ✅ Auto-cleanup after 24 hours
+- ✅ 100-message limit per session
+- ✅ Timestamp and metadata storage
+
+**REST API** (5 endpoints):
+```
+GET    /api/session/:code/history                  # Paginated
+GET    /api/session/:code/history/latest           # Recent
+GET    /api/session/:code/history/search?q=query   # Search
+GET    /api/session/:code/history/stats            # Stats
+DELETE /api/session/:code/history                  # Clear
+```
+
+**Frontend Integration**:
+```javascript
+// useMessageHistory hook
+const {
+  messages,
+  pagination,
+  search,
+  fetchHistory,
+  nextPage,
+  previousPage
+} = useMessageHistory();
+```
+
+### Presence Tracking Service
+
+**Purpose**: Track online users and their activity
+
+**Implementation** (`server/presenceTracking.js`, 350 lines):
+```javascript
+class PresenceTrackingService {
+  // Store users in Redis hash: session:{code}:presence
+  async joinSession(sessionCode, userId, userData) {
+    // Add user with type, name, timestamps
+    // Set 30-minute TTL
+  }
+  
+  async updateActivity(sessionCode, userId) {
+    // Refresh lastSeen timestamp
+    // Extend TTL
+  }
+  
+  async getSessionStats(sessionCode) {
+    // Return: { total, controllers, displays }
+  }
+  
+  async cleanupIdleUsers(sessionCode, idleTimeMs) {
+    // Auto-remove users inactive >30 min
+  }
+}
+```
+
+**Features**:
+- ✅ Real-time user tracking
+- ✅ User type differentiation (controller/display)
+- ✅ Activity timestamp tracking
+- ✅ Auto-cleanup of idle users
+- ✅ Online statistics per type
+
+**REST API** (7 endpoints):
+```
+GET    /api/session/:code/presence                # Summary
+GET    /api/session/:code/presence/users          # List
+POST   /api/session/:code/presence/join           # Join
+POST   /api/session/:code/presence/leave          # Leave
+POST   /api/session/:code/presence/activity       # Update
+POST   /api/session/:code/presence/cleanup        # Cleanup
+```
+
+**Frontend Integration**:
+```javascript
+// usePresence hook
+const {
+  users,
+  stats,
+  joinSession,
+  leaveSession,
+  onlineCount,
+  controllerCount,
+  displayCount
+} = usePresence();
+```
+
+### Socket.io Integration
+
+**Connection Handler**:
+```javascript
+io.on('connection', async (socket) => {
+  // Auto-add user to presence tracking
+  await presenceTrackingService.joinSession(sessionCode, socket.id, {
+    type: socket.role,
+    name: userEmail,
+    metadata: { userId, clientIp }
+  });
+  
+  // Broadcast to all clients in session
+  await presenceTrackingService.broadcastPresenceUpdate(io, sessionCode);
+});
+```
+
+**Disconnection Handler**:
+```javascript
+socket.on('disconnect', () => {
+  // Auto-remove user from presence
+  presenceTrackingService.leaveSession(sessionCode, socket.id);
+  
+  // Broadcast updated presence
+  presenceTrackingService.broadcastPresenceUpdate(io, sessionCode);
+});
+```
+
+**Message Send Handler**:
+```javascript
+socket.on('message:send', async (payload) => {
+  // ... validate and send ...
+  
+  // Auto-save to history
+  if (global.messageHistoryService) {
+    await global.messageHistoryService.addMessage(sessionCode, {
+      content: payload.content,
+      animation: payload.animation,
+      timestamp: Date.now()
+    });
+  }
+});
+```
+
+---
+
 ## 10. Future Enhancements
 
 1. **Redis Cluster** - High availability for Redis
@@ -667,5 +836,5 @@ for i in {1..15}; do curl http://localhost:3001/api/test; done
 
 ---
 
-**Last Updated:** November 26, 2025  
+**Last Updated:** December 7, 2025  
 **Next Review:** After initial production deployment
