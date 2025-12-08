@@ -266,7 +266,7 @@ export default function Display() {
                         {/* All info and code in one flip display grid */}
                         <div className="w-full flex justify-center">
                             <DigitalFlipBoardGrid
-                                overrideMessage={`DISPLAY PAIRING CODE  Enter this code on your controller to connect  ${sessionCode}`}
+                                overrideMessage={`DISPLAY CODE  ${sessionCode}`}
                                 isFullscreen={isFullscreen}
                             />
                         </div>

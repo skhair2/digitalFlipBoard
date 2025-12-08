@@ -75,16 +75,18 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
             let sessionCode = ''
             // Try to extract session code (assume last word of message is code if all caps and length 6-8)
             const words = infoText.trim().split(/\s+/)
-            if (words.length > 2 && /^[A-Z0-9]{6,8}$/.test(words[words.length - 1])) {
+            // Check if LAST word is a session code (6-8 uppercase alphanumeric chars)
+            if (words.length > 0 && /^[A-Z0-9]{6,8}$/.test(words[words.length - 1])) {
                 sessionCode = words.pop()
-                infoText = words.join(' ')
+                infoText = words.join(' ').trim()
             }
 
             // Split infoText into two sentences for spacing
             let displaySentence = ''
             let enterSentence = ''
-            if (infoText.includes('ENTER THIS CODE')) {
-                const idx = infoText.indexOf('ENTER THIS CODE')
+            const upperText = infoText.toUpperCase()
+            if (upperText.includes('ENTER THIS CODE')) {
+                const idx = upperText.indexOf('ENTER THIS CODE')
                 displaySentence = infoText.slice(0, idx).trim()
                 enterSentence = infoText.slice(idx).trim()
             } else {
