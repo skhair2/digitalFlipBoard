@@ -2,9 +2,9 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { cache } from './redis.js';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2024-08-01'
-});
+}) : null;
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -81,6 +81,10 @@ async function applyProTier(userId, planId = 'pro') {
 }
 
 export async function createCheckoutSession({ userId, userEmail, planId, finalPriceCents, couponCode }) {
+  if (!stripe) {
+    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY in environment variables.');
+  }
+
   const plan = getPlan(planId);
   if (!plan) {
     throw new Error('Unsupported plan selected');
@@ -130,6 +134,9 @@ export async function createCheckoutSession({ userId, userEmail, planId, finalPr
 }
 
 export function constructStripeEvent(payload, signature) {
+  if (!stripe) {
+    throw new Error('Stripe is not configured');
+  }
   if (!WEBHOOK_SIGNING_SECRET) {
     throw new Error('Stripe webhook secret is not configured');
   }

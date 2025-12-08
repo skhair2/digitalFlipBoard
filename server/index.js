@@ -21,11 +21,13 @@ import {
 
 // Import infrastructure modules
 import logger from './logger.js';
-import { connectRedis, sessionStore, activityStore } from './redis.js';
+import { connectRedis, sessionStore, activityStore, redisClient } from './redis.js';
 import { createRateLimiter } from './redisRateLimiter.js';
 import { registerHealthCheckRoutes, readinessMiddleware } from './healthCheck.js';
 import { registerMagicLinkEndpoint } from './magicLinkEndpoint.js';
 import { redisPubSubService } from './redisPubSub.js';
+import { MessageHistoryService } from './messageHistory.js';
+import { PresenceTrackingService } from './presenceTracking.js';
 
 dotenv.config();
 
@@ -132,6 +134,9 @@ const io = new Server(httpServer, {
   // Security: Strict mode prevents some attacks
   allowEIO3: false
 });
+
+// Make io globally accessible for service integrations
+global.io = io;
 
 // Resend email client
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -357,7 +362,7 @@ function startInactivityMonitoring() {
 }
 
 // Socket.io connection handler
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   const userId = socket.userId;
   const userEmail = socket.userEmail;
   const isAuthenticated = socket.isAuthenticated;
@@ -453,6 +458,27 @@ io.on('connection', (socket) => {
 
     socket.join(sessionCode);
     const roomSize = io.sockets.adapter.rooms.get(sessionCode)?.size || roomSizeBeforeJoin + 1;
+
+    // Add user to presence tracking
+    if (global.presenceTrackingService) {
+      try {
+        await global.presenceTrackingService.joinSession(sessionCode, socket.id, {
+          type: socket.role || 'controller',
+          name: userEmail || userId || `User_${Math.random().toString(36).substring(7)}`,
+          metadata: {
+            userId,
+            userEmail,
+            clientIp,
+            isAuthenticated
+          }
+        });
+
+        // Broadcast presence update
+        await global.presenceTrackingService.broadcastPresenceUpdate(io, sessionCode);
+      } catch (presenceError) {
+        logger.error('Failed to add user to presence tracking:', presenceError);
+      }
+    }
 
     logger.debug('session_room_state', {
       session_code: sessionCode,
@@ -619,6 +645,22 @@ io.on('connection', (socket) => {
 
       logger.logMessageSent(targetSession, userEmail || userId, validatedPayload.content, recipients);
 
+      // Store message in history
+      if (global.messageHistoryService) {
+        try {
+          await global.messageHistoryService.addMessage(targetSession, {
+            content: validatedPayload.content,
+            animation: validatedPayload.animation || 'flip',
+            color: validatedPayload.color || 'monochrome',
+            sender: userEmail || userId || 'anonymous',
+            timestamp: Date.now()
+          });
+        } catch (historyError) {
+          logger.warn('Failed to store message in history:', historyError);
+          // Continue - don't block message delivery on history storage failure
+        }
+      }
+
       // Broadcast to everyone in the room
       io.to(targetSession).emit('message:received', validatedPayload);
 
@@ -747,6 +789,18 @@ io.on('connection', (socket) => {
     });
 
     logger.logSocketDisconnection(socket, 'client');
+
+    // Remove from presence tracking
+    if (socket.sessionCode && global.presenceTrackingService) {
+      global.presenceTrackingService.leaveSession(socket.sessionCode, socket.id).catch(err => {
+        logger.error('Failed to remove user from presence tracking:', err);
+      });
+
+      // Broadcast presence update
+      global.presenceTrackingService.broadcastPresenceUpdate(io, socket.sessionCode).catch(err => {
+        logger.error('Failed to broadcast presence update:', err);
+      });
+    }
 
     // Remove from Redis session
     if (socket.sessionCode) {
@@ -1379,6 +1433,299 @@ app.post('/api/session/:code/end', async (req, res) => {
   }
 });
 
+/**
+ * Get message history for a session (paginated)
+ */
+app.get('/api/session/:code/history', async (req, res) => {
+  const { code } = req.params;
+  const { page = '0', pageSize = '20' } = req.query;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  try {
+    const pageNum = Math.max(0, parseInt(page, 10));
+    const size = Math.min(100, Math.max(1, parseInt(pageSize, 10)));
+
+    const { messages, total } = await global.messageHistoryService.getHistory(code, pageNum, size);
+
+    res.json({
+      messages,
+      pagination: {
+        page: pageNum,
+        pageSize: size,
+        total,
+        hasMore: (pageNum + 1) * size < total
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to get message history:', error);
+    res.status(500).json({ error: 'Failed to get message history' });
+  }
+});
+
+/**
+ * Get latest messages for a session
+ */
+app.get('/api/session/:code/history/latest', async (req, res) => {
+  const { code } = req.params;
+  const { limit = '10' } = req.query;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  try {
+    const count = Math.min(50, Math.max(1, parseInt(limit, 10)));
+    const messages = await global.messageHistoryService.getLatest(code, count);
+
+    res.json({ messages });
+  } catch (error) {
+    logger.error('Failed to get latest messages:', error);
+    res.status(500).json({ error: 'Failed to get latest messages' });
+  }
+});
+
+/**
+ * Search message history
+ */
+app.get('/api/session/:code/history/search', async (req, res) => {
+  const { code } = req.params;
+  const { q } = req.query;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  if (!q || q.trim().length === 0) {
+    return res.status(400).json({ error: 'Search query is required' });
+  }
+
+  try {
+    const results = await global.messageHistoryService.search(code, q.trim());
+
+    res.json({ results, count: results.length });
+  } catch (error) {
+    logger.error('Failed to search message history:', error);
+    res.status(500).json({ error: 'Failed to search message history' });
+  }
+});
+
+/**
+ * Get message history statistics
+ */
+app.get('/api/session/:code/history/stats', async (req, res) => {
+  const { code } = req.params;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  try {
+    const stats = await global.messageHistoryService.getStats(code);
+
+    res.json({ stats });
+  } catch (error) {
+    logger.error('Failed to get message statistics:', error);
+    res.status(500).json({ error: 'Failed to get message statistics' });
+  }
+});
+
+/**
+ * Clear message history for a session
+ */
+app.delete('/api/session/:code/history', async (req, res) => {
+  const { code } = req.params;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  try {
+    await global.messageHistoryService.clearHistory(code);
+    logger.info('message_history_cleared', { session_code: code });
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to clear message history:', error);
+    res.status(500).json({ error: 'Failed to clear message history' });
+  }
+});
+
+/**
+ * Get presence/online users for a session
+ */
+app.get('/api/session/:code/presence', async (req, res) => {
+  const { code } = req.params;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  try {
+    const summary = await global.presenceTrackingService.getSummary(code);
+
+    res.json({ presence: summary || { sessionCode: code, total: 0, controllers: 0, displays: 0 } });
+  } catch (error) {
+    logger.error('Failed to get presence:', error);
+    res.status(500).json({ error: 'Failed to get presence' });
+  }
+});
+
+/**
+ * Get detailed user list for a session
+ */
+app.get('/api/session/:code/presence/users', async (req, res) => {
+  const { code } = req.params;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  try {
+    const users = await global.presenceTrackingService.getSessionUsers(code);
+
+    res.json({ users });
+  } catch (error) {
+    logger.error('Failed to get session users:', error);
+    res.status(500).json({ error: 'Failed to get session users' });
+  }
+});
+
+/**
+ * Add user to session presence
+ */
+app.post('/api/session/:code/presence/join', async (req, res) => {
+  const { code } = req.params;
+  const { userId, type, name, metadata } = req.body;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
+
+  try {
+    const userData = {
+      type: type || 'controller',
+      name: name,
+      metadata: metadata || {}
+    };
+
+    const presenceData = await global.presenceTrackingService.joinSession(code, userId, userData);
+
+    if (!presenceData) {
+      return res.status(500).json({ error: 'Failed to add user to session' });
+    }
+
+    logger.info('user_joined_session', {
+      session_code: code,
+      user_id: userId,
+      type: type || 'controller'
+    });
+
+    // Broadcast presence update via Socket.io
+    if (global.io) {
+      await global.presenceTrackingService.broadcastPresenceUpdate(global.io, code);
+    }
+
+    res.json({ success: true, userData: presenceData });
+  } catch (error) {
+    logger.error('Failed to add user to session:', error);
+    res.status(500).json({ error: 'Failed to add user to session' });
+  }
+});
+
+/**
+ * Remove user from session presence
+ */
+app.post('/api/session/:code/presence/leave', async (req, res) => {
+  const { code } = req.params;
+  const { userId } = req.body;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
+
+  try {
+    await global.presenceTrackingService.leaveSession(code, userId);
+
+    logger.info('user_left_session', {
+      session_code: code,
+      user_id: userId
+    });
+
+    // Broadcast presence update via Socket.io
+    if (global.io) {
+      await global.presenceTrackingService.broadcastPresenceUpdate(global.io, code);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to remove user from session:', error);
+    res.status(500).json({ error: 'Failed to remove user from session' });
+  }
+});
+
+/**
+ * Update user activity timestamp
+ */
+app.post('/api/session/:code/presence/activity', async (req, res) => {
+  const { code } = req.params;
+  const { userId } = req.body;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
+
+  try {
+    const updated = await global.presenceTrackingService.updateActivity(code, userId);
+
+    if (!updated) {
+      return res.status(404).json({ error: 'User not found in session' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to update user activity:', error);
+    res.status(500).json({ error: 'Failed to update user activity' });
+  }
+});
+
+/**
+ * Clean up idle users from a session
+ */
+app.post('/api/session/:code/presence/cleanup', async (req, res) => {
+  const { code } = req.params;
+  const { idleTimeMs = 30 * 60 * 1000 } = req.body;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  try {
+    await global.presenceTrackingService.cleanupIdleUsers(code, idleTimeMs);
+
+    logger.info('presence_cleanup_completed', { session_code: code });
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to clean up idle users:', error);
+    res.status(500).json({ error: 'Failed to clean up idle users' });
+  }
+});
+
 app.get('/api/debug/session-events', (req, res) => {
   const { sessionCode, limit } = req.query
   const events = sessionCode
@@ -1459,6 +1806,14 @@ async function startServer() {
 
     // Initialize Redis Pub/Sub service
     await redisPubSubService.initialize(process.env.REDIS_URL || 'redis://localhost:6379');
+
+    // Initialize Message History Service
+    const messageHistoryService = new MessageHistoryService(redisClient);
+    global.messageHistoryService = messageHistoryService;
+
+    // Initialize Presence Tracking Service
+    const presenceTrackingService = new PresenceTrackingService(redisClient);
+    global.presenceTrackingService = presenceTrackingService;
 
     // Start HTTP server on all network interfaces (0.0.0.0) for internet accessibility
     httpServer.listen(PORT, '0.0.0.0', () => {
