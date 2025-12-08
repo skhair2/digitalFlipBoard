@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { useWebSocket } from '../../hooks/useWebSocket'
+import { useMessageBroker } from '../../hooks/useMessageBroker'
 import { Button, Input, Card } from '../ui/Components'
 import { PaperAirplaneIcon, PhotoIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/solid'
 import { useSessionStore } from '../../store/sessionStore'
@@ -8,6 +9,7 @@ import { processImageToBoard } from '../../utils/imageProcessor'
 
 export default function MessageInput({ message, setMessage }) {
     const { sendMessage } = useWebSocket()
+    const { sendMessage: sendMessageViaRedis } = useMessageBroker()
     const { setBoardState, gridConfig } = useSessionStore()
     const [sending, setSending] = useState(false)
     const [showOptions, setShowOptions] = useState(false)
@@ -30,10 +32,9 @@ export default function MessageInput({ message, setMessage }) {
         const boardState = createBoardState(message, alignment, pattern, rows, cols)
         setBoardState(boardState)
 
-        // In a real app, we would send this rich state over the socket
-        // For now, we just update the local store which updates the display
-        // We still send the text to the socket for "legacy" reasons or logging
+        // Send via both WebSocket (primary) and Redis Pub/Sub (fallback)
         await sendMessage(message)
+        await sendMessageViaRedis(message, { animation: 'flip', color: 'monochrome' })
 
         setSending(false)
         setMessage('')
