@@ -94,7 +94,7 @@ fetch('https://api.flipdisplay.online/v1/messages', {
   method: 'POST',
   headers: { 'Authorization': 'Bearer YOUR_API_KEY' },
   body: JSON.stringify({
-    text: 'BUILD FAILED: FRONTEND-MAIN @ ' + process.env.GITHUB_SHA.substring(0, 7),
+    text: 'BUILD FAILED: FRONTEND-MAIN @ ' + commitHash,
     color: 'red',
     animation: 'pulse',
     duration: 30

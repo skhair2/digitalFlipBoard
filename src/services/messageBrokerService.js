@@ -269,5 +269,5 @@ class MessageBrokerService {
 
 // Export singleton instance
 export const messageBrokerService = new MessageBrokerService(
-  process.env.VITE_API_URL || 'http://localhost:3001'
+  import.meta.env.VITE_API_URL || 'http://localhost:3001'
 );
