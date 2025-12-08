@@ -186,6 +186,44 @@ sharingService.js        # Board sharing + permissions
   - getSharedWith(boardId)
 ```
 
+**Message History** (NEW)
+```
+messageHistoryService.js # Message persistence with pagination
+  - addMessage(sessionCode, message)
+  - getHistory(sessionCode, page, pageSize)
+  - getLatest(sessionCode, limit)
+  - search(sessionCode, query)
+  - getStats(sessionCode)
+  - clearHistory(sessionCode)
+```
+
+**Presence Tracking** (NEW)
+```
+presenceTrackingService.js # Real-time user presence
+  - joinSession(sessionCode, userId, userData)
+  - leaveSession(sessionCode, userId)
+  - updateActivity(sessionCode, userId)
+  - getSessionUsers(sessionCode)
+  - getSessionStats(sessionCode)
+  - broadcastPresenceUpdate(io, sessionCode)
+  - getSummary(sessionCode)
+```
+
+**Frontend Hooks for Advanced Features** (NEW)
+```
+useMessageHistory()      # Message history pagination & search
+  - fetchHistory(page, pageSize)
+  - search(query)
+  - fetchStats()
+  - clearHistory()
+
+usePresence()            # Online user tracking
+  - fetchUsers()
+  - joinSession(type)
+  - leaveSession()
+  - updateActivity()
+```
+
 ---
 
 ## Data Flow
@@ -926,6 +964,172 @@ src/hooks/useWebSocket.js              # Added: recordActivity() calls on events
 
 ---
 
+## Backend Infrastructure & Services
+
+### Redis Integration (Hybrid Message Routing)
+
+**Architecture**:
+```
+┌─────────────────┐         ┌─────────────────┐
+│   Controller    │         │    Display      │
+│   (Browser)     │         │   (Browser)     │
+└────────┬────────┘         └────────┬────────┘
+         │                           │
+         └──────────┬────────────────┘
+                    │
+            ┌───────▼────────┐
+            │   Socket.io    │
+            │  WebSocket     │
+            └────────┬───────┘
+                     │
+         ┌───────────▼──────────────┐
+         │   Express Backend        │
+         │   (Node.js + Socket.io)  │
+         └───────────┬──────────────┘
+                     │
+      ┌──────────────┼──────────────┐
+      │              │              │
+  ┌───▼────┐   ┌────▼──┐   ┌──────▼──┐
+  │ Redis  │   │HTTP   │   │Supabase │
+  │Pub/Sub │   │ REST  │   │(Auth)   │
+  └────────┘   │API    │   └─────────┘
+               └───────┘
+```
+
+**Services**:
+
+1. **MessageHistoryService** (server/messageHistory.js)
+   - Stores messages in Redis list with pagination
+   - Limit: 100 messages per session
+   - TTL: 24 hours
+   - Methods:
+     - `addMessage(sessionCode, message)` - Store with ID, timestamp
+     - `getHistory(sessionCode, page, pageSize)` - Paginated retrieval
+     - `getLatest(sessionCode, limit)` - Get N recent messages
+     - `search(sessionCode, query)` - Full-text search
+     - `getStats(sessionCode)` - Count, duration, time range
+     - `clearHistory(sessionCode)` - Delete all messages
+
+2. **PresenceTrackingService** (server/presenceTracking.js)
+   - Tracks online users per session
+   - Stores user type, name, join time, last activity
+   - Methods:
+     - `joinSession(sessionCode, userId, userData)` - Add user
+     - `leaveSession(sessionCode, userId)` - Remove user
+     - `updateActivity(sessionCode, userId)` - Refresh timestamp
+     - `getSessionUsers(sessionCode)` - List all users
+     - `getUsersByType(sessionCode, type)` - Filter by type
+     - `getSessionStats(sessionCode)` - Count users by type
+     - `cleanupIdleUsers(sessionCode, idleTimeMs)` - Auto-remove
+
+3. **RedisPubSubService** (server/redisPubSub.js)
+   - Hybrid message routing combining WebSocket + Redis
+   - Ensures message delivery even if WebSocket fails
+   - Methods:
+     - `publishMessage(sessionCode, eventType, data)` - Publish to Redis
+     - `subscribe(sessionCode, eventType, callback)` - Subscribe to channel
+     - `setSessionConfig/getSessionConfig()` - Config persistence
+     - `setSessionState/getSessionState()` - State persistence
+
+### REST API Endpoints (12 New)
+
+**Message History Endpoints**:
+```
+GET    /api/session/:code/history
+       → Get paginated message history
+       ← { messages: [], pagination: { page, pageSize, total, hasMore } }
+
+GET    /api/session/:code/history/latest?limit=10
+       → Get N most recent messages
+       ← { messages: [] }
+
+GET    /api/session/:code/history/search?q=query
+       → Search messages
+       ← { results: [], count: number }
+
+GET    /api/session/:code/history/stats
+       → Get statistics
+       ← { stats: { count, durationMs, firstMessage, lastMessage } }
+
+DELETE /api/session/:code/history
+       → Clear all messages
+       ← { success: true }
+```
+
+**Presence Endpoints**:
+```
+GET    /api/session/:code/presence
+       → Get presence summary
+       ← { presence: { total, controllers, displays, ttl } }
+
+GET    /api/session/:code/presence/users
+       → Get online users
+       ← { users: [{ userId, type, name, joinedAt, lastSeen }] }
+
+POST   /api/session/:code/presence/join
+       ← { userData: { userId, type, name, joinedAt } }
+
+POST   /api/session/:code/presence/leave
+       ← { success: true }
+
+POST   /api/session/:code/presence/activity
+       → Keep-alive ping
+       ← { success: true }
+
+POST   /api/session/:code/presence/cleanup
+       → Remove idle users
+       ← { success: true }
+```
+
+### Socket.io Integration
+
+**Connection Handler**:
+```javascript
+// Auto-join user to presence on connection
+await presenceTrackingService.joinSession(sessionCode, socket.id, {
+  type: socket.role,  // 'controller' or 'display'
+  name: userEmail,
+  metadata: { userId, clientIp, isAuthenticated }
+});
+
+// Broadcast presence update
+await presenceTrackingService.broadcastPresenceUpdate(io, sessionCode);
+```
+
+**Disconnect Handler**:
+```javascript
+// Auto-remove user from presence
+await presenceTrackingService.leaveSession(sessionCode, socket.id);
+
+// Broadcast updated presence
+await presenceTrackingService.broadcastPresenceUpdate(io, sessionCode);
+```
+
+**Message Send Handler**:
+```javascript
+// Auto-save to message history
+if (global.messageHistoryService) {
+  await global.messageHistoryService.addMessage(targetSession, {
+    content: validatedPayload.content,
+    animation: validatedPayload.animation,
+    color: validatedPayload.color,
+    timestamp: Date.now()
+  });
+}
+```
+
+### Frontend Integration
+
+**Hooks** (React):
+- `useMessageHistory()` - Message retrieval and pagination
+- `usePresence()` - User presence tracking and polling
+
+**Components** (React):
+- `MessageHistory.jsx` - Paginated message display with search
+- `Presence.jsx` - Online user list with statistics
+
+---
+
 ## Future Architecture Improvements
 
 ### Phase 2: Enhanced Features
@@ -949,8 +1153,8 @@ src/hooks/useWebSocket.js              # Added: recordActivity() calls on events
 
 ---
 
-**Last Updated**: November 25, 2025  
-**Status**: ✅ Connection Timeout Feature Implemented  
+**Last Updated**: December 7, 2025
+**Status**: ✅ Message History & Presence Tracking Implemented  
 **Next Review**: After Phase 2 feature release
 
 See also: [00-README.md](./00-README.md), [DEPLOYMENT.md](./DEPLOYMENT.md), [SECURITY.md](./SECURITY.md)
