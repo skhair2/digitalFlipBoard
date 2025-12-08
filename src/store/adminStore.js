@@ -135,6 +135,10 @@ export const useAdminStore = create(
 
       setSystemStats: (stats) => set({ systemStats: stats }),
 
+      setUsers: (users) => set({ users }),
+      setTotalUsers: (totalUsers) => set({ totalUsers: totalUsers }),
+      setActivityLog: (activityLog) => set({ activityLog }),
+
       fetchRevenueMetrics: async () => {
         set({ revenueMetricsLoading: true });
         const { success, revenue, error } = await adminService.getRevenueMetrics();

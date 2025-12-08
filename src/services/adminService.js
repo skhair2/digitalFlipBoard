@@ -504,3 +504,103 @@ export async function demoteAdminToUser(userId, adminId) {
     return { success: false, error: error.message };
   }
 }
+
+// ============================================
+// CONTENT MODERATION & MESSAGE LOG
+// ============================================
+
+export async function fetchActiveBoardMessages(options = {}) {
+  const { limit = 50 } = options;
+  
+  try {
+    // Get recent active boards
+    const { data, error } = await supabase
+      .from('boards')
+      .select(`
+        id,
+        name,
+        user_id,
+        created_at,
+        updated_at,
+        profiles:user_id (email, full_name)
+      `)
+      .order('updated_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      messages: data || []
+    };
+  } catch (error) {
+    console.error('Error fetching active board messages:', error);
+    return { success: false, error: error.message, messages: [] };
+  }
+}
+
+// ============================================
+// GLOBAL SETTINGS
+// ============================================
+
+export async function fetchGlobalSettings() {
+  try {
+    const { data, error } = await supabase
+      .from('global_settings')
+      .select('*')
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+
+    // Return default settings if none exist
+    const defaultSettings = {
+      maintenance_mode: { enabled: false, message: '' },
+      global_announcement: { enabled: false, message: '', type: 'info' },
+      registration_open: { enabled: true }
+    };
+
+    return {
+      success: true,
+      settings: data?.settings || defaultSettings
+    };
+  } catch (error) {
+    console.error('Error fetching global settings:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function updateGlobalSetting(key, value, adminId) {
+  try {
+    // Get current settings
+    const { data: current } = await supabase
+      .from('global_settings')
+      .select('*')
+      .single();
+
+    const settings = current?.settings || {};
+    settings[key] = value;
+
+    // Update or insert
+    const { error } = await supabase
+      .from('global_settings')
+      .upsert({
+        id: 1,
+        settings,
+        updated_at: new Date().toISOString(),
+        updated_by: adminId
+      });
+
+    if (error) throw error;
+
+    // Log action
+    await logAdminActivity(adminId, 'UPDATE_GLOBAL_SETTING', null, {
+      key,
+      value
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating global setting:', error);
+    return { success: false, error: error.message };
+  }
+}
