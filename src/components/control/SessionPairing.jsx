@@ -159,6 +159,8 @@ export default function SessionPairing({ suggestedCode }) {
         }
 
         setSessionCode(trimmedCode, { isReconnecting: false, markControllerPaired: true })
+        // Mark controller as active on this browser to prevent auto-connect on display
+        sessionStorage.setItem(`controller_active_${trimmedCode}`, 'true')
         localStorage.setItem('lastSessionTime', Date.now().toString()) // Save current time for 24h tracking
         setShowReconnect(false)
         setShowQuickReconnect(false)
@@ -178,6 +180,8 @@ export default function SessionPairing({ suggestedCode }) {
         if (!lastSessionCode) return
         
         setSessionCode(lastSessionCode, { isReconnecting: true, markControllerPaired: true })
+        // Mark controller as active on this browser to prevent auto-connect on display
+        sessionStorage.setItem(`controller_active_${lastSessionCode}`, 'true')
         localStorage.setItem('lastSessionTime', Date.now().toString()) // Save current time
         setShowReconnect(false)
         setShowQuickReconnect(false)
