@@ -44,7 +44,8 @@ export default function UserManagement() {
     try {
       setLoading(true);
       const result = await adminService.fetchAllUsers({ searchQuery });
-      setUsers(result);
+      setUsers(result.users || []);
+      setTotalUsers(result.totalCount || 0);
     } catch (err) {
       setError(err.message);
     } finally {

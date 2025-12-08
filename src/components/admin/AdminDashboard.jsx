@@ -12,27 +12,61 @@ export default function AdminDashboard() {
   const { systemStats, setSystemStats } = useAdminStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadStats = async () => {
+    try {
+      setLoading(true);
+      const result = await adminService.getSystemAnalytics();
+      if (result.success) {
+        setSystemStats(result.analytics);
+      } else {
+        setError(result.error || 'Failed to load analytics');
+      }
+    } catch (err) {
+      console.error('Failed to load system stats:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadStats = async () => {
-      try {
-        setLoading(true);
-        const stats = await adminService.getSystemAnalytics();
-        setSystemStats(stats);
-      } catch (err) {
-        console.error('Failed to load system stats:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadStats();
   }, [setSystemStats]);
+
+  const handleRefreshStats = async () => {
+    setRefreshing(true);
+    await loadStats();
+    setRefreshing(false);
+  };
+
+  const handleExportReport = () => {
+    const reportData = {
+      timestamp: new Date().toISOString(),
+      stats: systemStats
+    };
+    const dataStr = JSON.stringify(reportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `admin-report-${new Date().getTime()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleViewAlerts = () => {
+    alert('Alerts feature coming soon. No critical alerts at this time.');
+  };
 
   if (loading) return <Spinner />;
 
   const stats = systemStats || {};
+  const premiumUsers = stats.tierBreakdown?.premium || 0;
+  const totalMessages = stats.totalBoards || 0;
 
   const metrics = [
     {
@@ -43,31 +77,31 @@ export default function AdminDashboard() {
     },
     {
       label: 'Premium Users',
-      value: stats.premiumUsers || 0,
+      value: premiumUsers,
       icon: '⭐',
       color: 'bg-yellow-500'
     },
     {
-      label: 'Total Messages',
-      value: stats.totalMessages || 0,
+      label: 'Total Sessions',
+      value: totalMessages,
       icon: '💬',
       color: 'bg-green-500'
     },
     {
-      label: 'Active Sessions',
-      value: stats.activeSessions || 0,
+      label: 'Active Sessions (24h)',
+      value: stats.activeSessions24h || 0,
       icon: '🔗',
       color: 'bg-purple-500'
     },
     {
-      label: 'MRR',
-      value: `$${(stats.monthlyRecurringRevenue || 0).toFixed(2)}`,
-      icon: '💰',
+      label: 'Custom Designs',
+      value: stats.totalDesigns || 0,
+      icon: '🎨',
       color: 'bg-indigo-500'
     },
     {
-      label: 'Avg Board Size',
-      value: (stats.avgBoardSize || 0).toFixed(1),
+      label: 'New Signups (30d)',
+      value: stats.newSignupsLast30Days || 0,
       icon: '📊',
       color: 'bg-pink-500'
     }
@@ -139,13 +173,23 @@ export default function AdminDashboard() {
           <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
             <h2 className="text-lg font-bold text-white mb-4">⚡ Quick Actions</h2>
             <div className="space-y-2">
-              <button className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm transition-colors">
-                🔄 Refresh Stats
+              <button 
+                onClick={handleRefreshStats}
+                disabled={refreshing}
+                className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-sm transition-colors"
+              >
+                {refreshing ? '⏳ Refreshing...' : '🔄 Refresh Stats'}
               </button>
-              <button className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg text-sm transition-colors">
+              <button 
+                onClick={handleExportReport}
+                className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg text-sm transition-colors"
+              >
                 📊 Export Report
               </button>
-              <button className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg text-sm transition-colors">
+              <button 
+                onClick={handleViewAlerts}
+                className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg text-sm transition-colors"
+              >
                 🔔 View Alerts
               </button>
             </div>
