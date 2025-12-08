@@ -10,6 +10,7 @@ import { useWebSocket } from '../hooks/useWebSocket'
 import { useAutoHide } from '../hooks/useAutoHide'
 import { useKeyboardShortcuts, toggleFullscreen } from '../hooks/useKeyboardShortcuts'
 import { useActivityTracking } from '../hooks/useActivityTracking'
+import { useMessageBroker } from '../hooks/useMessageBroker'
 import mixpanel from '../services/mixpanelService'
 
 export default function Display() {
@@ -22,6 +23,9 @@ export default function Display() {
     const [showPairingCode, setShowPairingCode] = useState(true) // Track pairing code visibility
     const [showConnectedMessage, setShowConnectedMessage] = useState(false) // Track connected message visibility
     const [sessionWarning, setSessionWarning] = useState(null)
+
+    // Use message broker for Redis Pub/Sub message routing
+    const { currentState: brokerState, config: brokerConfig } = useMessageBroker()
 
     // Call useWebSocket hook to establish and maintain WebSocket connection
     useWebSocket()
@@ -117,6 +121,30 @@ export default function Display() {
         }
         mixpanel.track('Display Page Viewed', { boardId: boardId || 'temporary' })
     }, [searchParams, setBoardId])
+
+    // Sync message broker state with display state
+    useEffect(() => {
+        if (brokerState?.state?.currentMessage) {
+            console.log('[Display] Received message from broker:', brokerState.state.currentMessage)
+            // Message will be displayed via currentMessage in render
+        }
+        if (brokerConfig) {
+            console.log('[Display] Received config from broker:', brokerConfig)
+            // Apply config settings to display
+            if (brokerConfig.brightness !== undefined) {
+                setDisplaySettings(prev => ({ ...prev, brightness: brokerConfig.brightness }))
+            }
+            if (brokerConfig.clockMode !== undefined) {
+                setClockMode(brokerConfig.clockMode)
+            }
+            if (brokerConfig.animation) {
+                setDisplaySettings(prev => ({ ...prev, animation: brokerConfig.animation }))
+            }
+            if (brokerConfig.color) {
+                setDisplaySettings(prev => ({ ...prev, color: brokerConfig.color }))
+            }
+        }
+    }, [brokerState, brokerConfig, setClockMode])
 
     // Clock Mode Logic
     useEffect(() => {

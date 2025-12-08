@@ -25,6 +25,7 @@ import { connectRedis, sessionStore, activityStore } from './redis.js';
 import { createRateLimiter } from './redisRateLimiter.js';
 import { registerHealthCheckRoutes, readinessMiddleware } from './healthCheck.js';
 import { registerMagicLinkEndpoint } from './magicLinkEndpoint.js';
+import { redisPubSubService } from './redisPubSub.js';
 
 dotenv.config();
 
@@ -1221,6 +1222,163 @@ app.get('/api/session/exists/:code', (req, res) => {
   res.json({ exists })
 })
 
+/**
+ * Send message to a session (Redis Pub/Sub route)
+ * Controller sends message that gets published to Display
+ */
+app.post('/api/session/:code/message', async (req, res) => {
+  const { code } = req.params;
+  const { message, animation, color, customConfig } = req.body;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  if (!message || message.trim().length === 0) {
+    return res.status(400).json({ error: 'Message is required' });
+  }
+
+  try {
+    // Publish message via Redis Pub/Sub
+    const published = await redisPubSubService.publishMessage(code, 'message', {
+      message: message.trim(),
+      animation: animation || 'flip',
+      color: color || 'monochrome',
+      customConfig: customConfig || {}
+    });
+
+    if (!published) {
+      return res.status(500).json({ error: 'Failed to publish message' });
+    }
+
+    // Also store latest message in session state
+    const currentState = await redisPubSubService.getSessionState(code) || {};
+    await redisPubSubService.setSessionState(code, {
+      ...currentState,
+      currentMessage: message.trim(),
+      lastMessageTime: Date.now(),
+      animation: animation || 'flip',
+      color: color || 'monochrome'
+    });
+
+    logger.info('message_sent_via_pubsub', {
+      session_code: code,
+      message: message.substring(0, 100),
+      animation,
+      color
+    });
+
+    res.json({ success: true, published: true });
+  } catch (error) {
+    logger.error('Failed to send message via Pub/Sub:', error);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+/**
+ * Get session configuration
+ */
+app.get('/api/session/:code/config', async (req, res) => {
+  const { code } = req.params;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  try {
+    const config = await redisPubSubService.getSessionConfig(code);
+    
+    if (!config) {
+      return res.json({ config: {} });
+    }
+
+    res.json({ config });
+  } catch (error) {
+    logger.error('Failed to get session config:', error);
+    res.status(500).json({ error: 'Failed to get session config' });
+  }
+});
+
+/**
+ * Update session configuration
+ */
+app.post('/api/session/:code/config', async (req, res) => {
+  const { code } = req.params;
+  const { animation, color, brightness, clockMode, autoHide, customConfig } = req.body;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  try {
+    const config = {
+      animation: animation || 'flip',
+      color: color || 'monochrome',
+      brightness: brightness !== undefined ? brightness : 100,
+      clockMode: clockMode || false,
+      autoHide: autoHide !== undefined ? autoHide : true,
+      customConfig: customConfig || {},
+      updatedAt: Date.now()
+    };
+
+    await redisPubSubService.setSessionConfig(code, config);
+
+    // Publish config update event
+    await redisPubSubService.publishMessage(code, 'config', config);
+
+    logger.info('session_config_updated', { session_code: code, config });
+
+    res.json({ success: true, config });
+  } catch (error) {
+    logger.error('Failed to update session config:', error);
+    res.status(500).json({ error: 'Failed to update session config' });
+  }
+});
+
+/**
+ * Get session state (current message, config, etc.)
+ */
+app.get('/api/session/:code/state', async (req, res) => {
+  const { code } = req.params;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  try {
+    const state = await redisPubSubService.getSessionState(code);
+    const config = await redisPubSubService.getSessionConfig(code);
+
+    res.json({ 
+      state: state || {},
+      config: config || {}
+    });
+  } catch (error) {
+    logger.error('Failed to get session state:', error);
+    res.status(500).json({ error: 'Failed to get session state' });
+  }
+});
+
+/**
+ * Clear/end session
+ */
+app.post('/api/session/:code/end', async (req, res) => {
+  const { code } = req.params;
+
+  if (!code || code.length !== 6) {
+    return res.status(400).json({ error: 'Invalid session code' });
+  }
+
+  try {
+    await redisPubSubService.clearSession(code);
+    logger.info('session_ended', { session_code: code });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to end session:', error);
+    res.status(500).json({ error: 'Failed to end session' });
+  }
+});
+
 app.get('/api/debug/session-events', (req, res) => {
   const { sessionCode, limit } = req.query
   const events = sessionCode
@@ -1298,6 +1456,9 @@ async function startServer() {
 
     // Connect to Redis
     await connectRedis();
+
+    // Initialize Redis Pub/Sub service
+    await redisPubSubService.initialize(process.env.REDIS_URL || 'redis://localhost:6379');
 
     // Start HTTP server on all network interfaces (0.0.0.0) for internet accessibility
     httpServer.listen(PORT, '0.0.0.0', () => {

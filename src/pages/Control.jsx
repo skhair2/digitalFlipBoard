@@ -9,6 +9,7 @@ import Scheduler from '../components/control/Scheduler'
 import EmailVerificationBanner from '../components/auth/EmailVerificationBanner'
 import { useSessionStore } from '../store/sessionStore'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { useMessageBroker } from '../hooks/useMessageBroker'
 import { useActivityTracking } from '../hooks/useActivityTracking'
 import mixpanel from '../services/mixpanelService'
 import { Tab } from '@headlessui/react'
@@ -31,6 +32,9 @@ export default function Control() {
         const boardId = searchParams.get('boardId')
         return boardId ? boardId.toUpperCase() : null
     }, [searchParams])
+
+    // Use message broker for Redis Pub/Sub message routing
+    const { sendMessage: sendViaRedis, updateConfig: updateConfigViaRedis, isLoading: isBrokerLoading } = useMessageBroker()
 
     // Call useWebSocket hook - it handles null sessionCode internally
     useEffect(() => {
