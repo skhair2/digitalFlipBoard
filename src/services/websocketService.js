@@ -37,9 +37,11 @@ class WebSocketService {
         let wsUrl = import.meta.env.VITE_WEBSOCKET_URL
 
         if (!wsUrl) {
-            // Default to same origin so Vite dev proxy or reverse proxy can forward requests.
+            // In development, explicitly use port 3001 for backend
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-            wsUrl = `${protocol}//${window.location.host}`
+            const hostname = window.location.hostname
+            const port = window.location.port === '3000' ? '3001' : (window.location.port || (protocol === 'wss:' ? '443' : '80'))
+            wsUrl = `${protocol}//${hostname}:${port}`
         }
 
         console.log('[WebSocket] Connecting to:', wsUrl, 'from origin:', window.location.origin)
@@ -63,12 +65,14 @@ class WebSocketService {
             console.log('WebSocket connected')
             this.reconnectAttempts = 0
             this.startHeartbeat()
+            this.emit('connection:status', { connected: true })
             mixpanel.track('WebSocket Connected', { sessionCode: this.sessionCode })
         })
 
         this.socket.on('disconnect', (reason) => {
             console.log('WebSocket disconnected:', reason)
             this.stopHeartbeat()
+            this.emit('connection:status', { connected: false })
             mixpanel.track('WebSocket Disconnected', { reason })
         })
 

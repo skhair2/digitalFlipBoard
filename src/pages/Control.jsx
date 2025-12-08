@@ -14,7 +14,7 @@ import { useActivityTracking } from '../hooks/useActivityTracking'
 import mixpanel from '../services/mixpanelService'
 import { Tab } from '@headlessui/react'
 import { clsx } from 'clsx'
-import GridEditor from '../components/designer/GridEditor'
+import EnhancedGridEditor from '../components/designer/EnhancedGridEditor'
 import DesignList from '../components/designer/DesignList'
 import Collections from '../components/designer/Collections'
 import VersionHistory from '../components/designer/VersionHistory'
@@ -58,6 +58,7 @@ export default function Control() {
             const connectionTime = useSessionStore.getState().connectionStartTime
             if (!connectionTime || Date.now() - connectionTime > 15 * 60 * 1000) {
                 // Session is expired or connection time is missing - clear it
+                sessionStorage.removeItem(`controller_active_${sessionCode}`)
                 setConnected(false)
                 setSessionCode(null, { markControllerPaired: false })
             }
@@ -167,7 +168,7 @@ export default function Control() {
                         <div className="space-y-8">
                             <section>
                                 <h2 className="text-lg font-semibold text-white mb-4">Board Editor</h2>
-                                <GridEditor />
+                                <EnhancedGridEditor />
                             </section>
                             <section>
                                 <h2 className="text-lg font-semibold text-white mb-4">Saved Designs</h2>
@@ -233,6 +234,10 @@ export default function Control() {
                     {isConnected && (
                         <button
                             onClick={() => {
+                                // Clear the same-browser marker when disconnecting
+                                if (sessionCode) {
+                                    sessionStorage.removeItem(`controller_active_${sessionCode}`)
+                                }
                                 setConnected(false)
                                 setSessionCode(null, { markControllerPaired: false })
                             }}

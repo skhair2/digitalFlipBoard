@@ -58,6 +58,8 @@ export const useSessionStore = create(
             setControllerSubscriptionTier: (tier) => set({ controllerSubscriptionTier: tier }),
             setClockMode: (status) => set({ isClockMode: status }),
             setGridConfig: (config) => set({ gridConfig: config }),
+            setAnimationType: (animationType) => set({ lastAnimationType: animationType }),
+            setColorTheme: (colorTheme) => set({ lastColorTheme: colorTheme }),
             setConnectionExpired: (expired, reason = 'timeout') => set({ 
                 isConnectionExpired: expired,
                 disconnectReason: reason

@@ -22,6 +22,15 @@ export const useWebSocket = () => {
             return
         }
 
+        // Check if display is on same browser as controller
+        if (role === 'display') {
+            const controllerMarker = sessionStorage.getItem(`controller_active_${sessionCode}`)
+            if (controllerMarker) {
+                console.log('[WebSocket] Display detected controller on same browser. Skipping auto-connect. Require explicit pairing.')
+                return
+            }
+        }
+
         // Get the latest session token for authentication
         const initializeConnection = async () => {
             let token = null
