@@ -1,24 +1,12 @@
 {
-  "version": 3,
-  "name": "digital-flipboard",
-  "builds": [
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "cleanUrls": true,
+  "rewrites": [
     {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist",
-        "buildCommand": "npm run build"
-      }
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
-  ],
-  "routes": [
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "(.*)",
-      "dest": "/dist/index.html"
-    }
-  ],
-  "cleanUrls": true
+  ]
 }
