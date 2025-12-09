@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { googleOAuthService } from '../services/googleOAuthService'
+import googleOAuthService from '../services/googleOAuthServiceDirect'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Tab } from '@headlessui/react'
 import clsx from 'clsx'
@@ -53,6 +53,14 @@ export default function Login() {
             if (result.success) {
                 if (mode === 'magiclink') {
                     setSuccessMessage('Check your email for the magic link!')
+                } else if (mode === 'signup' && result.requiresEmailConfirmation) {
+                    setSuccessMessage('Account created! Please check your email to confirm your account before logging in.')
+                    // Reset form
+                    setEmail('')
+                    setPassword('')
+                    setFullName('')
+                    setAcceptTermsAndPrivacy(false)
+                    setSelectedTabIndex(0) // Switch back to Sign In tab
                 } else {
                     navigate('/dashboard')
                 }
@@ -76,9 +84,15 @@ export default function Login() {
 
         try {
             setIsLoading(true)
+            console.log('Initiating Google OAuth flow...')
+            
             // Start OAuth flow - this will redirect to Google
-            await googleOAuthService.startOAuthFlow()
+            const result = await googleOAuthService.startOAuthFlow()
+            
+            console.log('OAuth flow started:', result)
+            // Note: Page will redirect, so we don't need to handle success here
         } catch (err) {
+            console.error('Google Auth error:', err)
             setError(err.message || 'Failed to start Google login. Please try again.')
             setIsLoading(false)
         }
@@ -136,6 +150,7 @@ export default function Login() {
                             <AnimatePresence mode="wait">
                                 {/* Sign In Panel */}
                                 <Tab.Panel
+                                    key="signin"
                                     as={motion.div}
                                     initial={{ opacity: 0, x: 20 }}
                                     animate={{ opacity: 1, x: 0 }}
@@ -217,6 +232,7 @@ export default function Login() {
 
                                 {/* Sign Up Panel */}
                                 <Tab.Panel
+                                    key="signup"
                                     as={motion.div}
                                     initial={{ opacity: 0, x: 20 }}
                                     animate={{ opacity: 1, x: 0 }}
@@ -301,6 +317,7 @@ export default function Login() {
                     <AnimatePresence>
                         {error && (
                             <motion.div
+                                key="error-message"
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: 'auto' }}
                                 exit={{ opacity: 0, height: 0 }}
@@ -313,6 +330,7 @@ export default function Login() {
                         )}
                         {successMessage && (
                             <motion.div
+                                key="success-message"
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: 'auto' }}
                                 exit={{ opacity: 0, height: 0 }}

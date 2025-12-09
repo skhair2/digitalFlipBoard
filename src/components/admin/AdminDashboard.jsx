@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAdminStore } from '../../store/adminStore';
 import * as adminService from '../../services/adminService';
 import Spinner from '../ui/Spinner';
@@ -14,7 +14,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       setLoading(true);
       const result = await adminService.getSystemAnalytics();
@@ -29,11 +29,11 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setSystemStats]);
 
   useEffect(() => {
     loadStats();
-  }, [setSystemStats]);
+  }, [loadStats]);
 
   const handleRefreshStats = async () => {
     setRefreshing(true);

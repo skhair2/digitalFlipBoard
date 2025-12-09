@@ -191,25 +191,85 @@ export const useAuthStore = create(
                         options: {
                             data: {
                                 full_name: fullName,
-                            }
+                                signup_method: 'password'
+                            },
+                            emailRedirectTo: undefined // Disable Supabase's auto email confirmation
                         }
                     })
 
                     if (error) throw error
 
+                    const userId = data.user?.id
                     mixpanel.track('User Signed Up', { method: 'password', email })
 
-                    // Send welcome email after successful signup
+                    // Note: PostgreSQL trigger automatically creates the profile on auth user creation
+                    // No need to manually insert here as it will cause RLS 401 error
+
+                    // Send custom verification email via Resend (not Supabase's default)
+                    try {
+                        // Generate a 6-digit verification code
+                        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
+                        
+                        // Send verification email with our custom template
+                        await emailService.sendVerification(email, verificationCode)
+                        mixpanel.track('Verification Email Sent', { email })
+
+                        // TODO: Store verification code in database for validation
+                        // In a future enhancement, store this code and validate it when user confirms
+                    } catch (emailError) {
+                        // Log email error but don't fail the signup
+                        console.warn('Failed to send verification email:', emailError)
+                        mixpanel.track('Verification Email Failed', { email, error: emailError.message })
+                    }
+
+                    // Also send welcome email after successful signup
                     try {
                         await emailService.sendWelcome(email, fullName || 'User')
                         mixpanel.track('Welcome Email Sent', { email })
+
+                        // Update welcome_email_sent flag in database
+                        if (userId) {
+                            try {
+                                await supabase
+                                    .from('profiles')
+                                    .update({ welcome_email_sent: true })
+                                    .eq('id', userId)
+                            } catch (updateError) {
+                                console.warn('Failed to update welcome email flag:', updateError)
+                            }
+                        }
                     } catch (emailError) {
                         // Log email error but don't fail the signup
                         console.warn('Failed to send welcome email:', emailError)
                         mixpanel.track('Welcome Email Failed', { email, error: emailError.message })
                     }
 
-                    return { success: true, data }
+                    // Note: User will need to confirm their email before they can fully log in
+                    // If they have an active session in the response, use it; otherwise they'll need to confirm
+                    if (data.session) {
+                        set({
+                            user: data.user,
+                            session: data.session,
+                            loading: false
+                        })
+                        
+                        // Fetch and set profile
+                        const { data: profile } = await supabase
+                            .from('profiles')
+                            .select('*')
+                            .eq('id', userId)
+                            .single()
+                        
+                        if (profile) {
+                            set({
+                                profile,
+                                isPremium: profile.subscription_tier === 'pro' || profile.subscription_tier === 'enterprise',
+                                subscriptionTier: profile.subscription_tier || 'free'
+                            })
+                        }
+                    }
+
+                    return { success: true, data, requiresEmailConfirmation: !data.session }
                 } catch (error) {
                     mixpanel.track('Sign Up Error', { error: error.message })
                     return { success: false, error: error.message }
@@ -243,13 +303,23 @@ export const useAuthStore = create(
             },
 
             // Set user profile (OAuth and other flows)
-            setProfile: (profile) => {
+            setProfile: async (profile) => {
                 const tier = profile?.subscription_tier || 'free'
                 const isPremium = tier === 'pro' || tier === 'enterprise'
+                const adminStatus = profile?.id ? await isUserAdmin(profile.id) : false
+
+                console.log('setProfile called:', {
+                    profileId: profile?.id,
+                    profileEmail: profile?.email,
+                    adminStatus,
+                    tier,
+                    isPremium
+                })
 
                 set({
                     profile,
                     isPremium,
+                    isAdmin: adminStatus,
                     subscriptionTier: tier,
                     designLimits: {
                         maxDesigns: isPremium ? 999999 : 5,

@@ -22,6 +22,7 @@ import PremiumGate from '../components/common/PremiumGate'
 import SharingPanel from '../components/control/SharingPanel'
 import RoleManagement from '../components/control/RoleManagement'
 import SessionManagement from '../components/admin/SessionManagement'
+import SessionStats from '../components/admin/SessionStats'
 
 export default function Control() {
     const { sessionCode, isConnected, setSessionCode, setConnected, setBoardId, isClockMode, setClockMode, controllerHasPaired } = useSessionStore()
@@ -33,8 +34,8 @@ export default function Control() {
         return boardId ? boardId.toUpperCase() : null
     }, [searchParams])
 
-    // Use message broker for Redis Pub/Sub message routing
-    const { sendMessage: sendViaRedis, updateConfig: updateConfigViaRedis, isLoading: isBrokerLoading } = useMessageBroker()
+    // Use message broker (reserved for future message routing features)
+    useMessageBroker()
 
     // Call useWebSocket hook - it handles null sessionCode internally
     useEffect(() => {
@@ -204,6 +205,11 @@ export default function Control() {
             component: (
                 <div className="space-y-8">
                     <section>
+                        <SessionStats />
+                    </section>
+                    <hr className="border-slate-700 my-8" />
+                    <section>
+                        <h2 className="text-lg font-semibold text-white mb-4">Session Monitoring</h2>
                         <SessionManagement />
                     </section>
                     <hr className="border-slate-700 my-8" />

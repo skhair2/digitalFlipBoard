@@ -17,8 +17,9 @@ export default function ActivityLog() {
   const loadActivityLog = useCallback(async () => {
     try {
       setLoading(true);
-      const log = await adminService.fetchAdminActivityLog({ limit: 100 });
-      setActivityLog(log);
+      const result = await adminService.fetchAdminActivityLog({ limit: 100 });
+      // Extract logs array from result object
+      setActivityLog(result.logs || []);
     } catch (err) {
       console.error('Failed to load activity log:', err);
       setError(err.message);
@@ -61,7 +62,10 @@ export default function ActivityLog() {
 
   if (loading && activityLog.length === 0) return <Spinner />;
 
-  const activityTypes = [...new Set(activityLog.map(entry => entry.action_type))];
+  const activityTypes = [...new Set(activityLog
+    .map(entry => entry.action_type)
+    .filter(Boolean)  // Filter out undefined, null, and empty values
+  )];
 
   return (
     <div className="flex-1 overflow-auto">

@@ -134,16 +134,16 @@ export default function SessionPairing({ suggestedCode }) {
             return
         }
 
-        // Check if session code is live on backend
+        // Validate that the Display has created this session code (exists on backend)
         try {
             const response = await fetch(`/api/session/exists/${trimmedCode}`)
             const result = await response.json()
             if (!result.exists) {
-                setError('Session code is not live. Please check the code on the display.')
+                setError('Display code not found. Please ask the display to generate a code.')
                 return
             }
         } catch (err) {
-            setError('Unable to verify session code. Please try again.')
+            setError('Unable to verify display code. Please try again.')
             return
         }
 

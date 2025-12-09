@@ -58,13 +58,15 @@ export default function Display() {
     }, [isConnected])
 
     // Ensure display always has a session code by default unless one is already set or provided via boardId.
+    // NOTE: Changed to NOT auto-generate. Display should wait for user to manually generate pairing code.
+    // This prevents auto-connection when both display and controller are on the same browser.
     useEffect(() => {
         if (!sessionCode && !searchParams.get('boardId')) {
-            // Generate a temporary session code for display
-            const tempCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-            setSessionCode(tempCode)
+            // Do NOT auto-generate - let user manually create the code
+            // This prevents unwanted auto-connection between display and controller tabs
+            console.log('[Display] Waiting for user to generate pairing code')
         }
-    }, [sessionCode, searchParams, setSessionCode])
+    }, [sessionCode, searchParams])
 
     // Check every minute if display should disconnect due to 24h inactivity + free tier controller
     useEffect(() => {
@@ -273,7 +275,39 @@ export default function Display() {
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900 via-black to-black opacity-50 pointer-events-none" />
             )}
 
-            <div className={`z-10 w-full h-full flex flex-col items-center ${isFullscreen ? 'justify-center' : 'gap-8'}`}>
+            {/* Show Pairing Setup Screen if no session code is set */}
+            {!sessionCode ? (
+                <div className="z-10 flex items-center justify-center w-full h-screen">
+                    <div className="bg-slate-800/50 backdrop-blur-md border border-slate-700 rounded-2xl p-8 max-w-md w-full mx-4 text-center">
+                        <h1 className="text-3xl font-bold text-white mb-2">Digital Flip Board</h1>
+                        <p className="text-gray-400 mb-8">Display Mode - Waiting for Setup</p>
+                        
+                        <button
+                            onClick={() => {
+                                // Generate a session code for display
+                                const tempCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+                                setSessionCode(tempCode)
+                                console.log('[Display] Generated session code:', tempCode, '- waiting for controller')
+                            }}
+                            className="w-full py-3 px-4 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-lg transition-colors mb-4"
+                        >
+                            Generate Pairing Code
+                        </button>
+                        
+                        <p className="text-sm text-gray-400 mb-4">
+                            Click the button to generate a 6-character code. Share this code with the controller user to establish a connection.
+                        </p>
+                        
+                        <div className="text-xs text-gray-500 bg-slate-900/50 rounded p-3 border border-slate-700">
+                            <p className="font-mono">
+                                💡 The controller will enter the code on their screen to pair with this display.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                // Display content when sessionCode is set
+                <div className={`z-10 w-full h-full flex flex-col items-center ${isFullscreen ? 'justify-center' : 'gap-8'}`}>
                 {/* Display Grid - Always visible */}
 
                 {/* Flip Display Style: Show info text and session code in grid if not connected */}
@@ -321,6 +355,7 @@ export default function Display() {
                     />
                 )}
             </div>
+            )}
 
             {/* Branding Watermark - Hidden in fullscreen as requested */}
             {/* {isFullscreen && <BrandingWatermark />} */}

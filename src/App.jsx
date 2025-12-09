@@ -24,7 +24,7 @@ const Display = lazy(() => import('./pages/Display'))
 const Control = lazy(() => import('./pages/Control'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Login = lazy(() => import('./pages/Login'))
-const OAuthCallback = lazy(() => import('./pages/OAuthCallback'))
+const OAuthCallback = lazy(() => import('./pages/OAuthCallbackDirect'))
 const Admin = lazy(() => import('./pages/Admin'))
 const DatabaseTest = lazy(() => import('./components/debug/DatabaseTest'))
 

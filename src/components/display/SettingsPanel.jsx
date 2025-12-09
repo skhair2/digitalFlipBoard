@@ -19,6 +19,7 @@ export default function SettingsPanel({ isOpen, onClose, settings, onSettingsCha
                 <>
                     {/* Backdrop */}
                     <MotionDiv
+                        key="settings-backdrop"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -28,6 +29,7 @@ export default function SettingsPanel({ isOpen, onClose, settings, onSettingsCha
 
                     {/* Settings Panel */}
                     <MotionDiv
+                        key="settings-panel"
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}

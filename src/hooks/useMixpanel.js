@@ -9,23 +9,38 @@ export const useMixpanel = () => {
 
     // Track page views
     useEffect(() => {
-        mixpanel.trackPageView(location.pathname, {
-            path: location.pathname,
-            search: location.search,
-            hash: location.hash,
-        })
+        try {
+            mixpanel.trackPageView(location.pathname, {
+                path: location.pathname,
+                search: location.search,
+                hash: location.hash,
+            })
+        } catch (error) {
+            console.warn('Failed to track page view:', error)
+        }
     }, [location])
 
     // Track user sessions
     useEffect(() => {
-        if (user) {
-            mixpanel.identify(user.id)
-            mixpanel.people.set({
-                $email: user.email,
-                $last_login: new Date().toISOString(),
-            })
+        if (user?.id) {
+            try {
+                mixpanel.identify(user.id)
+                // Small delay to prevent mutex contention
+                setTimeout(() => {
+                    try {
+                        mixpanel.people.set({
+                            $email: user.email,
+                            $last_login: new Date().toISOString(),
+                        })
+                    } catch (error) {
+                        console.warn('Failed to set user properties:', error)
+                    }
+                }, 100)
+            } catch (error) {
+                console.warn('Failed to identify user:', error)
+            }
         }
-    }, [user])
+    }, [user?.id, user?.email])
 
     return mixpanel
 }
