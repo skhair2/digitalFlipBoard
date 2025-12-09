@@ -15,6 +15,7 @@ export default function ControlOverlay({
                 <>
                     {/* Fullscreen Button - Top Right Corner */}
                     <motion.button
+                        key="fullscreen-button"
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.8 }}
@@ -39,6 +40,7 @@ export default function ControlOverlay({
 
                     {/* Info & Settings Panel - Bottom Right */}
                     <motion.div
+                        key="control-panel"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 20 }}

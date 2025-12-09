@@ -3,7 +3,7 @@
  * Displays online users and presence statistics
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import usePresence from '../../hooks/usePresence';
 
 const Presence = ({ className = '', showJoinButton = false, userType = 'controller' }) => {

@@ -231,7 +231,7 @@ const useMessageHistory = () => {
     if (sessionCode && sessionCode.length === 6) {
       fetchHistory(0, pagination.pageSize);
     }
-  }, [sessionCode]);
+  }, [sessionCode, fetchHistory, pagination.pageSize]);
 
   return {
     // State

@@ -8,6 +8,7 @@ export const useSessionStore = create(
             sessionCode: null,
             boardId: null,
             isConnected: false,
+            isCodeConfirmed: false, // Track if display user has manually confirmed the code
             currentMessage: null,
             isClockMode: false,
             lastAnimationType: 'flip',
@@ -55,6 +56,7 @@ export const useSessionStore = create(
             recordActivity: () => set({ lastActivityTime: Date.now() }),
             setBoardId: (id) => set({ boardId: id }),
             setConnected: (status) => set({ isConnected: status }),
+            setCodeConfirmed: (confirmed) => set({ isCodeConfirmed: confirmed }),
             setControllerSubscriptionTier: (tier) => set({ controllerSubscriptionTier: tier }),
             setClockMode: (status) => set({ isClockMode: status }),
             setGridConfig: (config) => set({ gridConfig: config }),
@@ -88,6 +90,7 @@ export const useSessionStore = create(
                 sessionCode: null,
                 boardId: null,
                 isConnected: false,
+                isCodeConfirmed: false,
                 currentMessage: null,
                 boardState: null,
                 connectionStartTime: null,

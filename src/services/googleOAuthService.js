@@ -2,7 +2,18 @@
 // Handles OAuth flow, token management, and user profile creation
 
 import { supabase } from './supabaseClient'
-const GOOGLE_REDIRECT_URI = `${import.meta.env.VITE_APP_URL}/auth/callback`
+
+// Get redirect URI safely
+const getRedirectUri = () => {
+    const appUrl = import.meta.env.VITE_APP_URL
+    if (!appUrl) {
+        // Fallback to current window location if env var not set
+        return `${window.location.origin}/auth/callback`
+    }
+    return `${appUrl}/auth/callback`
+}
+
+const GOOGLE_REDIRECT_URI = getRedirectUri()
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 const GOOGLE_AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
@@ -12,15 +23,26 @@ export const googleOAuthService = {
     // Start the OAuth flow using Supabase
     startOAuthFlow: async () => {
         try {
+            console.log('Starting OAuth flow with redirect URI:', GOOGLE_REDIRECT_URI)
+            
             // Use Supabase's built-in Google OAuth provider
-            const { error } = await supabase.auth.signInWithOAuth({
+            const { error, data } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: `${import.meta.env.VITE_APP_URL}/auth/callback`
+                    redirectTo: GOOGLE_REDIRECT_URI,
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent'
+                    }
                 }
             })
 
-            if (error) throw error
+            if (error) {
+                console.error('Supabase OAuth error:', error)
+                throw error
+            }
+
+            console.log('OAuth redirect initiated:', data)
         } catch (error) {
             console.error('OAuth flow error:', error)
             throw error

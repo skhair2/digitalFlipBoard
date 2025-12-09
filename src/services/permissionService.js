@@ -749,17 +749,26 @@ export function isValidEmail(email) {
  */
 export async function isUserAdmin(userId) {
   try {
+    // Check the profiles table for admin role
     const { data, error } = await supabase
-      .from('admin_roles')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('role', 'admin')
-      .eq('status', 'active')
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
       .single();
 
-    if (error) return false;
-    return !!data;
+    const isAdmin = !error && data && data.role === 'admin';
+
+    console.log('isUserAdmin check:', {
+      userId,
+      hasError: !!error,
+      error: error?.message,
+      role: data?.role,
+      isAdmin: isAdmin
+    });
+
+    return isAdmin;
   } catch (error) {
+    console.error('isUserAdmin exception:', { userId, error: error.message });
     return false;
   }
 }

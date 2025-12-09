@@ -100,7 +100,7 @@ export const emailService = {
      * @param {string} name - User's name
      */
     sendWelcome: async (email, name) => {
-        return sendEmail(
+        return sendPublicEmail(
             email,
             'Welcome to FlipDisplay.online!',
             <WelcomeEmail name={name} />
@@ -111,12 +111,13 @@ export const emailService = {
      * Send a verification code to a user
      * @param {string} email - User's email address
      * @param {string} code - Verification code
+     * @param {string} verificationLink - Optional verification link (instead of code)
      */
-    sendVerification: async (email, code) => {
-        return sendEmail(
+    sendVerification: async (email, code, verificationLink) => {
+        return sendPublicEmail(
             email,
-            'Verify your FlipDisplay account',
-            <VerificationEmail code={code} />
+            'Confirm Your FlipDisplay Email',
+            <VerificationEmail code={code} verificationLink={verificationLink} />
         );
     },
 

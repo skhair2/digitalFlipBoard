@@ -69,7 +69,7 @@ export default function EnhancedGridEditor() {
     }, [layout.length, selectedCellIndex])
 
     // History management
-    const saveToHistory = (newLayout) => {
+    const _saveToHistory = (newLayout) => {
         const newHistory = history.slice(0, historyIndex + 1)
         newHistory.push(newLayout)
         setHistory(newHistory)
@@ -263,7 +263,7 @@ export default function EnhancedGridEditor() {
         }
     }
 
-    const handleBatchColorSelection = (color) => {
+    const _handleBatchColorSelection = (color) => {
         if (selectedRange.length === 0) {
             toast.error('Please select cells by clicking and dragging')
             return

@@ -66,6 +66,7 @@ export default function EmailVerificationBanner() {
     return (
         <AnimatePresence>
             <motion.div
+                key="email-verification-banner"
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -111,6 +112,7 @@ export default function EmailVerificationBanner() {
                     <AnimatePresence>
                         {message && (
                             <motion.div
+                                key={`message-${messageType}`}
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: 'auto' }}
                                 exit={{ opacity: 0, height: 0 }}

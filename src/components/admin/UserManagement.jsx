@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useAdminStore } from '../../store/adminStore';
+import { useAuthStore } from '../../store/authStore';
 import * as adminService from '../../services/adminService';
+import { emailService } from '../../services/emailService';
 import Spinner from '../ui/Spinner';
 
 /**
@@ -10,6 +12,7 @@ import Spinner from '../ui/Spinner';
 
 export default function UserManagement() {
   const { users, totalUsers, setUsers, setTotalUsers } = useAdminStore();
+  const { session } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,6 +85,65 @@ export default function UserManagement() {
       setShowModal(false);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setUpdatingUser(null);
+    }
+  };
+
+  const handleResendWelcomeEmail = async (userId) => {
+    if (!selectedUser) return;
+    
+    try {
+      setUpdatingUser(userId);
+      await emailService.sendWelcome(selectedUser.email, selectedUser.full_name || 'User');
+      
+      // Update the welcome_email_sent flag in database
+      await adminService.updateUserWelcomeEmailFlag(userId, true);
+      
+      // Update local state
+      setUsers(users.map(u => u.id === userId ? { ...u, welcome_email_sent: true } : u));
+      setSelectedUser({ ...selectedUser, welcome_email_sent: true });
+      setError(null);
+      alert('Welcome email sent successfully!');
+    } catch (err) {
+      setError('Failed to send welcome email: ' + err.message);
+      alert('Error sending email: ' + err.message);
+    } finally {
+      setUpdatingUser(null);
+    }
+  };
+
+  const handleResendVerificationEmail = async (userId) => {
+    if (!selectedUser) return;
+    
+    try {
+      setUpdatingUser(userId);
+      const token = session?.access_token;
+      
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+      
+      // Call Supabase admin API to resend verification email
+      const response = await fetch('/api/admin/resend-verification-email', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ userId, email: selectedUser.email })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to resend verification email');
+      }
+      
+      setError(null);
+      alert('Verification email sent successfully!');
+    } catch (err) {
+      setError('Failed to send verification email: ' + err.message);
+      alert('Error sending email: ' + err.message);
     } finally {
       setUpdatingUser(null);
     }
@@ -167,6 +229,8 @@ export default function UserManagement() {
                 <th className="px-6 py-3 text-left text-gray-300 font-semibold">User</th>
                 <th className="px-6 py-3 text-left text-gray-300 font-semibold">Email</th>
                 <th className="px-6 py-3 text-left text-gray-300 font-semibold">Tier</th>
+                <th className="px-6 py-3 text-left text-gray-300 font-semibold">Signup Method</th>
+                <th className="px-6 py-3 text-left text-gray-300 font-semibold">Email Verified</th>
                 <th className="px-6 py-3 text-left text-gray-300 font-semibold">Joined</th>
                 <th className="px-6 py-3 text-left text-gray-300 font-semibold">Actions</th>
               </tr>
@@ -174,7 +238,7 @@ export default function UserManagement() {
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-8 text-center text-gray-400">
+                  <td colSpan="7" className="px-6 py-8 text-center text-gray-400">
                     No users found
                   </td>
                 </tr>
@@ -182,7 +246,7 @@ export default function UserManagement() {
                 filteredUsers.map(user => (
                   <tr key={user.id} className="border-b border-gray-700 hover:bg-gray-750 transition-colors">
                     <td className="px-6 py-4">
-                      <p className="font-medium text-white">{user.full_name || 'Unknown'}</p>
+                      <p className="font-medium text-white">{user.full_name || user.email}</p>
                     </td>
                     <td className="px-6 py-4 text-gray-400">{user.email}</td>
                     <td className="px-6 py-4">
@@ -192,6 +256,25 @@ export default function UserManagement() {
                         'bg-purple-600/30 text-purple-300'
                       }`}>
                         {user.subscription_tier}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
+                        user.signup_method === 'google_oauth' ? 'bg-blue-600/30 text-blue-300' :
+                        user.signup_method === 'magic_link' ? 'bg-green-600/30 text-green-300' :
+                        'bg-gray-600/30 text-gray-300'
+                      }`}>
+                        {user.signup_method === 'google_oauth' ? '🔵 Google' :
+                         user.signup_method === 'magic_link' ? '📧 Magic Link' :
+                         '🔐 Password'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        user.email_verified ? 'bg-green-600/30 text-green-300' :
+                        'bg-yellow-600/30 text-yellow-300'
+                      }`}>
+                        {user.email_verified ? '✅ Verified' : '⏳ Pending'}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-gray-400">
@@ -225,11 +308,17 @@ export default function UserManagement() {
             <div className="mb-6 space-y-4">
               <div>
                 <p className="text-gray-400 text-sm">Name</p>
-                <p className="text-white font-medium">{selectedUser.full_name || 'Unknown'}</p>
+                <p className="text-white font-medium">{selectedUser.full_name || selectedUser.email}</p>
               </div>
               <div>
                 <p className="text-gray-400 text-sm">Email</p>
                 <p className="text-white font-medium">{selectedUser.email}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Email Verification</p>
+                <p className="text-white font-medium">
+                  {selectedUser.email_verified ? '✅ Verified' : '⏳ Pending'}
+                </p>
               </div>
               <div>
                 <p className="text-gray-400 text-sm mb-2">Change Subscription Tier</p>
@@ -252,23 +341,41 @@ export default function UserManagement() {
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="space-y-3">
               <button
-                onClick={() => {
-                  setShowModal(false);
-                  setSelectedUser(null);
-                }}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => handleDeactivateUser(selectedUser.id)}
+                onClick={() => handleResendWelcomeEmail(selectedUser.id)}
                 disabled={updatingUser === selectedUser.id}
-                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium"
               >
-                {updatingUser === selectedUser.id ? '⏳ ...' : 'Deactivate'}
+                {updatingUser === selectedUser.id ? '⏳ Sending...' : '📧 Resend Welcome Email'}
               </button>
+              {selectedUser.signup_method !== 'google_oauth' && !selectedUser.email_verified && (
+                <button
+                  onClick={() => handleResendVerificationEmail(selectedUser.id)}
+                  disabled={updatingUser === selectedUser.id}
+                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium"
+                >
+                  {updatingUser === selectedUser.id ? '⏳ Sending...' : '✉️ Resend Verification Email'}
+                </button>
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowModal(false);
+                    setSelectedUser(null);
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => handleDeactivateUser(selectedUser.id)}
+                  disabled={updatingUser === selectedUser.id}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {updatingUser === selectedUser.id ? '⏳ ...' : 'Deactivate'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

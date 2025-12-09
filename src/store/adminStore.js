@@ -14,6 +14,7 @@ export const useAdminStore = create(
       isAdminViewActive: false,
       currentAdminUserId: null,
       users: [],
+      totalUsers: 0,
       usersLoading: false,
       selectedUser: null,
       analytics: null,

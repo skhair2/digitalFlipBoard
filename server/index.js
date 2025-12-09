@@ -25,9 +25,11 @@ import { connectRedis, sessionStore, activityStore, redisClient } from './redis.
 import { createRateLimiter } from './redisRateLimiter.js';
 import { registerHealthCheckRoutes, readinessMiddleware } from './healthCheck.js';
 import { registerMagicLinkEndpoint } from './magicLinkEndpoint.js';
+import { registerGoogleOAuthEndpoints } from './googleOAuthEndpoint.js';
 import { redisPubSubService } from './redisPubSub.js';
 import { MessageHistoryService } from './messageHistory.js';
 import { PresenceTrackingService } from './presenceTracking.js';
+import displaySessionLogger from './displaySessionLogger.js';
 
 dotenv.config();
 
@@ -164,19 +166,18 @@ async function ensureAdminUser(req) {
     throw err;
   }
 
-  const { data: roles, error: roleError } = await supabase
-    .from('admin_roles')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('role', 'admin')
-    .eq('status', 'active')
-    .limit(1);
+  // Check the profiles table for admin role
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
 
-  if (roleError) {
-    throw roleError;
+  if (profileError) {
+    throw profileError;
   }
 
-  if (!roles?.length) {
+  if (!profile || profile.role !== 'admin') {
     const err = new Error('Admin privileges required');
     err.status = 403;
     throw err;
@@ -196,6 +197,7 @@ app.use((req, res, next) => {
 // Register health check routes before protected routes
 registerHealthCheckRoutes(app);
 registerMagicLinkEndpoint(app);
+registerGoogleOAuthEndpoints(app);
 
 // Security: Apply authentication middleware to all socket connections
 io.use(createAuthMiddleware());
@@ -459,6 +461,44 @@ io.on('connection', async (socket) => {
     socket.join(sessionCode);
     const roomSize = io.sockets.adapter.rooms.get(sessionCode)?.size || roomSizeBeforeJoin + 1;
 
+    // Log connection to display sessions table
+    const deviceInfo = {
+      platform: 'Unknown',
+      browser: 'Unknown',
+      os: 'Unknown',
+      userAgent: userAgent.substring(0, 200),
+    };
+    
+    // Parse user agent for better information (basic parsing)
+    if (userAgent.includes('Chrome')) deviceInfo.browser = 'Chrome';
+    else if (userAgent.includes('Safari')) deviceInfo.browser = 'Safari';
+    else if (userAgent.includes('Firefox')) deviceInfo.browser = 'Firefox';
+    else if (userAgent.includes('Edge')) deviceInfo.browser = 'Edge';
+    
+    if (userAgent.includes('Windows')) deviceInfo.os = 'Windows';
+    else if (userAgent.includes('Mac')) deviceInfo.os = 'macOS';
+    else if (userAgent.includes('Linux')) deviceInfo.os = 'Linux';
+    else if (userAgent.includes('Android')) deviceInfo.os = 'Android';
+    else if (userAgent.includes('iPhone') || userAgent.includes('iPad')) deviceInfo.os = 'iOS';
+
+    if (socket.role === 'display') {
+      displaySessionLogger.updateDisplayConnected(sessionCode, {
+        userId,
+        deviceInfo,
+        ipAddress: clientIp,
+      }).catch(err => {
+        logger.warn('Failed to log display connected', { session_code: sessionCode, error: err.message });
+      });
+    } else if (socket.role === 'controller') {
+      displaySessionLogger.updateControllerConnected(sessionCode, {
+        userId,
+        deviceInfo,
+        ipAddress: clientIp,
+      }).catch(err => {
+        logger.warn('Failed to log controller connected', { session_code: sessionCode, error: err.message });
+      });
+    }
+
     // Add user to presence tracking
     if (global.presenceTrackingService) {
       try {
@@ -664,6 +704,11 @@ io.on('connection', async (socket) => {
       // Broadcast to everyone in the room
       io.to(targetSession).emit('message:received', validatedPayload);
 
+      // Log message to Supabase for analytics
+      displaySessionLogger.recordSessionMessage(targetSession).catch(err => {
+        logger.warn('Failed to log session message to Supabase', { session_code: targetSession, error: err.message });
+      });
+
       // Callback to confirm delivery
       callback?.({ success: true });
     } catch (error) {
@@ -790,6 +835,19 @@ io.on('connection', async (socket) => {
 
     logger.logSocketDisconnection(socket, 'client');
 
+    // Log display/controller disconnection to Supabase
+    if (socket.sessionCode) {
+      if (socket.role === 'display') {
+        displaySessionLogger.logDisplayDisconnection(socket.sessionCode, 'manual').catch(err => {
+          logger.warn('Failed to log display disconnection', { session_code: socket.sessionCode, error: err.message });
+        });
+      } else if (socket.role === 'controller') {
+        displaySessionLogger.logControllerDisconnection(socket.sessionCode, 'manual').catch(err => {
+          logger.warn('Failed to log controller disconnection', { session_code: socket.sessionCode, error: err.message });
+        });
+      }
+    }
+
     // Remove from presence tracking
     if (socket.sessionCode && global.presenceTrackingService) {
       global.presenceTrackingService.leaveSession(socket.sessionCode, socket.id).catch(err => {
@@ -882,6 +940,59 @@ app.post('/api/send-email', async (req, res) => {
 });
 
 /**
+ * POST /api/send-public-email
+ * Public endpoint for sending emails via Resend
+ * Does NOT require authentication (for welcome emails during signup, etc.)
+ */
+app.post('/api/send-public-email', async (req, res) => {
+  try {
+    // Validate email payload
+    const validation = validatePayload(emailSchema, req.body);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
+    }
+
+    const { data: emailData } = validation;
+
+    // Rate limit by IP address
+    const clientIp = req.ip || req.connection.remoteAddress;
+    const rateLimitCheck = await rateLimiter.checkIpLimit(clientIp, 1);
+
+    if (!rateLimitCheck.allowed) {
+      return res.status(429).json({
+        error: 'Too many email requests. Please try again later.',
+        retryAfter: rateLimitCheck.retryAfter
+      });
+    }
+
+    // Send email
+    const result = await resend.emails.send({
+      from: 'noreply@flipdisplay.online',
+      to: emailData.to,
+      subject: emailData.subject,
+      html: emailData.html,
+      text: emailData.text
+    });
+
+    logger.info('public_email_sent', {
+      recipient: emailData.to,
+      email_id: result.id
+    });
+
+    res.json({
+      success: true,
+      id: result.id
+    });
+  } catch (error) {
+    logger.error('Public email send failed', error, { recipient: req.body.to });
+    res.status(500).json({
+      error: 'Failed to send email',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+/**
  * POST /api/auth/send-magic-link
  * Generate Supabase magic link and send via Resend with custom template
  */
@@ -903,6 +1014,8 @@ app.post('/api/auth/send-magic-link', async (req, res) => {
     }
 
     const magicLink = otpData.properties.action_link;
+    
+    // Create HTML email using MagicLinkEmail template (inline version)
     const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"><div style="max-width:560px;margin:0 auto;padding:20px"><div style="text-align:center;margin-bottom:24px"><span style="font-size:24px;font-weight:bold;color:#fff">FlipDisplay.online</span></div><div style="background-color:#1e293b;border-radius:12px;border:1px solid #334155;padding:24px"><h1 style="font-size:24px;font-weight:bold;color:#fff;margin-bottom:16px;text-align:center">Your Magic Link</h1><p style="font-size:16px;line-height:26px;color:#cbd5e1;margin-bottom:16px">Click the button below to sign in to your FlipDisplay account. This link will expire in 1 hour.</p><div style="text-align:center;margin-top:32px;margin-bottom:32px"><a href="${magicLink}" style="background-color:#14b8a6;border-radius:8px;color:#fff;font-size:16px;font-weight:bold;text-decoration:none;display:inline-block;padding:12px 24px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1)">Sign In to FlipDisplay</a></div><p style="font-size:14px;line-height:22px;color:#94a3b8;margin-bottom:16px">Or copy and paste this link into your browser:</p><div style="background:#0f172a;border-radius:8px;padding:12px;margin:16px 0;border:1px solid #334155;word-break:break-all"><span style="font-size:12px;color:#2dd4bf;font-family:monospace">${magicLink}</span></div><hr style="border-color:#334155;margin:20px 0"><p style="font-size:16px;line-height:26px;color:#cbd5e1">If you didn't request this link, you can safely ignore this email.</p></div><div style="margin-top:32px;text-align:center"><p style="font-size:12px;color:#64748b;margin-bottom:8px">© ${new Date().getFullYear()} FlipDisplay.online. All rights reserved.</p></div></div></body></html>`;
 
     const result = await resend.emails.send({
@@ -1183,6 +1296,82 @@ app.get('/api/admin/csrf-token', async (req, res) => {
 
     logger.error('csrf_token_issue_failed', error);
     return res.status(500).json({ error: 'Failed to issue CSRF token' });
+  }
+});
+
+/**
+ * Admin endpoint to resend email verification link
+ */
+app.post('/api/admin/resend-verification-email', async (req, res) => {
+  try {
+    const { userId, email, verificationLink } = req.body;
+
+    if (!userId || !email) {
+      return res.status(400).json({
+        error: 'Missing required fields: userId, email'
+      });
+    }
+
+    // Verify admin user
+    let adminUser;
+    try {
+      adminUser = await ensureAdminUser(req);
+    } catch (authError) {
+      const statusCode = authError.status || 401;
+      return res.status(statusCode).json({ error: authError.message });
+    }
+
+    if (!adminUser) {
+      return res.status(403).json({ error: 'Admin privileges required' });
+    }
+
+    // Generate verification link if not provided
+    let link = verificationLink;
+    if (!link) {
+      try {
+        const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+          type: 'email_change',
+          email
+        });
+        
+        if (!linkError && linkData?.properties?.action_link) {
+          link = linkData.properties.action_link;
+        }
+      } catch (err) {
+        logger.warn('Could not generate verification link, using Supabase default', { userId, email });
+      }
+    }
+
+    // Send verification email via Resend with VerificationEmail template
+    const result = await resend.emails.send({
+      from: process.env.FROM_EMAIL || 'noreply@flipdisplay.online',
+      to: email,
+      subject: 'Confirm Your FlipDisplay Email',
+      html: `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"><div style="max-width:560px;margin:0 auto;padding:20px"><div style="text-align:center;margin-bottom:24px"><span style="font-size:24px;font-weight:bold;color:#fff">FlipDisplay.online</span></div><div style="background-color:#1e293b;border-radius:12px;border:1px solid #334155;padding:24px"><h1 style="font-size:24px;font-weight:bold;color:#fff;margin-bottom:16px;text-align:center">Verify Your Email</h1><p style="font-size:16px;line-height:26px;color:#cbd5e1;margin-bottom:16px">Thank you for signing up! Please verify your email address to complete your account setup.</p>${link ? `<div style="text-align:center;margin-top:32px;margin-bottom:32px"><a href="${link}" style="background-color:#14b8a6;border-radius:8px;color:#fff;font-size:16px;font-weight:bold;text-decoration:none;display:inline-block;padding:12px 24px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1)">Verify Email Address</a></div>` : ''}<p style="font-size:14px;line-height:22px;color:#94a3b8;margin-bottom:16px">If you didn't create this account, you can safely ignore this email.</p></div><div style="margin-top:32px;text-align:center"><p style="font-size:12px;color:#64748b;margin-bottom:8px">© ${new Date().getFullYear()} FlipDisplay.online. All rights reserved.</p></div></div></body></html>`,
+      text: 'Please verify your email address to complete your account setup.'
+    });
+
+    logger.info('Verification email sent via Resend', {
+      userId,
+      email,
+      email_id: result.id
+    });
+
+    return res.json({
+      success: true,
+      message: 'Verification email sent successfully',
+      email_id: result.id
+    });
+  } catch (error) {
+    logger.error('resend_verification_email_failed', {
+      message: error.message,
+      stack: error.stack,
+      userId: req.body.userId,
+      email: req.body.email
+    });
+    return res.status(500).json({
+      error: error.message || 'Failed to resend verification email'
+    });
   }
 });
 

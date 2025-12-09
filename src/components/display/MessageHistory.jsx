@@ -16,7 +16,6 @@ const MessageHistory = ({ className = '' }) => {
     fetchHistory,
     nextPage,
     previousPage,
-    goToPage,
     clearHistory,
     search,
     searchResults
