@@ -2054,3 +2054,6 @@ process.on('unhandledRejection', (reason, promise) => {
   });
 });
 
+// Export for Vercel serverless functions
+export { app, httpServer };
+
