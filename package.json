@@ -3,9 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
+  "packageManager": "pnpm@10.25.0",
   "scripts": {
     "dev": "vite",
     "dev:monorepo": "turbo run dev --parallel",
@@ -14,9 +12,9 @@
     "lint": "eslint .",
     "type-check": "tsc -b",
     "preview": "vite preview",
-    "server": "cd packages/api && npm run start",
-    "server:dev": "cd packages/api && npm run dev",
-    "server:install": "npm install"
+    "server": "cd packages/api && pnpm run start",
+    "server:dev": "cd packages/api && pnpm run dev",
+    "install:deps": "pnpm install"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
