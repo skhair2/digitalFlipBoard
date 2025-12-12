@@ -8,9 +8,24 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
     const { currentMessage, boardState, lastAnimationType, lastColorTheme, gridConfig } = useSessionStore()
     const { screen, calculateOptimalCharSize } = useScreenResolution()
 
+    // Calculate dynamic defaults based on screen size
+    const defaultRows = useMemo(() => {
+        if (screen.isSmallScreen) return 8
+        // For larger screens, aim for ~110px height per row to fill screen nicely
+        // e.g. 1080p -> ~9-10 rows
+        return Math.max(6, Math.floor(screen.height / 110))
+    }, [screen.height, screen.isSmallScreen])
+
+    const defaultCols = useMemo(() => {
+        if (screen.isSmallScreen) return 14
+        // For larger screens, aim for ~66px width per col
+        // e.g. 1920p -> ~29 cols
+        return Math.max(18, Math.floor(screen.width / 66))
+    }, [screen.width, screen.isSmallScreen])
+
     // Use config or defaults
-    const rows = gridConfig?.rows || 6
-    const cols = gridConfig?.cols || 22
+    const rows = gridConfig?.rows || defaultRows
+    const cols = gridConfig?.cols || defaultCols
     const totalChars = rows * cols
 
     // Calculate optimal sizing for current screen resolution

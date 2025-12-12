@@ -30,26 +30,49 @@ export function useFlipSound(isEnabled) {
         const ctx = ensureContext()
         if (!ctx) return
 
-        const startTime = ctx.currentTime + Math.max(delayMs, 0) / 1000
+        const t = ctx.currentTime + Math.max(delayMs, 0) / 1000
 
-        // Two short hits stacked together to mimic mechanical flaps snapping
-        for (let i = 0; i < 2; i++) {
-            const osc = ctx.createOscillator()
-            const gain = ctx.createGain()
-            const hitDelay = startTime + i * 0.04
+        // 1. The "Click" (Sharp impact transient)
+        // A rapid sine sweep creates the sharp "tick" of the flap hitting the stopper
+        const osc = ctx.createOscillator()
+        const oscGain = ctx.createGain()
+        
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(2000, t) 
+        osc.frequency.exponentialRampToValueAtTime(100, t + 0.015) // Extremely fast drop
+        
+        oscGain.gain.setValueAtTime(0.25, t)
+        oscGain.gain.exponentialRampToValueAtTime(0.01, t + 0.015)
+        
+        osc.connect(oscGain)
+        oscGain.connect(ctx.destination)
+        osc.start(t)
+        osc.stop(t + 0.02)
 
-            osc.type = 'triangle'
-            osc.frequency.setValueAtTime(180, hitDelay)
-            osc.frequency.exponentialRampToValueAtTime(90, hitDelay + 0.08)
-
-            gain.gain.setValueAtTime(0.0001, hitDelay)
-            gain.gain.linearRampToValueAtTime(0.25, hitDelay + 0.01)
-            gain.gain.exponentialRampToValueAtTime(0.0001, hitDelay + 0.12)
-
-            osc.connect(gain).connect(ctx.destination)
-            osc.start(hitDelay)
-            osc.stop(hitDelay + 0.15)
+        // 2. The "Clack" (Plastic body resonance)
+        // Short burst of filtered noise for the physical texture
+        const bufferSize = ctx.sampleRate * 0.05 // 50ms
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+        const data = buffer.getChannelData(0)
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1
         }
+
+        const noise = ctx.createBufferSource()
+        noise.buffer = buffer
+        
+        const noiseFilter = ctx.createBiquadFilter()
+        noiseFilter.type = 'lowpass'
+        noiseFilter.frequency.value = 800 // Muffled plastic sound
+
+        const noiseGain = ctx.createGain()
+        noiseGain.gain.setValueAtTime(0.15, t)
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.04)
+
+        noise.connect(noiseFilter)
+        noiseFilter.connect(noiseGain)
+        noiseGain.connect(ctx.destination)
+        noise.start(t)
     }, [isEnabled])
 
     return scheduleFlipSound

@@ -10,6 +10,7 @@ import DisplayView from './components/DisplayView'
 import ControllerView from './components/ControllerView'
 import { useMixpanel } from './hooks/useMixpanel'
 import { useAuthStore } from './store/authStore'
+import { useModeStore } from './store/modeStore'
 import { Pricing, NotFound } from './pages/Placeholders'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
@@ -34,6 +35,14 @@ const DatabaseTest = lazy(() => import('./components/debug/DatabaseTest'))
 function App() {
   useMixpanel() // Track page views
   const { initialize } = useAuthStore()
+  const { mode, setMode } = useModeStore()
+
+  // Force controller mode on first load if no mode is set
+  useEffect(() => {
+    if (!mode || mode === null) {
+      setMode('controller')
+    }
+  }, [mode, setMode])
 
   // Clean up stale session data from localStorage on app load
   useEffect(() => {
@@ -73,7 +82,9 @@ function App() {
           controllerComponent={
             <Routes>
               <Route path="/" element={<Layout />}>
-                <Route index element={<ControllerView />} />
+                <Route index element={<Home />} />
+                <Route path="display" element={<Display />} />
+                <Route path="control" element={<Control />} />
                 <Route path="login" element={<Login />} />
                 <Route path="auth/callback" element={<OAuthCallback />} />
                 <Route path="pricing" element={<Pricing />} />

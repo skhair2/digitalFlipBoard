@@ -64,7 +64,7 @@ export const useScreenResolution = () => {
 
         // Apply minimum and maximum sizes for readability
         const minCharSize = 12 // Don't go below 12px
-        const maxCharSize = 120 // Don't go above 120px (for 8K displays)
+        const maxCharSize = 600 // Increased to allow filling large screens (was 120)
 
         charWidth = Math.max(minCharSize, Math.min(maxCharSize, charWidth))
         charHeight = Math.max(minCharSize, Math.min(maxCharSize, charHeight))

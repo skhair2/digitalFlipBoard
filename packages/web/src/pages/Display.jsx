@@ -280,14 +280,15 @@ export default function Display() {
                 <div className="z-10 flex items-center justify-center w-full h-screen">
                     <div className="bg-slate-800/50 backdrop-blur-md border border-slate-700 rounded-2xl p-8 max-w-md w-full mx-4 text-center">
                         <h1 className="text-3xl font-bold text-white mb-2">Digital Flip Board</h1>
-                        <p className="text-gray-400 mb-8">Display Mode - Waiting for Setup</p>
+                        <p className="text-gray-400 mb-8">Display Mode</p>
+                        <p className="text-gray-500 mb-8 text-sm">Status: <span className="text-amber-400 font-semibold">Waiting for Setup</span></p>
                         
                         <button
                             onClick={() => {
                                 // Generate a session code for display
                                 const tempCode = Math.random().toString(36).substring(2, 8).toUpperCase()
                                 setSessionCode(tempCode)
-                                console.log('[Display] Generated session code:', tempCode, '- waiting for controller')
+                                console.log('[Display] Generated session code:', tempCode, '- waiting for controller to pair')
                             }}
                             className="w-full py-3 px-4 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-lg transition-colors mb-4"
                         >
@@ -295,12 +296,12 @@ export default function Display() {
                         </button>
                         
                         <p className="text-sm text-gray-400 mb-4">
-                            Click the button to generate a 6-character code. Share this code with the controller user to establish a connection.
+                            Click the button to generate a 6-character code. Share this code with the controller user.
                         </p>
                         
                         <div className="text-xs text-gray-500 bg-slate-900/50 rounded p-3 border border-slate-700">
                             <p className="font-mono">
-                                💡 The controller will enter the code on their screen to pair with this display.
+                                💡 The controller will enter the code on their screen to establish a connection.
                             </p>
                         </div>
                     </div>
@@ -310,22 +311,15 @@ export default function Display() {
                 <div className={`z-10 w-full h-full flex flex-col items-center ${isFullscreen ? 'justify-center' : 'gap-8'}`}>
                 {/* Display Grid - Always visible */}
 
-                {/* Flip Display Style: Show info text and session code in grid if not connected */}
-                {!isConnected && showPairingCode && sessionCode ? (
+                {/* Display Pairing State: Show code and waiting status until controller connects */}
+                {showPairingCode && sessionCode && !isConnected ? (
                     <div className="flex flex-col items-center justify-center w-full">
                         {/* Status indicator top right */}
                         <div className="fixed top-4 right-4 flex items-center gap-2 transition-opacity duration-300 z-50">
-                            <div className={`w-2 h-2 rounded-full ${window?.digitalFlipBoardSocket?.reconnecting
-                                ? 'bg-amber-500 animate-pulse'
-                                : isConnected
-                                    ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]'
-                                    : 'bg-amber-500 animate-pulse'
-                            }`} />
-                            <span className="text-xs text-gray-500 font-mono uppercase">
-                                {window?.digitalFlipBoardSocket?.reconnecting ? 'Reconnecting...' : isConnected ? 'Connected' : 'Not Connected'}
-                            </span>
+                            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                            <span className="text-xs text-gray-500 font-mono uppercase">Waiting for Controller</span>
                         </div>
-                        {/* All info and code in one flip display grid */}
+                        {/* Show pairing code until controller connects */}
                         <div className="w-full flex justify-center">
                             <DigitalFlipBoardGrid
                                 overrideMessage={`DISPLAY CODE  ${sessionCode}`}
@@ -335,6 +329,11 @@ export default function Display() {
                     </div>
                 ) : isConnected && !isClockMode && !currentMessage && showConnectedMessage ? (
                     <div className="flex flex-col items-center justify-center w-full">
+                        {/* Status indicator top right */}
+                        <div className="fixed top-4 right-4 flex items-center gap-2 transition-opacity duration-300 z-50">
+                            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
+                            <span className="text-xs text-gray-500 font-mono uppercase">Connected</span>
+                        </div>
                         <div className="w-full flex justify-center mb-2">
                             <DigitalFlipBoardGrid
                                 overrideMessage={"✓ CONNECTED"}
@@ -348,6 +347,18 @@ export default function Display() {
                             />
                         </div>
                     </div>
+                ) : isConnected ? (
+                    <div className="flex flex-col items-center justify-center w-full">
+                        {/* Status indicator top right - show when connected and displaying messages */}
+                        <div className="fixed top-4 right-4 flex items-center gap-2 transition-opacity duration-300 z-50">
+                            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
+                            <span className="text-xs text-gray-500 font-mono uppercase">Connected</span>
+                        </div>
+                        <DigitalFlipBoardGrid
+                            overrideMessage={isClockMode ? timeString : undefined}
+                            isFullscreen={isFullscreen}
+                        />
+                    </div>
                 ) : (
                     <DigitalFlipBoardGrid
                         overrideMessage={isClockMode ? timeString : undefined}
@@ -356,8 +367,6 @@ export default function Display() {
                 )}
             </div>
             )}
-
-            {/* Branding Watermark - Hidden in fullscreen as requested */}
             {/* {isFullscreen && <BrandingWatermark />} */}
 
             {/* Session Inactivity Warning/Error */}

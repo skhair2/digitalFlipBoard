@@ -118,11 +118,10 @@ export default function DisplayView() {
       {/* Minimal Control Button (Bottom Right) */}
       <motion.button
         onClick={handleExitDisplay}
-        whileHover={{ scale: 1.1 }}
+        whileHover={{ scale: 1.1, opacity: 1 }}
         whileTap={{ scale: 0.95 }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 0.5 }}
-        whileHover={{ opacity: 1 }}
         className="absolute bottom-6 right-6 p-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-white text-sm transition-all"
         title="Click to switch modes"
       >
@@ -133,11 +132,10 @@ export default function DisplayView() {
       {!showSessionCode && isConnected && (
         <motion.button
           onClick={() => setShowSessionCode(true)}
-          whileHover={{ scale: 1.05 }}
+          whileHover={{ scale: 1.05, opacity: 0.7 }}
           whileTap={{ scale: 0.95 }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 0.3 }}
-          whileHover={{ opacity: 0.7 }}
           className="absolute top-6 right-6 px-2 py-1 bg-slate-800/50 hover:bg-slate-700 rounded text-white text-xs transition-all"
         >
           Show Code

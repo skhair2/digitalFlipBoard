@@ -9,7 +9,8 @@ export const useModeStore = create(
   persist(
     (set) => ({
       // 'display' | 'controller' | null (null = show mode selection)
-      mode: null,
+      // Default to 'controller' to show full app with landing page
+      mode: 'controller',
       
       // Set the mode
       setMode: (mode) => set({ mode }),

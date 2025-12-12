@@ -6,18 +6,27 @@ class WebSocketService {
     constructor() {
         this.socket = null
         this.sessionCode = null
+        this.currentRole = null
         this.reconnectAttempts = 0
         this.maxReconnectAttempts = 5
         this.listeners = new Map()
     }
 
     connect(sessionCode, userId = null, token = null, role = 'display') {
+        // If already connected to a different role, disconnect first
+        if (this.socket?.connected && this.currentRole !== role) {
+            console.log('[WebSocket] Role changed from', this.currentRole, 'to', role, '- disconnecting old socket first')
+            this.socket.disconnect()
+            this.socket = null
+        }
+
         if (this.socket?.connected) {
-            console.warn('Already connected')
+            console.warn('Already connected with same role')
             return
         }
 
         this.sessionCode = sessionCode
+        this.currentRole = role
 
         // Build auth object - token is required for backend authentication
         const auth = {
@@ -40,8 +49,8 @@ class WebSocketService {
             // In development, explicitly use port 3001 for backend
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
             const hostname = window.location.hostname
-            const port = window.location.port === '3000' ? '3001' : (window.location.port || (protocol === 'wss:' ? '443' : '80'))
-            wsUrl = `${protocol}//${hostname}:${port}`
+            // Always use port 3001 for WebSocket backend in development
+            wsUrl = `${protocol}//${hostname}:3001`
         }
 
         console.log('[WebSocket] Connecting to:', wsUrl, 'from origin:', window.location.origin)

@@ -1,0 +1,220 @@
+2025-12-12T03:15:59.906996Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies"), AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie"), AnchoredSystemPathBuf(".turbo")}
+2025-12-12T03:15:59.907030Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:16:00.417405Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\vite.config.js.timestamp-1765509360387-c86f8ebcabb92.mjs"), AnchoredSystemPathBuf("packages\\web")}
+2025-12-12T03:16:00.417418Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:16:01.606242Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\daemon")}
+2025-12-12T03:16:01.606253Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:18:31.797997Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie"), AnchoredSystemPathBuf(".turbo\\cookies")}
+2025-12-12T03:18:31.798015Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:18:32.296660Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web"), AnchoredSystemPathBuf("packages\\web\\vite.config.js.timestamp-1765509512192-f084d238eb6c2.mjs")}
+2025-12-12T03:18:32.296671Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:19:55.604071Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\index.html"), AnchoredSystemPathBuf("packages\\display")}
+2025-12-12T03:19:55.604085Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:19:55.994238Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\src"), AnchoredSystemPathBuf("packages\\display\\src\\main.jsx")}
+2025-12-12T03:19:55.994254Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:19:56.491121Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\src\\App.jsx"), AnchoredSystemPathBuf("packages\\display\\src")}
+2025-12-12T03:19:56.491134Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:19:56.804571Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\src"), AnchoredSystemPathBuf("packages\\display\\src\\index.css")}
+2025-12-12T03:19:56.804586Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:19:57.101692Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\vite.config.js"), AnchoredSystemPathBuf("packages\\display")}
+2025-12-12T03:19:57.101706Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:19:57.303175Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\src\\main.jsx")}
+2025-12-12T03:19:57.303213Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:19:57.397885Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\src\\main.jsx")}
+2025-12-12T03:19:57.397897Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:19:57.397912Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:19:57.490772Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\index.html")}
+2025-12-12T03:19:57.490783Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:19:57.599911Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display"), AnchoredSystemPathBuf("packages\\display\\postcss.config.js")}
+2025-12-12T03:19:57.599923Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:19:57.699733Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\src\\App.jsx")}
+2025-12-12T03:19:57.699742Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:19:57.699753Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:19:57.991549Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display"), AnchoredSystemPathBuf("packages\\display\\tailwind.config.js")}
+2025-12-12T03:19:57.991564Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:19:58.092817Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\src\\index.css")}
+2025-12-12T03:19:58.092828Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:19:58.194116Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\postcss.config.js"), AnchoredSystemPathBuf("packages\\display\\src\\index.css")}
+2025-12-12T03:19:58.194128Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:19:58.194141Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:19:58.302420Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\tailwind.config.js")}
+2025-12-12T03:19:58.302431Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:19:58.694894Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\vite.config.js")}
+2025-12-12T03:19:58.694913Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:20:02.202773Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web"), AnchoredSystemPathBuf("packages\\web\\vite.config.js.timestamp-1765509602153-5e644c29e6d7c.mjs"), AnchoredSystemPathBuf("packages\\web\\vite.config.js")}
+2025-12-12T03:20:02.202784Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:20:04.293026Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\src\\main.jsx"), AnchoredSystemPathBuf("packages\\web\\vite.config.js"), AnchoredSystemPathBuf("packages\\display\\postcss.config.js"), AnchoredSystemPathBuf("packages\\display\\index.html"), AnchoredSystemPathBuf("packages\\web"), AnchoredSystemPathBuf("packages\\web\\vite.config.js.timestamp-1765509604268-f14180bf42939.mjs"), AnchoredSystemPathBuf("packages\\display\\src\\App.jsx"), AnchoredSystemPathBuf("packages\\display\\vite.config.js"), AnchoredSystemPathBuf("packages\\display\\tailwind.config.js"), AnchoredSystemPathBuf("packages\\display\\src\\index.css")}
+2025-12-12T03:20:04.293037Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }, WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:20:04.343793Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:20:04.356105Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:20:04.404477Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\tailwind.config.js"), AnchoredSystemPathBuf("packages\\display\\postcss.config.js")}
+2025-12-12T03:20:04.404493Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:20:04.404513Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:20:22.617703Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies")}
+2025-12-12T03:20:22.617751Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:20:22.712678Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies"), AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie")}
+2025-12-12T03:20:22.712689Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:20:23.107170Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\vite.config.js.timestamp-1765509623087-da2d742610a22.mjs"), AnchoredSystemPathBuf("packages\\web"), AnchoredSystemPathBuf("packages\\display"), AnchoredSystemPathBuf("packages\\display\\vite.config.js.timestamp-1765509623087-5074a30260e58.mjs")}
+2025-12-12T03:20:23.107182Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }, WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:22:08.215878Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\src\\App.jsx")}
+2025-12-12T03:22:08.215891Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:22:13.707435Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\src\\main.jsx")}
+2025-12-12T03:22:13.707447Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:22:26.919082Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\store\\modeStore.js")}
+2025-12-12T03:22:26.919094Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:22:33.914327Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\src\\App.jsx")}
+2025-12-12T03:22:33.914340Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:24:06.114050Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\src\\App.jsx"), AnchoredSystemPathBuf("packages\\web\\src\\store\\modeStore.js"), AnchoredSystemPathBuf("packages\\display\\src\\main.jsx")}
+2025-12-12T03:24:06.114071Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }, WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:24:06.171284Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:24:06.171331Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:25:10.751922Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies"), AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie")}
+2025-12-12T03:25:10.751941Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:25:11.252311Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web"), AnchoredSystemPathBuf("packages\\display"), AnchoredSystemPathBuf("packages\\display\\vite.config.js.timestamp-1765509911145-6e450757a7e14.mjs"), AnchoredSystemPathBuf("packages\\web\\vite.config.js.timestamp-1765509911143-509df2aae65af.mjs")}
+2025-12-12T03:25:11.252323Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }, WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:25:25.845261Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\App.jsx")}
+2025-12-12T03:25:25.845273Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:25:37.247664Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\App.jsx")}
+2025-12-12T03:25:37.247676Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:25:37.257696Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:28:14.749385Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\App.jsx")}
+2025-12-12T03:28:14.749399Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:28:18.642476Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\App.jsx")}
+2025-12-12T03:28:18.642507Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:29:24.151429Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\App.jsx")}
+2025-12-12T03:29:24.151443Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:29:24.246158Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\App.jsx")}
+2025-12-12T03:29:24.246169Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:29:24.246209Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:30:16.543808Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\App.jsx")}
+2025-12-12T03:30:16.543828Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:30:16.557659Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:30:46.047481Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\daemon\\d092bf133026004e-turbo.log.2025-12-12")}
+2025-12-12T03:30:46.047496Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:30:56.857005Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\daemon\\d092bf133026004e-turbo.log.2025-12-12")}
+2025-12-12T03:30:56.857016Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:31:49.045848Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("ROUTING_AND_FUNCTIONALITY_ANALYSIS.md")}
+2025-12-12T03:31:49.045861Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:31:49.154302Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("")}
+2025-12-12T03:31:49.154312Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({}))
+2025-12-12T03:31:50.546586Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("ROUTING_AND_FUNCTIONALITY_ANALYSIS.md")}
+2025-12-12T03:31:50.546597Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:31:51.544544Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("ROUTING_AND_FUNCTIONALITY_ANALYSIS.md")}
+2025-12-12T03:31:51.544556Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:36:01.854275Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\hooks\\useWebSocket.js")}
+2025-12-12T03:36:01.854295Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:36:09.251472Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\pages\\Display.jsx")}
+2025-12-12T03:36:09.251484Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:36:19.160487Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\pages\\Display.jsx")}
+2025-12-12T03:36:19.160520Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:36:26.659411Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\components\\DisplayView.jsx")}
+2025-12-12T03:36:26.659428Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:37:25.352626Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\components\\DisplayView.jsx")}
+2025-12-12T03:37:25.352641Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:37:25.447973Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\components\\DisplayView.jsx")}
+2025-12-12T03:37:25.447985Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:37:25.448032Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:37:46.854644Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("DISPLAY_PAIRING_FIX_SUMMARY.md")}
+2025-12-12T03:37:46.854657Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:37:46.947973Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("")}
+2025-12-12T03:37:46.947991Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({}))
+2025-12-12T03:37:48.047086Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("DISPLAY_PAIRING_FIX_SUMMARY.md")}
+2025-12-12T03:37:48.047099Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:40:55.836753Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies"), AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie")}
+2025-12-12T03:40:55.836772Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:40:56.237697Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\vite.config.js.timestamp-1765510856219-1806d5ce6a4f8.mjs"), AnchoredSystemPathBuf("packages\\web"), AnchoredSystemPathBuf("packages\\display"), AnchoredSystemPathBuf("packages\\display\\vite.config.js.timestamp-1765510856222-2d8fbc813511f.mjs")}
+2025-12-12T03:40:56.237717Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }, WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:44:23.947679Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\hooks\\useWebSocket.js")}
+2025-12-12T03:44:23.947697Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:44:36.512592Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies"), AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie")}
+2025-12-12T03:44:36.512610Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:44:36.906164Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\vite.config.js.timestamp-1765511076897-9cd3460a0f331.mjs"), AnchoredSystemPathBuf("packages\\web\\vite.config.js.timestamp-1765511076897-b8eef48e0d04b.mjs")}
+2025-12-12T03:44:36.906183Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }, WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:44:37.021664Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web"), AnchoredSystemPathBuf("packages\\display")}
+2025-12-12T03:44:37.021678Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }, WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:44:37.021695Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:44:37.021736Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:44:59.521659Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("DISPLAY_PAIRING_FIX_FINAL.md")}
+2025-12-12T03:44:59.521669Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:44:59.615455Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("")}
+2025-12-12T03:44:59.615464Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({}))
+2025-12-12T03:45:00.708002Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("DISPLAY_PAIRING_FIX_FINAL.md")}
+2025-12-12T03:45:00.708019Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:45:11.207381Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("DISPLAY_PAIRING_FIX_CHECKLIST.md"), AnchoredSystemPathBuf("DISPLAY_PAIRING_FIX_FINAL.md"), AnchoredSystemPathBuf("packages\\web\\src\\components\\DisplayView.jsx"), AnchoredSystemPathBuf("packages\\web\\src\\pages\\Display.jsx"), AnchoredSystemPathBuf("DISPLAY_PAIRING_FIX_SUMMARY.md"), AnchoredSystemPathBuf("packages\\web\\src\\hooks\\useWebSocket.js")}
+2025-12-12T03:45:11.207401Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }, WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:45:11.214938Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:46:37.476533Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie"), AnchoredSystemPathBuf(".turbo\\cookies")}
+2025-12-12T03:46:37.476564Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:46:37.882128Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display"), AnchoredSystemPathBuf("packages\\web"), AnchoredSystemPathBuf("packages\\web\\vite.config.js.timestamp-1765511197860-cea835b63e8d7.mjs"), AnchoredSystemPathBuf("packages\\display\\vite.config.js.timestamp-1765511197862-8bcd16ab6d9dd.mjs")}
+2025-12-12T03:46:37.882140Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }, WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T03:47:50.286336Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\hooks\\useWebSocket.js")}
+2025-12-12T03:47:50.286348Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:48:01.588159Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies"), AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie")}
+2025-12-12T03:48:01.588180Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:48:02.095889Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web"), AnchoredSystemPathBuf("packages\\display"), AnchoredSystemPathBuf("packages\\web\\vite.config.js.timestamp-1765511281992-ed48f381a20f4.mjs"), AnchoredSystemPathBuf("packages\\display\\vite.config.js.timestamp-1765511281992-460bf385c9427.mjs")}
+2025-12-12T03:48:02.095907Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }, WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:48:12.283940Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\hooks\\useWebSocket.js")}
+2025-12-12T03:48:12.283952Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:48:12.296333Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:51:36.197507Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\hooks\\useWebSocket.js")}
+2025-12-12T03:51:36.197522Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:51:51.681156Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies"), AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie")}
+2025-12-12T03:51:51.681174Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:51:52.092137Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display\\vite.config.js.timestamp-1765511512070-07fd06b9e093d.mjs"), AnchoredSystemPathBuf("packages\\display"), AnchoredSystemPathBuf("packages\\web"), AnchoredSystemPathBuf("packages\\web\\vite.config.js.timestamp-1765511512070-b492a7325a83a.mjs")}
+2025-12-12T03:51:52.092148Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }, WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:52:32.488010Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\services\\websocketService.js")}
+2025-12-12T03:52:32.488023Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:52:35.081492Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\services\\websocketService.js")}
+2025-12-12T03:52:35.081503Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:52:35.194188Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\services\\websocketService.js")}
+2025-12-12T03:52:35.194200Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T03:52:35.194249Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T03:52:53.994507Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies")}
+2025-12-12T03:52:53.994528Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:52:54.087749Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies"), AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie")}
+2025-12-12T03:52:54.087761Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T03:52:54.484916Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display"), AnchoredSystemPathBuf("packages\\display\\vite.config.js.timestamp-1765511574475-26f7ae6e7ef51.mjs"), AnchoredSystemPathBuf("packages\\web"), AnchoredSystemPathBuf("packages\\web\\vite.config.js.timestamp-1765511574476-d03e6601aec43.mjs")}
+2025-12-12T03:52:54.484934Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }, WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:04:00.787436Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\services\\websocketService.js")}
+2025-12-12T04:04:00.787452Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:06:19.273395Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie"), AnchoredSystemPathBuf(".turbo\\cookies")}
+2025-12-12T04:06:19.273413Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-12T04:06:19.676554Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web"), AnchoredSystemPathBuf("packages\\web\\vite.config.js.timestamp-1765512379662-73f77c09f038a.mjs")}
+2025-12-12T04:06:19.676573Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:06:19.785057Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\display"), AnchoredSystemPathBuf("packages\\display\\vite.config.js.timestamp-1765512379675-e2f039f7d8d96.mjs")}
+2025-12-12T04:06:19.785068Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/display"), path: AnchoredSystemPathBuf("packages\\display") }}))
+2025-12-12T04:19:47.685454Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\components\\display\\Character.jsx")}
+2025-12-12T04:19:47.685471Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:23:13.180492Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\hooks\\useScreenResolution.js")}
+2025-12-12T04:23:13.180506Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:23:24.683757Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\components\\display\\DigitalFlipBoardGrid.jsx")}
+2025-12-12T04:23:24.683774Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:26:47.086352Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\components\\display\\Character.jsx")}
+2025-12-12T04:26:47.086371Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:27:06.680895Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\components\\display\\Character.jsx"), AnchoredSystemPathBuf("packages\\web\\src\\components\\display\\DigitalFlipBoardGrid.jsx"), AnchoredSystemPathBuf("packages\\web\\src\\hooks\\useScreenResolution.js")}
+2025-12-12T04:27:06.680914Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:27:06.681314Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T04:28:34.687181Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\hooks\\useFlipSound.js")}
+2025-12-12T04:28:34.687191Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:28:44.679272Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\components\\display\\Character.jsx")}
+2025-12-12T04:28:44.679328Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:28:53.982090Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\hooks\\useFlipSound.js"), AnchoredSystemPathBuf("packages\\web\\src\\components\\display\\Character.jsx")}
+2025-12-12T04:28:53.982100Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:28:53.982140Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T04:30:46.779693Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\hooks\\useFlipSound.js")}
+2025-12-12T04:30:46.779712Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:30:52.785907Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\components\\display\\Character.jsx")}
+2025-12-12T04:30:52.785925Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:31:10.982170Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\components\\display\\Character.jsx"), AnchoredSystemPathBuf("packages\\web\\src\\hooks\\useFlipSound.js")}
+2025-12-12T04:31:10.982182Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:31:11.047900Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T04:31:11.082666Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\components\\display\\Character.jsx")}
+2025-12-12T04:31:11.082677Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:31:11.082721Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-12T04:32:37.380868Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\hooks\\useFlipSound.js")}
+2025-12-12T04:32:37.380884Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:32:43.288891Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\components\\display\\Character.jsx")}
+2025-12-12T04:32:43.288903Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:33:58.382678Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\web\\src\\components\\display\\Character.jsx"), AnchoredSystemPathBuf("packages\\web\\src\\hooks\\useFlipSound.js")}
+2025-12-12T04:33:58.382690Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@flipboard/web"), path: AnchoredSystemPathBuf("packages\\web") }}))
+2025-12-12T04:33:58.412099Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun

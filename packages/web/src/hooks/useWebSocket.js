@@ -9,7 +9,10 @@ export const useWebSocket = () => {
     const { user, session } = useAuthStore()
 
     useEffect(() => {
-        if (!sessionCode) return
+        if (!sessionCode) {
+            console.log('[WebSocket] No sessionCode, skipping connection')
+            return
+        }
 
         // Determine role from context (window.location.pathname)
         let role = 'display'
@@ -17,20 +20,24 @@ export const useWebSocket = () => {
             role = 'controller'
         }
 
-        // Display connects immediately when code is generated (to create the room)
-        // Controller waits until code is validated/paired
-        if (role === 'controller' && !controllerHasPaired) {
-            console.log('[WebSocket] Controller has not completed pairing yet. Skipping connection attempt.')
-            return
+        console.log('[WebSocket] useEffect triggered:', { role, sessionCode, controllerHasPaired })
+
+        // Display connects to create the room, but doesn't mark itself as "connected"
+        // isConnected state is controlled by the server via connection:status event
+        // which is ONLY emitted when Controller joins
+        if (role === 'display') {
+            console.log('[WebSocket] Display: Connecting to create room for pairing code:', sessionCode)
+            // Display connects but isConnected stays false until controller pairs
         }
 
-        // Check if display is on same browser as controller
-        if (role === 'display') {
-            const controllerMarker = sessionStorage.getItem(`controller_active_${sessionCode}`)
-            if (controllerMarker) {
-                console.log('[WebSocket] Display detected controller on same browser. Skipping auto-connect. Require explicit pairing.')
-                return
-            }
+        // Controller waits until code is validated/paired
+        if (role === 'controller' && !controllerHasPaired) {
+            console.log('[WebSocket] Controller has not completed pairing yet. Skipping connection attempt.', { controllerHasPaired })
+            return
+        }
+        
+        if (role === 'controller' && controllerHasPaired) {
+            console.log('[WebSocket] Controller ready to connect:', { sessionCode, controllerHasPaired })
         }
 
         // Get the latest session token for authentication
@@ -57,7 +64,16 @@ export const useWebSocket = () => {
         initializeConnection()
 
         const handleConnectionStatus = ({ connected }) => {
-            console.log('[WebSocket] Connection status event received in Display:', connected)
+            // IMPORTANT: Display should NOT auto-connect when Controller joins
+            // Display maintains its own connection state and should NOT listen to connection:status
+            // This event is for Controller role only
+            if (role === 'display') {
+                console.log('[WebSocket] Display ignoring connection:status event (Controller paired, but Display stays in control of own state)')
+                return
+            }
+            
+            // Only Controller should react to connection:status
+            console.log('[WebSocket] Connection status event received (Controller role):', connected)
             setConnected(connected)
             if (connected) {
                 recordActivity() // Record activity on reconnect

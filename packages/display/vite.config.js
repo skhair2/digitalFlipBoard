@@ -19,39 +19,13 @@ export default defineConfig({
     assetsDir: 'assets',
     sourcemap: false,
     minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-      },
-    },
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          supabase: ['@supabase/supabase-js'],
-          socket: ['socket.io-client'],
-          animation: ['framer-motion'],
-        },
-      },
-    },
     chunkSizeWarningLimit: 1000,
   },
   server: {
-    port: 5173,
+    port: 5174,
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/health': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/metrics': {
         target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
@@ -64,7 +38,7 @@ export default defineConfig({
     },
   },
   preview: {
-    port: 4173,
+    port: 4174,
     host: true,
   },
 })

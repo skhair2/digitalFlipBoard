@@ -26,9 +26,11 @@ import { createRateLimiter } from './redisRateLimiter.js';
 import { registerHealthCheckRoutes, readinessMiddleware } from './healthCheck.js';
 import { registerMagicLinkEndpoint } from './magicLinkEndpoint.js';
 import { registerGoogleOAuthEndpoints } from './googleOAuthEndpoint.js';
+import { registerDisplayEndpoints } from './routes/displays.js';
 import { redisPubSubService } from './redisPubSub.js';
 import { MessageHistoryService } from './messageHistory.js';
 import { PresenceTrackingService } from './presenceTracking.js';
+import { setupRedisAdapter, cleanupRedisAdapter } from './socket/redis-adapter.js';
 import displaySessionLogger from './displaySessionLogger.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -217,6 +219,7 @@ app.use((req, res, next) => {
 registerHealthCheckRoutes(app);
 registerMagicLinkEndpoint(app);
 registerGoogleOAuthEndpoints(app);
+registerDisplayEndpoints(app);
 
 // Security: Apply authentication middleware to all socket connections
 io.use(createAuthMiddleware());
@@ -1996,6 +1999,9 @@ app.use((error, req, res) => {
 });
 
 // Start server
+// Global state for shutdown handlers
+let redisAdapterClients = null;
+
 async function startServer() {
   try {
     // Validate required environment variables
@@ -2011,6 +2017,17 @@ async function startServer() {
 
     // Connect to Redis
     await connectRedis();
+
+    // Setup Redis adapter for Socket.io (enables multi-instance scaling)
+    try {
+      redisAdapterClients = await setupRedisAdapter(io, redisClient);
+      logger.info('Redis adapter configured for Socket.io', {
+        feature: 'multi-instance-support'
+      });
+    } catch (error) {
+      logger.warn('Redis adapter setup failed, Socket.io will run in single-instance mode', error);
+      // Continue without Redis adapter - still functional on single instance
+    }
 
     // Initialize Redis Pub/Sub service
     await redisPubSubService.initialize(process.env.REDIS_URL || 'redis://localhost:6379');
@@ -2045,8 +2062,18 @@ async function startServer() {
 startServer();
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   logger.info('server_shutting_down', { reason: 'SIGTERM signal' });
+  
+  // Cleanup Redis adapter clients if they exist
+  if (redisAdapterClients) {
+    try {
+      await cleanupRedisAdapter(io, redisAdapterClients);
+    } catch (error) {
+      logger.error('Error during Redis adapter cleanup', error);
+    }
+  }
+  
   httpServer.close(() => {
     logger.info('server_closed');
     process.exit(0);
