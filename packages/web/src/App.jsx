@@ -5,6 +5,9 @@ import ProtectedRoute from './components/auth/ProtectedRoute'
 import ProtectedAdminRoute from './components/auth/ProtectedAdminRoute'
 import Spinner from './components/ui/Spinner'
 import ErrorBoundary from './components/ui/ErrorBoundary'
+import ModeLayout from './components/ModeLayout'
+import DisplayView from './components/DisplayView'
+import ControllerView from './components/ControllerView'
 import { useMixpanel } from './hooks/useMixpanel'
 import { useAuthStore } from './store/authStore'
 import { Pricing, NotFound } from './pages/Placeholders'
@@ -65,45 +68,48 @@ function App() {
       </div>
     }>
       <ErrorBoundary>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Home />} />
-            <Route path="login" element={<Login />} />
-            <Route path="auth/callback" element={<OAuthCallback />} />
-            <Route path="display" element={<Display />} />
-            <Route path="control" element={<Control />} />
-            <Route path="pricing" element={<Pricing />} />
-            <Route path="blog" element={<Blog />} />
-            <Route path="blog/:slug" element={<BlogPost />} />
-            <Route path="privacy" element={<Privacy />} />
-            <Route path="terms" element={<Terms />} />
-            <Route path="about" element={<About />} />
-            <Route path="contact" element={<Contact />} />
-            <Route path="help" element={<Help />} />
-            <Route path="db-test" element={<DatabaseTest />} />
+        <ModeLayout
+          displayComponent={<DisplayView />}
+          controllerComponent={
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<ControllerView />} />
+                <Route path="login" element={<Login />} />
+                <Route path="auth/callback" element={<OAuthCallback />} />
+                <Route path="pricing" element={<Pricing />} />
+                <Route path="blog" element={<Blog />} />
+                <Route path="blog/:slug" element={<BlogPost />} />
+                <Route path="privacy" element={<Privacy />} />
+                <Route path="terms" element={<Terms />} />
+                <Route path="about" element={<About />} />
+                <Route path="contact" element={<Contact />} />
+                <Route path="help" element={<Help />} />
+                <Route path="db-test" element={<DatabaseTest />} />
 
-            {/* Protected routes */}
-            <Route
-              path="dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
+                {/* Protected routes */}
+                <Route
+                  path="dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
 
-            <Route
-              path="admin"
-              element={
-                <ProtectedAdminRoute>
-                  <Admin />
-                </ProtectedAdminRoute>
-              }
-            />
+                <Route
+                  path="admin"
+                  element={
+                    <ProtectedAdminRoute>
+                      <Admin />
+                    </ProtectedAdminRoute>
+                  }
+                />
 
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
+                <Route path="*" element={<NotFound />} />
+              </Route>
+            </Routes>
+          }
+        />
       </ErrorBoundary>
     </Suspense>
   )
