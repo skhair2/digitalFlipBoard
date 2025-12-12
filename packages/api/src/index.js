@@ -30,8 +30,13 @@ import { redisPubSubService } from './redisPubSub.js';
 import { MessageHistoryService } from './messageHistory.js';
 import { PresenceTrackingService } from './presenceTracking.js';
 import displaySessionLogger from './displaySessionLogger.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const envPath = path.resolve(__dirname, '../.env.local');
+
+dotenv.config({ path: envPath });
 
 const app = express();
 
@@ -140,14 +145,28 @@ const io = new Server(httpServer, {
 // Make io globally accessible for service integrations
 global.io = io;
 
-// Resend email client
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Resend email client (lazy-loaded)
+let resend = null;
 
-// Supabase client for fetching user profile data
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+function getResendClient() {
+  if (!resend && process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
+
+// Supabase client (lazy-loaded)
+let supabase = null;
+
+function getSupabaseClient() {
+  if (!supabase && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+  }
+  return supabase;
+}
 
 async function ensureAdminUser(req) {
   const authHeader = req.headers.authorization || '';

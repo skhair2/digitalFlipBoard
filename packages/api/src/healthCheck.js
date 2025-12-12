@@ -5,11 +5,23 @@
 import logger from './logger.js';
 import { redisClient } from './redis.js';
 import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+dotenv.config();
+
+let supabase = null;
+
+function getSupabaseClient() {
+  if (!supabase) {
+    if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      supabase = createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+      );
+    }
+  }
+  return supabase;
+}
 
 /**
  * Liveness probe - indicates if server is alive

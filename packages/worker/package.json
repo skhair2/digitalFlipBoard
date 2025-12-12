@@ -6,7 +6,7 @@
   "main": "./dist/index.js",
   "private": true,
   "scripts": {
-    "dev": "NODE_ENV=development nodemon --exec node --loader tsx ./src/index.ts",
+    "dev": "cross-env NODE_ENV=development nodemon --exec node --loader tsx ./src/index.ts",
     "build": "tsc",
     "start": "node ./dist/index.js",
     "type-check": "tsc --noEmit"
@@ -27,6 +27,7 @@
     "@types/node": "^20.10.0",
     "typescript": "^5.3.3",
     "nodemon": "^3.0.2",
-    "tsx": "^4.7.0"
+    "tsx": "^4.7.0",
+    "cross-env": "^7.0.3"
   }
 }

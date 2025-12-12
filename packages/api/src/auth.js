@@ -4,10 +4,22 @@ import logger from './logger.js';
 
 dotenv.config();
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Lazy-load Supabase client to ensure env vars are loaded
+let supabase = null;
+
+function getSupabaseClient() {
+  if (!supabase) {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!url || !key) {
+      throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables are required');
+    }
+    
+    supabase = createClient(url, key);
+  }
+  return supabase;
+}
 
 /**
  * Verify Supabase JWT token and get user
@@ -20,6 +32,7 @@ export async function verifyToken(token) {
     }
 
     // Verify JWT with Supabase
+    const supabase = getSupabaseClient();
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {

@@ -1,15 +1,25 @@
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { cache } from './redis.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2024-08-01'
 }) : null;
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+let supabase = null;
+
+function getSupabaseClient() {
+  if (!supabase && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+  }
+  return supabase;
+}
 
 const FRONTEND_URL = process.env.FRONTEND_URL || process.env.VITE_APP_URL || 'http://localhost:5173';
 
@@ -232,10 +242,15 @@ export async function fetchAdminCustomerSummary() {
     return cached;
   }
 
+  const supabaseClient = getSupabaseClient();
+  if (!supabaseClient) {
+    throw new Error('Supabase client not configured');
+  }
+
   const [freeResult, payingResult, anonymousResult] = await Promise.all([
-    supabase.from('profiles').select('id', { count: 'exact' }).eq('subscription_tier', 'free'),
-    supabase.from('profiles').select('id', { count: 'exact' }).in('subscription_tier', PAYING_TIERS),
-    supabase.from('profiles').select('id', { count: 'exact' }).or('subscription_tier.is.null,subscription_tier.eq.anonymous')
+    supabaseClient.from('profiles').select('id', { count: 'exact' }).eq('subscription_tier', 'free'),
+    supabaseClient.from('profiles').select('id', { count: 'exact' }).in('subscription_tier', PAYING_TIERS),
+    supabaseClient.from('profiles').select('id', { count: 'exact' }).or('subscription_tier.is.null,subscription_tier.eq.anonymous')
   ]);
 
   if (freeResult.error || payingResult.error || anonymousResult.error) {

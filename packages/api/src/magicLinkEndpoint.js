@@ -1,13 +1,29 @@
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import logger from './logger.js';
+import dotenv from 'dotenv';
 
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+dotenv.config();
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let supabase = null;
+let resend = null;
+
+function getSupabaseClient() {
+  if (!supabase && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+  }
+  return supabase;
+}
+
+function getResendClient() {
+  if (!resend && process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 /**
  * Registers the magic link endpoint on the provided Express app instance.
@@ -25,7 +41,13 @@ export function registerMagicLinkEndpoint(app) {
         const redirectUrl = process.env.VITE_APP_URL || 'http://localhost:5173';
         const callbackUrl = `${redirectUrl}/auth/callback`;
 
-        const { data: otpData, error: otpError } = await supabase.auth.admin.generateLink({
+        const supabaseClient = getSupabaseClient();
+        if (!supabaseClient) {
+            logger.error('Supabase not configured');
+            return res.status(500).json({ error: 'Email service not available' });
+        }
+
+        const { data: otpData, error: otpError } = await supabaseClient.auth.admin.generateLink({
             type: 'magiclink',
             email,
             options: {
@@ -102,7 +124,13 @@ export function registerMagicLinkEndpoint(app) {
     `;
 
         // 4. Send email via Resend
-        const result = await resend.emails.send({
+        const resendClient = getResendClient();
+        if (!resendClient) {
+            logger.error('Resend not configured');
+            return res.status(500).json({ error: 'Email service not available' });
+        }
+
+        const result = await resendClient.emails.send({
             from: process.env.FROM_EMAIL || 'noreply@flipdisplay.online',
             to: email,
             subject: 'Sign in to FlipDisplay',

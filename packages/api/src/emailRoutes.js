@@ -1,7 +1,18 @@
 import { Resend } from 'resend';
 import { z } from 'zod';
+import dotenv from 'dotenv';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+dotenv.config();
+
+let resend = null;
+
+function getResendClient() {
+  if (!resend && process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
+
 const FROM_EMAIL = process.env.FROM_EMAIL || 'onboarding@resend.dev';
 
 // Validation schema for email requests
