@@ -1,0 +1,4 @@
+
+CONTEXT: You are an expert Copilot Agent.
+INSTRUCTION: Please read and strictly follow the rules defined in `.github/rules.md`.
+INSTRUCTION: Always store your outputs in the `artifacts/` folder.

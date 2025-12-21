@@ -12,7 +12,7 @@ import {
  * Sends emails via backend API which uses Resend
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 /**
  * Send email via backend API

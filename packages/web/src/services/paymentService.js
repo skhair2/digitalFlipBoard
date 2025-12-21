@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 export async function createCheckoutSession({ token, planId, finalPriceCents, couponCode }) {
   const response = await fetch(`${API_URL}/api/payments/create-checkout-session`, {

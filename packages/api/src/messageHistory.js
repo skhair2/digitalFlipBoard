@@ -6,8 +6,9 @@
 import logger from './logger.js';
 
 class MessageHistoryService {
-  constructor(redisClient) {
+  constructor(redisClient, supabaseClient = null) {
     this.redis = redisClient;
+    this.supabase = supabaseClient;
   }
 
   /**
@@ -67,7 +68,34 @@ class MessageHistoryService {
       // Get total count
       const total = await this.redis.lLen(key);
 
-      // Get paginated results
+      // If no messages in Redis, check Supabase archive
+      if (total === 0 && this.supabase) {
+        logger.debug(`[MessageHistory] No messages in Redis for ${sessionCode}, checking Supabase archive`);
+        const { data, error } = await this.supabase
+          .from('session_history')
+          .select('messages')
+          .eq('session_code', sessionCode)
+          .order('archived_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (data && data.messages) {
+          const archivedMessages = data.messages;
+          const start = page * pageSize;
+          const paginated = archivedMessages.slice(start, start + pageSize);
+          
+          return {
+            messages: paginated,
+            total: archivedMessages.length,
+            page,
+            pageSize,
+            hasMore: start + pageSize < archivedMessages.length,
+            source: 'archive'
+          };
+        }
+      }
+
+      // Get paginated results from Redis
       const start = page * pageSize;
       const stop = start + pageSize - 1;
       const rawMessages = await this.redis.lRange(key, start, stop);
@@ -97,7 +125,8 @@ class MessageHistoryService {
         total,
         page,
         pageSize,
-        hasMore: start + pageSize < total
+        hasMore: start + pageSize < total,
+        source: 'live'
       };
     } catch (error) {
       logger.error(`[MessageHistory] Failed to get history for ${sessionCode}:`, error);

@@ -10,7 +10,7 @@ import { processImageToBoard } from '../../utils/imageProcessor'
 export default function MessageInput({ message, setMessage }) {
     const { sendMessage } = useWebSocket()
     const { sendMessage: sendMessageViaRedis } = useMessageBroker()
-    const { setBoardState, gridConfig } = useSessionStore()
+    const { setBoardState, gridConfig, lastAnimationType, lastColorTheme } = useSessionStore()
     const [sending, setSending] = useState(false)
     const [showOptions, setShowOptions] = useState(false)
     const [alignment, setAlignment] = useState(ALIGNMENTS.LEFT)
@@ -33,8 +33,15 @@ export default function MessageInput({ message, setMessage }) {
         setBoardState(boardState)
 
         // Send via both WebSocket (primary) and Redis Pub/Sub (fallback)
-        await sendMessage(message)
-        await sendMessageViaRedis(message, { animation: 'flip', color: 'monochrome' })
+        // Use current preferences from store
+        await sendMessage(message, { 
+            animationType: lastAnimationType, 
+            colorTheme: lastColorTheme 
+        })
+        await sendMessageViaRedis(message, { 
+            animation: lastAnimationType, 
+            color: lastColorTheme 
+        })
 
         setSending(false)
         setMessage('')

@@ -30,7 +30,7 @@ setInterval(cleanupExpiredCsrfTokens, TOKEN_CLEANUP_INTERVAL);
  * @param {'grant'|'revoke'} operation
  */
 export async function generateCSRFToken(userId, operation = 'grant') {
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const API_URL = import.meta.env.VITE_API_URL || '';
   const sessionResponse = await supabase.auth.getSession();
   const session = sessionResponse?.data?.session || sessionResponse.session;
   const accessToken = session?.access_token;

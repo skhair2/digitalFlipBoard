@@ -9,6 +9,7 @@ import Scheduler from '../components/control/Scheduler'
 import EmailVerificationBanner from '../components/auth/EmailVerificationBanner'
 import { useSessionStore } from '../store/sessionStore'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { useWebRTC } from '../hooks/useWebRTC'
 import { useMessageBroker } from '../hooks/useMessageBroker'
 import { useActivityTracking } from '../hooks/useActivityTracking'
 import mixpanel from '../services/mixpanelService'
@@ -38,14 +39,10 @@ export default function Control() {
     useMessageBroker()
 
     // Call useWebSocket hook - it handles null sessionCode internally
-    useEffect(() => {
-        const role = window.location.pathname.includes('control') ? 'controller' : 'display';
-        console.log('[Control] Attempting WebSocket connection with role:', role);
-        if (role !== 'controller') {
-            console.warn('[Control] WARNING: Role is not controller! Pairing may fail.');
-        }
-    }, []);
     useWebSocket()
+
+    // Initialize WebRTC for P2P communication
+    const { initiateConnection, isP2P } = useWebRTC(sessionCode, 'controller')
 
     // Track user activity to prevent session timeout
     useActivityTracking(sessionCode, 'controller')
@@ -235,24 +232,43 @@ export default function Control() {
                         </span>
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                    {isConnected && (
-                        <button
-                            onClick={() => {
-                                // Clear the same-browser marker when disconnecting
-                                if (sessionCode) {
-                                    sessionStorage.removeItem(`controller_active_${sessionCode}`)
-                                }
-                                setConnected(false)
-                                setSessionCode(null, { markControllerPaired: false })
-                            }}
-                            className="px-3 py-2 text-sm font-medium bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                            title="Disconnect and connect to a new display"
-                        >
-                            ➕ New Display
-                        </button>
-                    )}
+                <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                            <span className="text-[10px] text-slate-500 uppercase font-bold">Cloud</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${isP2P ? 'bg-teal-500' : 'bg-slate-600'}`} />
+                            <span className="text-[10px] text-slate-500 uppercase font-bold">P2P</span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {!isP2P && isConnected && (
+                            <button
+                                onClick={() => initiateConnection()}
+                                className="px-2 py-1 text-[10px] font-bold bg-teal-900/30 hover:bg-teal-900/50 text-teal-400 rounded border border-teal-900/50 transition-colors"
+                            >
+                                ACTIVATE P2P
+                            </button>
+                        )}
+                        {isConnected && (
+                            <button
+                                onClick={() => {
+                                    // Clear the same-browser marker when disconnecting
+                                    if (sessionCode) {
+                                        sessionStorage.removeItem(`controller_active_${sessionCode}`)
+                                    }
+                                    setConnected(false)
+                                    setSessionCode(null, { markControllerPaired: false })
+                                }}
+                                className="px-3 py-2 text-sm font-medium bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                                title="Disconnect and connect to a new display"
+                            >
+                                ➕ New Display
+                            </button>
+                        )}
+                    </div>
                 </div>
             </header>
 

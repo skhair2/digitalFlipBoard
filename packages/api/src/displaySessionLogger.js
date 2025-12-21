@@ -69,6 +69,31 @@ export async function createDisplaySession(sessionCode, options = {}) {
 }
 
 /**
+ * Count active display sessions for a user
+ */
+export async function countActiveSessions(userId) {
+  try {
+    if (!supabase) return 0;
+
+    const { count, error } = await supabase
+      .from('display_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('display_user_id', userId)
+      .eq('is_active', true);
+
+    if (error) {
+      logger.error('Failed to count active sessions', error, { userId });
+      return 0;
+    }
+
+    return count || 0;
+  } catch (err) {
+    logger.error('Exception counting active sessions', err, { userId });
+    return 0;
+  }
+}
+
+/**
  * Log a device connection (display or controller) to a session
  */
 export async function logDisplayConnection(sessionCode, connectionType, options = {}) {

@@ -36,12 +36,14 @@ export const useSessionStore = create(
                 const {
                     isReconnecting = false,
                     markControllerPaired = false,
+                    boardId = null,
                 } = normalizedOptions
 
                 const hasCode = Boolean(code)
 
                 return {
                     sessionCode: code,
+                    boardId: boardId || state.boardId,
                     lastSessionCode: hasCode ? code : state.lastSessionCode,
                     connectionStartTime: hasCode ? Date.now() : null,
                     lastActivityTime: hasCode ? Date.now() : null,

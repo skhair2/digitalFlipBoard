@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useModeStore } from '../store/modeStore';
 import { useSessionStore } from '../store/sessionStore';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useWebRTC } from '../hooks/useWebRTC';
 import DigitalFlipBoardGrid from './display/DigitalFlipBoardGrid';
 import SessionPairing from './control/SessionPairing';
 import { motion } from 'framer-motion';
+import { registerSession } from '../services/sessionService';
 
 /**
  * DisplayView - Fullscreen display mode for TVs and large screens
@@ -13,9 +15,32 @@ import { motion } from 'framer-motion';
  */
 export default function DisplayView() {
   const clearMode = useModeStore((state) => state.clearMode);
-  const { sessionCode, isConnected, currentMessage } = useSessionStore();
+  const { sessionCode, isConnected, currentMessage, setSessionCode } = useSessionStore();
   const [connectionStatus, setConnectionStatus] = useState('waiting');
   const [showSessionCode, setShowSessionCode] = useState(!isConnected);
+
+  // Auto-generate session code if none exists
+  useEffect(() => {
+    const autoGenerate = async () => {
+      if (!sessionCode) {
+        try {
+          const tempCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+          await registerSession(tempCode);
+          setSessionCode(tempCode);
+          console.log('[DisplayView] Auto-generated session code:', tempCode);
+        } catch (error) {
+          console.error('[DisplayView] Failed to auto-register session:', error);
+          // Fallback
+          const tempCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+          setSessionCode(tempCode);
+        }
+      }
+    };
+    autoGenerate();
+  }, [sessionCode, setSessionCode]);
+
+  // Initialize WebRTC for P2P communication
+  const { isP2P } = useWebRTC(sessionCode, 'display');
 
   // Initialize WebSocket and listen for connection changes
   useEffect(() => {
@@ -50,12 +75,13 @@ export default function DisplayView() {
     clearMode();
   };
 
-  // If no session code yet, show pairing UI
+  // If no session code yet, show loading
   if (!sessionCode) {
     return (
       <div className="w-screen h-screen bg-black flex flex-col items-center justify-center overflow-hidden relative">
-        <div className="w-full max-w-md">
-          <SessionPairing />
+        <div className="flex flex-col items-center justify-center">
+          <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-400 animate-pulse">Initializing Display...</p>
         </div>
         <motion.button
           onClick={handleExitDisplay}
@@ -89,11 +115,21 @@ export default function DisplayView() {
       </div>
 
       {/* Connection Status Indicator */}
-      <div className="absolute top-6 left-6 flex items-center gap-2">
-        <div className={`h-3 w-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-amber-500'} animate-pulse`}></div>
-        <span className="text-white/60 text-sm font-mono">
-          {isConnected ? 'Connected' : 'Waiting...'}
-        </span>
+      <div className="absolute top-6 left-6 flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <div className={`h-3 w-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-amber-500'} animate-pulse`}></div>
+          <span className="text-white/60 text-xs font-mono uppercase tracking-wider">
+            {isConnected ? 'Cloud Connected' : 'Waiting...'}
+          </span>
+        </div>
+        {isConnected && (
+          <div className="flex items-center gap-2">
+            <div className={`h-3 w-3 rounded-full ${isP2P ? 'bg-teal-500' : 'bg-slate-700'}`}></div>
+            <span className="text-white/60 text-xs font-mono uppercase tracking-wider">
+              {isP2P ? 'P2P Active' : 'P2P Ready'}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Session Code Display (Top Right) - Toggleable */}

@@ -10,18 +10,22 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
 
     // Calculate dynamic defaults based on screen size
     const defaultRows = useMemo(() => {
-        if (screen.isSmallScreen) return 8
-        // For larger screens, aim for ~110px height per row to fill screen nicely
-        // e.g. 1080p -> ~9-10 rows
-        return Math.max(6, Math.floor(screen.height / 110))
-    }, [screen.height, screen.isSmallScreen])
+        if (screen.isPortrait) {
+            // Portrait: More rows to fill vertical space
+            return Math.max(12, Math.floor(screen.height / 70))
+        }
+        // Landscape: Aim for ~100px height per row to fill screen nicely
+        return Math.max(6, Math.floor(screen.height / 100))
+    }, [screen.height, screen.isPortrait])
 
     const defaultCols = useMemo(() => {
-        if (screen.isSmallScreen) return 14
-        // For larger screens, aim for ~66px width per col
-        // e.g. 1920p -> ~29 cols
-        return Math.max(18, Math.floor(screen.width / 66))
-    }, [screen.width, screen.isSmallScreen])
+        if (screen.isPortrait) {
+            // Portrait: Fewer columns to fit width
+            return Math.max(10, Math.floor(screen.width / 35))
+        }
+        // Landscape: Aim for ~60px width per col
+        return Math.max(20, Math.floor(screen.width / 60))
+    }, [screen.width, screen.isPortrait])
 
     // Use config or defaults
     const rows = gridConfig?.rows || defaultRows
@@ -48,19 +52,50 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
     const [displayGrid, setDisplayGrid] = useState(Array(totalChars).fill({ char: ' ', color: null }))
 
     const splitToLines = (text, maxLen) => {
-        const words = text.split(' ')
-        const lines = []
-        let line = ''
-        for (const word of words) {
-            if ((line + ' ' + word).trim().length <= maxLen) {
-                line = (line + ' ' + word).trim()
-            } else {
-                if (line) lines.push(line)
-                line = word
+        if (!text) return []
+        
+        // Handle explicit newlines and split into paragraphs
+        const paragraphs = text.split('\n')
+        const allLines = []
+
+        for (const paragraph of paragraphs) {
+            const words = paragraph.trim().split(/\s+/)
+            let currentLine = ''
+
+            for (const word of words) {
+                if (!word) continue
+
+                // If a single word is longer than maxLen, we must break it
+                if (word.length > maxLen) {
+                    if (currentLine) {
+                        allLines.push(currentLine)
+                        currentLine = ''
+                    }
+                    
+                    // Break the long word into chunks
+                    for (let i = 0; i < word.length; i += maxLen) {
+                        const chunk = word.substring(i, i + maxLen)
+                        if (chunk.length === maxLen) {
+                            allLines.push(chunk)
+                        } else {
+                            currentLine = chunk
+                        }
+                    }
+                    continue
+                }
+
+                const testLine = currentLine ? `${currentLine} ${word}` : word
+                if (testLine.length <= maxLen) {
+                    currentLine = testLine
+                } else {
+                    allLines.push(currentLine)
+                    currentLine = word
+                }
             }
+            if (currentLine) allLines.push(currentLine)
         }
-        if (line) lines.push(line)
-        return lines
+        
+        return allLines
     }
 
     useEffect(() => {
@@ -85,82 +120,51 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
             }
 
             // --- Smart centering and line splitting logic ---
-            // Split message into logical lines (session code always last)
             let infoText = messageToShow.toUpperCase()
-            let sessionCode = ''
-            // Try to extract session code (assume last word of message is code if all caps and length 6-8)
-            const words = infoText.trim().split(/\s+/)
-            // Check if LAST word is a session code (6-8 uppercase alphanumeric chars)
-            if (words.length > 0 && /^[A-Z0-9]{6,8}$/.test(words[words.length - 1])) {
-                sessionCode = words.pop()
-                infoText = words.join(' ').trim()
-            }
-
-            // Split infoText into two sentences for spacing
-            let displaySentence = ''
-            let enterSentence = ''
-            const upperText = infoText.toUpperCase()
-            if (upperText.includes('ENTER THIS CODE')) {
-                const idx = upperText.indexOf('ENTER THIS CODE')
-                displaySentence = infoText.slice(0, idx).trim()
-                enterSentence = infoText.slice(idx).trim()
-            } else {
-                displaySentence = infoText
-            }
-
-            // Split and center each sentence
+            
             let lines = []
-            if (displaySentence) {
-                lines.push(...splitToLines(displaySentence, cols).map(line => {
-                    if (line.length < cols) {
-                        const pad = cols - line.length
-                        const left = Math.floor(pad / 2)
-                        const right = pad - left
-                        return ' '.repeat(left) + line + ' '.repeat(right)
-                    }
-                    return line
-                }))
-            }
-            // Add one empty line between display and enter sentences
-            if (displaySentence && enterSentence) {
-                lines.push(' '.repeat(cols))
-            }
-            if (enterSentence) {
-                lines.push(...splitToLines(enterSentence, cols).map(line => {
-                    if (line.length < cols) {
-                        const pad = cols - line.length
-                        const left = Math.floor(pad / 2)
-                        const right = pad - left
-                        return ' '.repeat(left) + line + ' '.repeat(right)
-                    }
-                    return line
-                }))
-            }
-            // Add one empty line before session code
-            if (sessionCode) {
-                lines.push(' '.repeat(cols))
-                let codeLine = sessionCode
-                if (codeLine.length < cols) {
-                    const pad = cols - codeLine.length
-                    const left = Math.floor(pad / 2)
-                    const right = pad - left
-                    codeLine = ' '.repeat(left) + codeLine + ' '.repeat(right)
+            if (infoText.includes('\n')) {
+                // If explicit newlines are provided, respect them
+                const rawLines = infoText.split('\n')
+                for (const rawLine of rawLines) {
+                    lines.push(...splitToLines(rawLine, cols))
                 }
-                lines.push(codeLine)
+            } else {
+                // Existing logic for auto-splitting
+                let displaySentence = ''
+                let enterSentence = ''
+                const upperText = infoText.toUpperCase()
+                
+                // Special handling for pairing instructions
+                if (upperText.includes('ENTER THIS CODE')) {
+                    const idx = upperText.indexOf('ENTER THIS CODE')
+                    displaySentence = infoText.slice(0, idx).trim()
+                    enterSentence = infoText.slice(idx).trim()
+                    
+                    if (displaySentence) lines.push(...splitToLines(displaySentence, cols))
+                    if (displaySentence && enterSentence) lines.push('') // Spacer
+                    if (enterSentence) lines.push(...splitToLines(enterSentence, cols))
+                } else {
+                    // General message splitting
+                    lines = splitToLines(infoText, cols)
+                }
             }
 
-            // Center each info line
+            // Center each info line horizontally
             lines = lines.map(line => {
-                if (line.length < cols) {
-                    const pad = cols - line.length
+                const trimmed = line.trim()
+                if (!trimmed) return ' '.repeat(cols)
+                
+                if (trimmed.length < cols) {
+                    const pad = cols - trimmed.length
                     const left = Math.floor(pad / 2)
                     const right = pad - left
-                    return ' '.repeat(left) + line + ' '.repeat(right)
+                    return ' '.repeat(left) + trimmed + ' '.repeat(right)
                 }
-                return line
+                return trimmed.substring(0, cols)
             })
 
-            // Vertically center block
+            // Vertically center the entire block of lines
             if (lines.length < rows) {
                 const padRows = rows - lines.length
                 const top = Math.floor(padRows / 2)
@@ -169,8 +173,14 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
                 for (let i = 0; i < bottom; i++) lines.push(' '.repeat(cols))
             }
 
-            // Flatten to grid
-            const gridChars = lines.join('').padEnd(totalChars, ' ').slice(0, totalChars).split('').map(c => ({ char: c, color: null }))
+            // Flatten to grid and ensure we don't exceed totalChars
+            const gridChars = lines
+                .join('')
+                .padEnd(totalChars, ' ')
+                .substring(0, totalChars)
+                .split('')
+                .map(c => ({ char: c, color: null }))
+            
             setDisplayGrid(gridChars)
         }
     }, [currentMessage, overrideMessage, boardState, totalChars, cols, rows])

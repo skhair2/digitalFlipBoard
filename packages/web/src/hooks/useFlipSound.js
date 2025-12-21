@@ -4,31 +4,46 @@ import { useCallback, useRef } from 'react'
  * Lightweight mechanical flip sound synthesized via Web Audio.
  * We avoid shippping binary assets while keeping the vintage feel.
  */
-export function useFlipSound(isEnabled) {
-    const audioCtxRef = useRef(null)
 
+// Singleton AudioContext to avoid "too many contexts" errors and console spam
+let sharedAudioCtx = null;
+
+export function useFlipSound(isEnabled) {
     const ensureContext = () => {
         if (typeof window === 'undefined') return null
-        const AudioContextCtor = window.AudioContext || window.webkitAudioContext
-        if (!AudioContextCtor) {
-            console.warn('Web Audio API not supported in this browser')
-            return null
+        
+        if (!sharedAudioCtx) {
+            const AudioContextCtor = window.AudioContext || window.webkitAudioContext
+            if (!AudioContextCtor) {
+                console.warn('Web Audio API not supported in this browser')
+                return null
+            }
+            try {
+                sharedAudioCtx = new AudioContextCtor()
+            } catch (e) {
+                console.warn('Failed to create AudioContext:', e)
+                return null
+            }
         }
-        if (!audioCtxRef.current) {
-            audioCtxRef.current = new AudioContextCtor()
+
+        if (sharedAudioCtx.state === 'suspended') {
+            // Only attempt to resume if we are in a user gesture context
+            // Browsers will log a warning if we try to resume automatically
+            // We'll wrap it in a check to see if we've had a user interaction
+            const hasInteracted = navigator.userActivation ? navigator.userActivation.hasBeenActive : true;
+            if (hasInteracted) {
+                sharedAudioCtx.resume().catch(() => {
+                    /* Silently fail - browser will block until user interaction */
+                })
+            }
         }
-        if (audioCtxRef.current.state === 'suspended') {
-            audioCtxRef.current.resume().catch(() => {
-                /* Some browsers require a user interaction before resuming */
-            })
-        }
-        return audioCtxRef.current
+        return sharedAudioCtx
     }
 
     const scheduleFlipSound = useCallback((delayMs = 0) => {
         if (!isEnabled) return
         const ctx = ensureContext()
-        if (!ctx) return
+        if (!ctx || ctx.state === 'suspended') return
 
         const t = ctx.currentTime + Math.max(delayMs, 0) / 1000
 

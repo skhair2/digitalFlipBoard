@@ -14,7 +14,7 @@ class MixpanelService {
             mixpanel.init(MIXPANEL_TOKEN, {
                 debug: import.meta.env.DEV,
                 track_pageview: false,
-                ignore_dnt: false,
+                ignore_dnt: false, // Respect browser "Do Not Track" settings
                 batch_requests: true,
                 batch_size: 50,
                 batch_flush_interval_ms: 5000,

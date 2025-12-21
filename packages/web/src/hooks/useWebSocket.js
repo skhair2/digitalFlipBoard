@@ -1,12 +1,82 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { useSessionStore } from '../store/sessionStore'
 import websocketService from '../services/websocketService'
 import { useAuthStore } from '../store/authStore'
 import { supabase } from '../services/supabaseClient'
+import { getSessionStatus } from '../services/sessionService'
 
 export const useWebSocket = () => {
     const { sessionCode, isConnected, setConnected, setMessage, recordActivity, setControllerSubscriptionTier, controllerHasPaired, isCodeConfirmed } = useSessionStore()
     const { user, session } = useAuthStore()
+    const pollingIntervalRef = useRef(null)
+
+    // Determine role from context (window.location.pathname)
+    let role = 'display'
+    if (window.location.pathname.includes('control')) {
+        role = 'controller'
+    }
+
+    // Polling for Display role when not connected
+    useEffect(() => {
+        if (role !== 'display' || isConnected || !sessionCode) {
+            if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current)
+                pollingIntervalRef.current = null
+            }
+            return
+        }
+
+        console.log('[WebSocket] Display: Starting status polling for session:', sessionCode)
+        
+        const pollStatus = async () => {
+            try {
+                const status = await getSessionStatus(sessionCode)
+                
+                // Debug log to see what the server is actually returning
+                if (status && Object.keys(status).length > 0) {
+                    console.log('[WebSocket] Polling status response:', {
+                        code: sessionCode,
+                        status: status.status,
+                        hasController: !!status.controllerId,
+                        paired: status.paired
+                    })
+                }
+
+                // Check for various ways the paired state might be represented
+                const isPaired = status.status === 'paired' || 
+                                status.paired === true || 
+                                !!status.controllerId ||
+                                !!status.controllerConnected;
+
+                if (isPaired) {
+                    console.log('[WebSocket] Display: Session paired detected! status:', status.status)
+                    setConnected(true)
+                    if (pollingIntervalRef.current) {
+                        clearInterval(pollingIntervalRef.current)
+                        pollingIntervalRef.current = null
+                    }
+                }
+            } catch (error) {
+                // Silently handle errors during polling (e.g. session not found yet)
+                if (error.message !== 'Session not found') {
+                    console.warn('[WebSocket] Polling error:', error)
+                }
+            }
+        }
+
+        // Poll every 3 seconds
+        pollingIntervalRef.current = setInterval(pollStatus, 3000)
+        
+        // Initial poll
+        pollStatus()
+
+        return () => {
+            if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current)
+                pollingIntervalRef.current = null
+            }
+        }
+    }, [role, isConnected, sessionCode, setConnected])
 
     useEffect(() => {
         if (!sessionCode) {
@@ -14,20 +84,13 @@ export const useWebSocket = () => {
             return
         }
 
-        // Determine role from context (window.location.pathname)
-        let role = 'display'
-        if (window.location.pathname.includes('control')) {
-            role = 'controller'
-        }
+        console.log('[WebSocket] useEffect triggered:', { role, sessionCode, controllerHasPaired, isConnected })
 
-        console.log('[WebSocket] useEffect triggered:', { role, sessionCode, controllerHasPaired })
-
-        // Display connects to create the room, but doesn't mark itself as "connected"
-        // isConnected state is controlled by the server via connection:status event
-        // which is ONLY emitted when Controller joins
-        if (role === 'display') {
-            console.log('[WebSocket] Display: Connecting to create room for pairing code:', sessionCode)
-            // Display connects but isConnected stays false until controller pairs
+        // Lazy Connection Logic:
+        // Display only connects if isConnected is true (set by polling or manual action)
+        if (role === 'display' && !isConnected) {
+            console.log('[WebSocket] Display: Waiting for pairing (Lazy Connection mode)')
+            return
         }
 
         // Controller waits until code is validated/paired
@@ -149,7 +212,7 @@ export const useWebSocket = () => {
             websocketService.off('session:force-disconnect', handleForceDisconnect)
             websocketService.disconnect()
         }
-    }, [sessionCode, isCodeConfirmed, user, session, setConnected, setMessage, recordActivity, setControllerSubscriptionTier, controllerHasPaired])
+    }, [sessionCode, isCodeConfirmed, user, session, setConnected, setMessage, recordActivity, setControllerSubscriptionTier, controllerHasPaired, isConnected])
 
     const sendMessage = useCallback((message, options) => {
         try {

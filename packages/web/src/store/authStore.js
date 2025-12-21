@@ -156,7 +156,7 @@ export const useAuthStore = create(
                     }
 
                     // 2. Call backend to send magic link via Resend
-                    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+                    const API_URL = import.meta.env.VITE_API_URL || ''
                     const response = await fetch(`${API_URL}/api/auth/send-magic-link`, {
                         method: 'POST',
                         headers: {

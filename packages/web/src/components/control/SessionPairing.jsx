@@ -5,8 +5,10 @@ import { useSessionStore } from '../../store/sessionStore'
 import { useAuthStore } from '../../store/authStore'
 import { useUsageStore } from '../../store/usageStore'
 import { Button, Input, Card } from '../ui/Components'
-import { ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import { ClockIcon, ExclamationTriangleIcon, DeviceTabletIcon } from '@heroicons/react/24/outline'
 import mixpanelService from '../../services/mixpanelService'
+import { pairSession } from '../../services/sessionService'
+import { getUserBoards } from '../../services/boardService'
 
 const CONNECTION_TIMEOUT_MS = 15 * 60 * 1000 // 15 minutes
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
@@ -19,6 +21,9 @@ export default function SessionPairing({ suggestedCode }) {
     const [isWarning, setIsWarning] = useState(false) // Amber warning at <2 min
     const [showCodeForm, setShowCodeForm] = useState(false) // Track if user wants to enter new code
     const [showQuickReconnect, setShowQuickReconnect] = useState(false) // Show reconnect option within 24h
+    const [boards, setBoards] = useState([])
+    const [selectedBoardId, setSelectedBoardId] = useState(null)
+    const [isLoadingBoards, setIsLoadingBoards] = useState(false)
     const navigate = useNavigate()
     
     const { 
@@ -41,6 +46,27 @@ export default function SessionPairing({ suggestedCode }) {
             setCode(suggestedCode.toUpperCase())
         }
     }, [suggestedCode, code])
+
+    // Fetch user boards if authenticated
+    useEffect(() => {
+        const fetchBoards = async () => {
+            if (user?.id) {
+                setIsLoadingBoards(true)
+                try {
+                    const userBoards = await getUserBoards(user.id)
+                    setBoards(userBoards)
+                    if (userBoards.length > 0) {
+                        setSelectedBoardId(userBoards[0].id)
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch boards:', err)
+                } finally {
+                    setIsLoadingBoards(false)
+                }
+            }
+        }
+        fetchBoards()
+    }, [user])
 
     // Initialize: Check if last session was within 24 hours
     useEffect(() => {
@@ -136,14 +162,19 @@ export default function SessionPairing({ suggestedCode }) {
 
         // Validate that the Display has created this session code (exists on backend)
         try {
-            const response = await fetch(`/api/session/exists/${trimmedCode}`)
-            const result = await response.json()
-            if (!result.exists) {
-                setError('Display code not found. Please ask the display to generate a code.')
-                return
+            // Use the new pairing endpoint (Lazy Connection)
+            const result = await pairSession(trimmedCode, user?.id, selectedBoardId)
+            
+            // Update store with tier info from backend
+            if (result.userTier) {
+                // We'll update the store below
             }
         } catch (err) {
-            setError('Unable to verify display code. Please try again.')
+            if (err.message.includes('already paired')) {
+                setError('This display is already being controlled. If this is your display, try refreshing it to get a new code.')
+            } else {
+                setError(err.message || 'Unable to verify display code. Please try again.')
+            }
             return
         }
 
@@ -158,7 +189,11 @@ export default function SessionPairing({ suggestedCode }) {
             incrementSession()
         }
 
-        setSessionCode(trimmedCode, { isReconnecting: false, markControllerPaired: true })
+        setSessionCode(trimmedCode, { 
+            isReconnecting: false, 
+            markControllerPaired: true,
+            boardId: selectedBoardId 
+        })
         // Mark controller as active on this browser to prevent auto-connect on display
         sessionStorage.setItem(`controller_active_${trimmedCode}`, 'true')
         localStorage.setItem('lastSessionTime', Date.now().toString()) // Save current time for 24h tracking
@@ -176,9 +211,24 @@ export default function SessionPairing({ suggestedCode }) {
     }
 
     // Handle RECONNECT to last session (NO quota used, tagged as reconnect)
-    const handleContinueSession = () => {
+    const handleContinueSession = async () => {
         if (!lastSessionCode) return
         
+        try {
+            // Ensure session is paired on backend (Lazy Connection)
+            await pairSession(lastSessionCode, user?.id)
+        } catch (err) {
+            console.warn('[SessionPairing] Reconnect pairing failed:', err)
+            // If it fails, maybe the session is gone. Show the form.
+            if (err.message.includes('already paired')) {
+                setError('This display is already being controlled by another device.')
+            } else {
+                setError('Previous session expired. Please enter a new code.')
+            }
+            setShowCodeForm(true)
+            return
+        }
+
         setSessionCode(lastSessionCode, { isReconnecting: true, markControllerPaired: true })
         // Mark controller as active on this browser to prevent auto-connect on display
         sessionStorage.setItem(`controller_active_${lastSessionCode}`, 'true')
@@ -439,6 +489,36 @@ export default function SessionPairing({ suggestedCode }) {
                             className="text-center text-3xl tracking-[0.5em] font-mono uppercase"
                             autoFocus
                         />
+
+                        {user && boards.length > 0 && (
+                            <div className="space-y-2 text-left">
+                                <label className="text-xs text-gray-400 font-medium uppercase tracking-wider">
+                                    Link to Board
+                                </label>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {boards.map((board) => (
+                                        <button
+                                            key={board.id}
+                                            type="button"
+                                            onClick={() => setSelectedBoardId(board.id)}
+                                            className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                                                selectedBoardId === board.id
+                                                    ? 'bg-blue-500/20 border-blue-500 text-white'
+                                                    : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <DeviceTabletIcon className="w-5 h-5" />
+                                                <span className="font-medium">{board.name}</span>
+                                            </div>
+                                            {selectedBoardId === board.id && (
+                                                <div className="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]"></div>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {error && (
                             <div className="text-center">

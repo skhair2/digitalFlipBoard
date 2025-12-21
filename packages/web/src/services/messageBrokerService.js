@@ -5,7 +5,7 @@
  */
 
 class MessageBrokerService {
-  constructor(baseUrl = 'http://localhost:3001') {
+  constructor(baseUrl = import.meta.env.VITE_API_URL || '') {
     this.baseUrl = baseUrl;
     this.sessionCode = null;
     this.isListening = false;
@@ -269,5 +269,5 @@ class MessageBrokerService {
 
 // Export singleton instance
 export const messageBrokerService = new MessageBrokerService(
-  import.meta.env.VITE_API_URL || 'http://localhost:3001'
+  import.meta.env.VITE_API_URL || ''
 );

@@ -47,6 +47,27 @@ export async function verifyToken(token) {
 }
 
 /**
+ * Get user profile from Supabase
+ * @param {string} userId 
+ */
+export async function getUserProfile(userId) {
+  try {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    logger.error('Error fetching user profile', error, { userId });
+    return null;
+  }
+}
+
+/**
  * Middleware for Socket.io authentication
  * Verifies token on connection handshake if provided
  * Allows fallback to sessionCode-based auth for backward compatibility

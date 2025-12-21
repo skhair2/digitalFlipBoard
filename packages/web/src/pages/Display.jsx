@@ -12,9 +12,21 @@ import { useKeyboardShortcuts, toggleFullscreen } from '../hooks/useKeyboardShor
 import { useActivityTracking } from '../hooks/useActivityTracking'
 import { useMessageBroker } from '../hooks/useMessageBroker'
 import mixpanel from '../services/mixpanelService'
+import { registerSession } from '../services/sessionService'
 
 export default function Display() {
-    const { isConnected, setSessionCode, setBoardId, setConnected, isClockMode, setClockMode, currentMessage, sessionCode, controllerSubscriptionTier } = useSessionStore()
+    const { 
+        isConnected, 
+        setSessionCode, 
+        setBoardId, 
+        setConnected, 
+        isClockMode, 
+        setClockMode, 
+        currentMessage, 
+        sessionCode, 
+        controllerSubscriptionTier,
+        setMessage 
+    } = useSessionStore()
     const [searchParams] = useSearchParams()
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [timeString, setTimeString] = useState('')
@@ -43,6 +55,7 @@ export default function Display() {
 
     // Hide pairing code when controller connects
     useEffect(() => {
+        console.log('[Display] Connection state changed:', { isConnected, sessionCode })
         if (isConnected) {
             setShowPairingCode(false)
             // Show connected message and auto-hide after 2 seconds
@@ -55,18 +68,31 @@ export default function Display() {
             setShowPairingCode(true)
             setShowConnectedMessage(false)
         }
-    }, [isConnected])
+    }, [isConnected, sessionCode])
 
     // Ensure display always has a session code by default unless one is already set or provided via boardId.
-    // NOTE: Changed to NOT auto-generate. Display should wait for user to manually generate pairing code.
-    // This prevents auto-connection when both display and controller are on the same browser.
     useEffect(() => {
-        if (!sessionCode && !searchParams.get('boardId')) {
-            // Do NOT auto-generate - let user manually create the code
-            // This prevents unwanted auto-connection between display and controller tabs
-            console.log('[Display] Waiting for user to generate pairing code')
+        const autoGenerate = async () => {
+            if (!sessionCode && !searchParams.get('boardId')) {
+                try {
+                    // Generate a session code for display
+                    const tempCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+                    
+                    // Register the session with the backend first (Lazy Connection)
+                    await registerSession(tempCode)
+                    
+                    setSessionCode(tempCode)
+                    console.log('[Display] Auto-generated session code:', tempCode, '- waiting for controller to pair')
+                } catch (error) {
+                    console.error('[Display] Failed to auto-register session:', error)
+                    // Fallback to local generation if API fails
+                    const tempCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+                    setSessionCode(tempCode)
+                }
+            }
         }
-    }, [sessionCode, searchParams])
+        autoGenerate()
+    }, [sessionCode, searchParams, setSessionCode])
 
     // Check every minute if display should disconnect due to 24h inactivity + free tier controller
     useEffect(() => {
@@ -126,27 +152,46 @@ export default function Display() {
 
     // Sync message broker state with display state
     useEffect(() => {
-        if (brokerState?.state?.currentMessage) {
-            console.log('[Display] Received message from broker:', brokerState.state.currentMessage)
-            // Message will be displayed via currentMessage in render
+        const state = brokerState?.state
+        if (state?.currentMessage && state.currentMessage !== currentMessage) {
+            console.log('[Display] Received new message from broker:', state.currentMessage)
+            
+            // If we received a message, we are definitely connected/paired
+            if (!isConnected) {
+                console.log('[Display] Auto-connecting because message received via broker')
+                setConnected(true)
+            }
+
+            // Update store so DigitalFlipBoardGrid can see it
+            setMessage(
+                state.currentMessage, 
+                state.animation || 'flip', 
+                state.color || 'monochrome'
+            )
         }
         if (brokerConfig) {
-            console.log('[Display] Received config from broker:', brokerConfig)
+            // Only log if config actually has properties
+            if (Object.keys(brokerConfig).length > 0) {
+                console.log('[Display] Received config from broker:', brokerConfig)
+            }
+            
             // Apply config settings to display
-            if (brokerConfig.brightness !== undefined) {
+            if (brokerConfig.brightness !== undefined && brokerConfig.brightness !== displaySettings.brightness) {
                 setDisplaySettings(prev => ({ ...prev, brightness: brokerConfig.brightness }))
             }
-            if (brokerConfig.clockMode !== undefined) {
+            if (brokerConfig.clockMode !== undefined && brokerConfig.clockMode !== isClockMode) {
                 setClockMode(brokerConfig.clockMode)
             }
-            if (brokerConfig.animation) {
+            if (brokerConfig.animation && brokerConfig.animation !== useSessionStore.getState().lastAnimationType) {
                 setDisplaySettings(prev => ({ ...prev, animation: brokerConfig.animation }))
+                useSessionStore.getState().setPreferences(brokerConfig.animation, undefined)
             }
-            if (brokerConfig.color) {
+            if (brokerConfig.color && brokerConfig.color !== useSessionStore.getState().lastColorTheme) {
                 setDisplaySettings(prev => ({ ...prev, color: brokerConfig.color }))
+                useSessionStore.getState().setPreferences(undefined, brokerConfig.color)
             }
         }
-    }, [brokerState, brokerConfig, setClockMode])
+    }, [brokerState, brokerConfig, setClockMode, setMessage, currentMessage, isClockMode, displaySettings.brightness])
 
     // Clock Mode Logic
     useEffect(() => {
@@ -275,36 +320,11 @@ export default function Display() {
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900 via-black to-black opacity-50 pointer-events-none" />
             )}
 
-            {/* Show Pairing Setup Screen if no session code is set */}
+            {/* Main Content */}
             {!sessionCode ? (
-                <div className="z-10 flex items-center justify-center w-full h-screen">
-                    <div className="bg-slate-800/50 backdrop-blur-md border border-slate-700 rounded-2xl p-8 max-w-md w-full mx-4 text-center">
-                        <h1 className="text-3xl font-bold text-white mb-2">Digital Flip Board</h1>
-                        <p className="text-gray-400 mb-8">Display Mode</p>
-                        <p className="text-gray-500 mb-8 text-sm">Status: <span className="text-amber-400 font-semibold">Waiting for Setup</span></p>
-                        
-                        <button
-                            onClick={() => {
-                                // Generate a session code for display
-                                const tempCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-                                setSessionCode(tempCode)
-                                console.log('[Display] Generated session code:', tempCode, '- waiting for controller to pair')
-                            }}
-                            className="w-full py-3 px-4 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-lg transition-colors mb-4"
-                        >
-                            Generate Pairing Code
-                        </button>
-                        
-                        <p className="text-sm text-gray-400 mb-4">
-                            Click the button to generate a 6-character code. Share this code with the controller user.
-                        </p>
-                        
-                        <div className="text-xs text-gray-500 bg-slate-900/50 rounded p-3 border border-slate-700">
-                            <p className="font-mono">
-                                💡 The controller will enter the code on their screen to establish a connection.
-                            </p>
-                        </div>
-                    </div>
+                <div className="z-10 flex flex-col items-center justify-center">
+                    <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-gray-400 animate-pulse">Initializing Display...</p>
                 </div>
             ) : (
                 // Display content when sessionCode is set
@@ -322,7 +342,7 @@ export default function Display() {
                         {/* Show pairing code until controller connects */}
                         <div className="w-full flex justify-center">
                             <DigitalFlipBoardGrid
-                                overrideMessage={`DISPLAY CODE  ${sessionCode}`}
+                                overrideMessage={`DISPLAY CODE\n${sessionCode}`}
                                 isFullscreen={isFullscreen}
                             />
                         </div>

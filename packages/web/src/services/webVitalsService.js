@@ -105,6 +105,11 @@ class WebVitalsService {
      */
     trackCLS() {
         try {
+            // Check if layout-shift is supported by the browser
+            if (!PerformanceObserver.supportedEntryTypes || !PerformanceObserver.supportedEntryTypes.includes('layout-shift')) {
+                return;
+            }
+
             let clsValue = 0
             const observer = new PerformanceObserver((list) => {
                 for (const entry of list.getEntries()) {

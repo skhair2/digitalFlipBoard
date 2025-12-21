@@ -82,12 +82,21 @@ class RedisPubSubService {
    * @param {function} callback - Callback function
    */
   async subscribe(sessionCode, eventType, callback) {
+    const channel = `session:${sessionCode}:${eventType}`;
+    return this.subscribeToChannel(channel, callback);
+  }
+
+  /**
+   * Generic subscription to a Redis channel
+   * @param {string} channel - Channel name
+   * @param {function} callback - Callback function
+   */
+  async subscribeToChannel(channel, callback) {
     if (!this.initialized) {
       logger.warn('[RedisPubSub] Not initialized, cannot subscribe');
       return null;
     }
 
-    const channel = `session:${sessionCode}:${eventType}`;
     const subscriptionId = `${channel}:${Date.now()}:${Math.random()}`;
 
     try {
@@ -99,6 +108,8 @@ class RedisPubSubService {
             callback(parsed.data, parsed.timestamp);
           } catch (error) {
             logger.error(`[RedisPubSub] Error parsing message from ${channel}:`, error);
+            // Fallback to raw message if not JSON
+            callback(message, Date.now());
           }
         }
       };

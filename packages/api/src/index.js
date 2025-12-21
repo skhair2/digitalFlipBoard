@@ -27,6 +27,7 @@ import { registerHealthCheckRoutes, readinessMiddleware } from './healthCheck.js
 import { registerMagicLinkEndpoint } from './magicLinkEndpoint.js';
 import { registerGoogleOAuthEndpoints } from './googleOAuthEndpoint.js';
 import { registerDisplayEndpoints } from './routes/displays.js';
+import { registerSessionEndpoints } from './routes/sessions.js';
 import { redisPubSubService } from './redisPubSub.js';
 import { MessageHistoryService } from './messageHistory.js';
 import { PresenceTrackingService } from './presenceTracking.js';
@@ -220,6 +221,7 @@ registerHealthCheckRoutes(app);
 registerMagicLinkEndpoint(app);
 registerGoogleOAuthEndpoints(app);
 registerDisplayEndpoints(app);
+registerSessionEndpoints(app);
 
 // Security: Apply authentication middleware to all socket connections
 io.use(createAuthMiddleware());
@@ -335,6 +337,30 @@ function terminateSession(sessionCode, reason = 'inactivity') {
  * Monitor and terminate inactive sessions
  * Runs periodically to check for stale sessions
  */
+/**
+ * Setup listeners for system-wide events broadcast via Redis Pub/Sub
+ */
+function setupSystemEventListeners() {
+  // Listen for session expiration events from the worker
+  // The worker publishes to session:<code>:status with type: 'expired'
+  // We use a pattern-based subscription or a dedicated system channel
+  
+  // For now, we'll listen to a generic system channel or handle it per session
+  // Actually, the worker publishes to `session:${sessionCode}:status`
+  // But we don't know which sessions are active on THIS instance without iterating.
+  
+  // Better: The worker should publish to a single 'system:events' channel
+  // and we filter here.
+  
+  redisPubSubService.subscribeToChannel('system:events', (data) => {
+    if (data.type === 'session:expired') {
+      const { sessionCode } = data;
+      logger.info('System event: session_expired', { sessionCode });
+      terminateSession(sessionCode, 'session expired (worker cleanup)');
+    }
+  });
+}
+
 async function monitorInactiveSessions() {
   try {
     // Note: In a distributed system, you would query all active sessions
@@ -571,6 +597,74 @@ io.on('connection', async (socket) => {
       role: socket.role
     });
 
+    // WebRTC Signaling Handlers
+    // These allow peers to exchange connection information (SDP and ICE candidates)
+    
+    socket.on('webrtc:offer', (data) => {
+      const { target, offer } = data;
+      logger.debug('webrtc_offer_received', { 
+        from: socket.id.substring(0, 8), 
+        to: target?.substring(0, 8),
+        session: sessionCode 
+      });
+      
+      if (target) {
+        // Send to specific socket
+        io.to(target).emit('webrtc:offer', {
+          from: socket.id,
+          offer
+        });
+      } else {
+        // Broadcast to session (excluding sender)
+        socket.to(sessionCode).emit('webrtc:offer', {
+          from: socket.id,
+          offer
+        });
+      }
+    });
+
+    socket.on('webrtc:answer', (data) => {
+      const { target, answer } = data;
+      logger.debug('webrtc_answer_received', { 
+        from: socket.id.substring(0, 8), 
+        to: target?.substring(0, 8),
+        session: sessionCode 
+      });
+      
+      if (target) {
+        io.to(target).emit('webrtc:answer', {
+          from: socket.id,
+          answer
+        });
+      } else {
+        socket.to(sessionCode).emit('webrtc:answer', {
+          from: socket.id,
+          answer
+        });
+      }
+    });
+
+    socket.on('webrtc:ice-candidate', (data) => {
+      const { target, candidate } = data;
+      logger.debug('webrtc_ice_candidate_received', { 
+        from: socket.id.substring(0, 8), 
+        to: target?.substring(0, 8),
+        session: sessionCode 
+      });
+      
+      if (target) {
+        io.to(target).emit('webrtc:ice-candidate', {
+          from: socket.id,
+          candidate
+        });
+      } else {
+        socket.to(sessionCode).emit('webrtc:ice-candidate', {
+          from: socket.id,
+          candidate
+        });
+      }
+    });
+
     if (socket.role === 'controller' && roomSizeBeforeJoin === 0) {
       logger.warn('controller_connected_before_display', {
         session_code: sessionCode,
@@ -725,6 +819,20 @@ io.on('connection', async (socket) => {
 
       // Broadcast to everyone in the room
       io.to(targetSession).emit('message:received', validatedPayload);
+
+      // Sync with Redis state for HTTP fallback
+      try {
+        const currentState = await redisPubSubService.getSessionState(targetSession) || {};
+        await redisPubSubService.setSessionState(targetSession, {
+          ...currentState,
+          currentMessage: validatedPayload.content,
+          lastMessageTime: Date.now(),
+          animation: validatedPayload.animation || 'flip',
+          color: validatedPayload.color || 'monochrome'
+        });
+      } catch (syncError) {
+        logger.warn('Failed to sync message to Redis state:', syncError);
+      }
 
       // Log message to Supabase for analytics
       displaySessionLogger.recordSessionMessage(targetSession).catch(err => {
@@ -2032,8 +2140,11 @@ async function startServer() {
     // Initialize Redis Pub/Sub service
     await redisPubSubService.initialize(process.env.REDIS_URL || 'redis://localhost:6379');
 
+    // Setup system-wide event listeners (e.g., session expiration from worker)
+    setupSystemEventListeners();
+
     // Initialize Message History Service
-    const messageHistoryService = new MessageHistoryService(redisClient);
+    const messageHistoryService = new MessageHistoryService(redisClient, getSupabaseClient());
     global.messageHistoryService = messageHistoryService;
 
     // Initialize Presence Tracking Service
