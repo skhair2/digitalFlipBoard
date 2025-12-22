@@ -25,10 +25,11 @@ export default function Display() {
         currentMessage, 
         sessionCode, 
         controllerSubscriptionTier,
-        setMessage 
+        setMessage,
+        isFullscreen,
+        setIsFullscreen
     } = useSessionStore()
     const [searchParams] = useSearchParams()
-    const [isFullscreen, setIsFullscreen] = useState(false)
     const [timeString, setTimeString] = useState('')
     const [showInfo, setShowInfo] = useState(false)
     const [showSettings, setShowSettings] = useState(false)
@@ -311,7 +312,7 @@ export default function Display() {
 
     return (
         <div
-            className={`bg-black flex flex-col items-center justify-center overflow-hidden relative ${isFullscreen ? 'fixed inset-0 w-screen h-screen p-0' : 'min-h-screen p-4'
+            className={`bg-black flex flex-col items-center justify-center overflow-hidden relative ${isFullscreen ? 'fixed inset-0 w-screen h-screen p-0 z-[100]' : 'min-h-screen p-4'
                 }`}
             style={{ filter: `brightness(${displaySettings.brightness}%)` }}
         >
@@ -334,10 +335,10 @@ export default function Display() {
                 {/* Display Pairing State: Show code and waiting status until controller connects */}
                 {showPairingCode && sessionCode && !isConnected ? (
                     <div className="flex flex-col items-center justify-center w-full">
-                        {/* Status indicator top right */}
-                        <div className="fixed top-4 right-4 flex items-center gap-2 transition-opacity duration-300 z-50">
-                            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                            <span className="text-xs text-gray-500 font-mono uppercase">Waiting for Controller</span>
+                        {/* Status indicator top left */}
+                        <div className="fixed top-4 left-4 md:top-6 md:left-6 flex items-center gap-2.5 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-full px-3 py-1.5 z-50 shadow-xl">
+                            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                            <span className="text-[10px] tracking-widest text-gray-400 font-mono uppercase font-medium">Waiting for Controller</span>
                         </div>
                         {/* Show pairing code until controller connects */}
                         <div className="w-full flex justify-center">
@@ -349,10 +350,10 @@ export default function Display() {
                     </div>
                 ) : isConnected && !isClockMode && !currentMessage && showConnectedMessage ? (
                     <div className="flex flex-col items-center justify-center w-full">
-                        {/* Status indicator top right */}
-                        <div className="fixed top-4 right-4 flex items-center gap-2 transition-opacity duration-300 z-50">
-                            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-                            <span className="text-xs text-gray-500 font-mono uppercase">Connected</span>
+                        {/* Status indicator top left */}
+                        <div className="fixed top-4 left-4 md:top-6 md:left-6 flex items-center gap-2.5 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-full px-3 py-1.5 z-50 shadow-xl">
+                            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                            <span className="text-[10px] tracking-widest text-gray-400 font-mono uppercase font-medium">Connected</span>
                         </div>
                         <div className="w-full flex justify-center mb-2">
                             <DigitalFlipBoardGrid
@@ -369,10 +370,10 @@ export default function Display() {
                     </div>
                 ) : isConnected ? (
                     <div className="flex flex-col items-center justify-center w-full">
-                        {/* Status indicator top right - show when connected and displaying messages */}
-                        <div className="fixed top-4 right-4 flex items-center gap-2 transition-opacity duration-300 z-50">
-                            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-                            <span className="text-xs text-gray-500 font-mono uppercase">Connected</span>
+                        {/* Status indicator top left - show when connected and displaying messages */}
+                        <div className="fixed top-4 left-4 md:top-6 md:left-6 flex items-center gap-2.5 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-full px-3 py-1.5 z-50 shadow-xl">
+                            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                            <span className="text-[10px] tracking-widest text-gray-400 font-mono uppercase font-medium">Connected</span>
                         </div>
                         <DigitalFlipBoardGrid
                             overrideMessage={isClockMode ? timeString : undefined}

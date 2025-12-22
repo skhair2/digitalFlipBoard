@@ -1,31 +1,48 @@
-import { useState, useEffect, useMemo } from 'react'
+﻿import { useState, useEffect, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import Character from './Character'
 import { useSessionStore } from '../../store/sessionStore'
 import { useScreenResolution, calculateFontSize, getBreakpointSettings } from '../../hooks/useScreenResolution'
+import { motion } from 'framer-motion'
+import clsx from 'clsx'
 
 export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) {
     const { currentMessage, boardState, lastAnimationType, lastColorTheme, gridConfig } = useSessionStore()
     const { screen, calculateOptimalCharSize } = useScreenResolution()
 
-    // Calculate dynamic defaults based on screen size
+    // Calculate available space first to drive row/col logic
+    const availableSpace = useMemo(() => {
+        const padding = isFullscreen ? (screen.isSmallScreen ? 4 : 12) : (screen.isSmallScreen ? 8 : 24)
+        const gap = isFullscreen ? 1 : 2
+        
+        const height = isFullscreen ? screen.height : screen.height - 180
+        const width = isFullscreen ? screen.width : screen.width * 0.92
+        
+        return { width, height, padding, gap }
+    }, [screen.width, screen.height, isFullscreen, screen.isSmallScreen])
+
+    // Calculate dynamic defaults based on available space
     const defaultRows = useMemo(() => {
+        const targetHeight = screen.isSmallScreen ? 45 : (isFullscreen ? 120 : 80)
+        const calculatedRows = Math.floor(availableSpace.height / targetHeight)
+        const safeRows = isNaN(calculatedRows) ? 0 : calculatedRows
+        
         if (screen.isPortrait) {
-            // Portrait: More rows to fill vertical space
-            return Math.max(12, Math.floor(screen.height / 70))
+            return Math.max(12, safeRows)
         }
-        // Landscape: Aim for ~100px height per row to fill screen nicely
-        return Math.max(6, Math.floor(screen.height / 100))
-    }, [screen.height, screen.isPortrait])
+        return Math.max(5, safeRows)
+    }, [availableSpace.height, screen.isPortrait, screen.isSmallScreen, isFullscreen])
 
     const defaultCols = useMemo(() => {
+        const charHeight = Math.max(1, availableSpace.height / defaultRows)
+        const charWidth = charHeight * 0.65
+        const idealCols = charWidth > 0 ? Math.floor(availableSpace.width / charWidth) : 24
+        
         if (screen.isPortrait) {
-            // Portrait: Fewer columns to fit width
-            return Math.max(10, Math.floor(screen.width / 35))
+            return isNaN(idealCols) ? 10 : Math.max(10, idealCols)
         }
-        // Landscape: Aim for ~60px width per col
-        return Math.max(20, Math.floor(screen.width / 60))
-    }, [screen.width, screen.isPortrait])
+        return isNaN(idealCols) ? 24 : Math.max(24, idealCols)
+    }, [availableSpace.width, availableSpace.height, screen.isPortrait, defaultRows])
 
     // Use config or defaults
     const rows = gridConfig?.rows || defaultRows
@@ -34,14 +51,15 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
 
     // Calculate optimal sizing for current screen resolution
     const optimalGridDims = useMemo(() => {
-        if (!isFullscreen) return null
-        return calculateOptimalCharSize(rows, cols, screen.width, screen.height, screen.dpi)
-    }, [rows, cols, screen.width, screen.height, screen.dpi, isFullscreen, calculateOptimalCharSize])
-
-    // Get breakpoint settings
-    const breakpointSettings = useMemo(() => {
-        return getBreakpointSettings(screen.width)
-    }, [screen.width])
+        const { width, height, padding, gap } = availableSpace
+        const dims = calculateOptimalCharSize(rows, cols, width, height, padding, gap)
+        
+        // Calculate actual grid dimensions (excluding the outer padding)
+        const gridWidth = (dims.characterWidth * cols) + ((cols - 1) * gap)
+        const gridHeight = (dims.characterHeight * rows) + ((rows - 1) * gap)
+        
+        return { ...dims, gridWidth, gridHeight, padding, gap }
+    }, [rows, cols, availableSpace, calculateOptimalCharSize])
 
     // Calculate font size
     const fontSize = useMemo(() => {
@@ -53,8 +71,6 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
 
     const splitToLines = (text, maxLen) => {
         if (!text) return []
-        
-        // Handle explicit newlines and split into paragraphs
         const paragraphs = text.split('\n')
         const allLines = []
 
@@ -64,15 +80,11 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
 
             for (const word of words) {
                 if (!word) continue
-
-                // If a single word is longer than maxLen, we must break it
                 if (word.length > maxLen) {
                     if (currentLine) {
                         allLines.push(currentLine)
                         currentLine = ''
                     }
-                    
-                    // Break the long word into chunks
                     for (let i = 0; i < word.length; i += maxLen) {
                         const chunk = word.substring(i, i + maxLen)
                         if (chunk.length === maxLen) {
@@ -94,13 +106,11 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
             }
             if (currentLine) allLines.push(currentLine)
         }
-        
         return allLines
     }
 
     useEffect(() => {
         if (Array.isArray(boardState) && boardState.length > 0) {
-            // ...existing code...
             const flat = boardState.flat().slice(0, totalChars)
             if (flat.length < totalChars) {
                 const padding = Array(totalChars - flat.length).fill({ char: ' ', color: null })
@@ -109,52 +119,26 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
                 setDisplayGrid(flat)
             }
         } else {
-            // If overrideMessage is explicitly null (not undefined), show blank
-            // If overrideMessage is undefined, fallback to currentMessage or blank
             const messageToShow = overrideMessage !== undefined ? overrideMessage : (currentMessage || "")
-
-            // If message is empty string, show blank grid
             if (!messageToShow) {
                 setDisplayGrid(Array(totalChars).fill({ char: ' ', color: null }))
                 return
             }
 
-            // --- Smart centering and line splitting logic ---
             let infoText = messageToShow.toUpperCase()
-            
             let lines = []
             if (infoText.includes('\n')) {
-                // If explicit newlines are provided, respect them
                 const rawLines = infoText.split('\n')
                 for (const rawLine of rawLines) {
                     lines.push(...splitToLines(rawLine, cols))
                 }
             } else {
-                // Existing logic for auto-splitting
-                let displaySentence = ''
-                let enterSentence = ''
-                const upperText = infoText.toUpperCase()
-                
-                // Special handling for pairing instructions
-                if (upperText.includes('ENTER THIS CODE')) {
-                    const idx = upperText.indexOf('ENTER THIS CODE')
-                    displaySentence = infoText.slice(0, idx).trim()
-                    enterSentence = infoText.slice(idx).trim()
-                    
-                    if (displaySentence) lines.push(...splitToLines(displaySentence, cols))
-                    if (displaySentence && enterSentence) lines.push('') // Spacer
-                    if (enterSentence) lines.push(...splitToLines(enterSentence, cols))
-                } else {
-                    // General message splitting
-                    lines = splitToLines(infoText, cols)
-                }
+                lines = splitToLines(infoText, cols)
             }
 
-            // Center each info line horizontally
             lines = lines.map(line => {
                 const trimmed = line.trim()
                 if (!trimmed) return ' '.repeat(cols)
-                
                 if (trimmed.length < cols) {
                     const pad = cols - trimmed.length
                     const left = Math.floor(pad / 2)
@@ -164,7 +148,6 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
                 return trimmed.substring(0, cols)
             })
 
-            // Vertically center the entire block of lines
             if (lines.length < rows) {
                 const padRows = rows - lines.length
                 const top = Math.floor(padRows / 2)
@@ -173,87 +156,64 @@ export default function DigitalFlipBoardGrid({ overrideMessage, isFullscreen }) 
                 for (let i = 0; i < bottom; i++) lines.push(' '.repeat(cols))
             }
 
-            // Flatten to grid and ensure we don't exceed totalChars
             const gridChars = lines
                 .join('')
                 .padEnd(totalChars, ' ')
                 .substring(0, totalChars)
-                .split('')
-                .map(c => ({ char: c, color: null }))
             
-            setDisplayGrid(gridChars)
+            setDisplayGrid(gridChars.split('').map(char => ({ char, color: null })))
         }
-    }, [currentMessage, overrideMessage, boardState, totalChars, cols, rows])
+    }, [currentMessage, boardState, totalChars, rows, cols, overrideMessage])
 
-    // Create accessible label
-    const accessibleLabel = useMemo(() => {
-        if (boardState) return "Custom design displayed on board"
-        return overrideMessage || currentMessage || "Welcome message"
-    }, [boardState, overrideMessage, currentMessage])
-
-    // Determine container styles based on fullscreen and screen resolution
-    const containerStyle = useMemo(() => {
-        if (!isFullscreen) {
-            return {
-                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-                aspectRatio: `${cols} / ${rows}`,
-                gap: '0.125rem',
-            }
-        }
-
-        // Fullscreen mode: use calculated optimal dimensions
-        if (optimalGridDims) {
-            return {
-                gridTemplateColumns: `repeat(${cols}, ${optimalGridDims.characterWidth}px)`,
-                gridTemplateRows: `repeat(${rows}, ${optimalGridDims.characterHeight}px)`,
-                gap: `${optimalGridDims.gap}px`,
-                padding: `${breakpointSettings.padding}px`,
-                justifyContent: 'center',
-                alignContent: 'center',
-            }
-        }
-
-        // Fallback for fullscreen
-        return {
-            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-            aspectRatio: `${cols} / ${rows}`,
-            gap: '0.125rem',
-        }
-    }, [cols, rows, isFullscreen, optimalGridDims, breakpointSettings.padding])
+    if (!optimalGridDims) return null
 
     return (
-        <div
-            className={`grid bg-[#050505] transition-all duration-300 mx-auto
-                ${
-                    isFullscreen
-                        ? 'fixed inset-0 w-screen h-screen overflow-hidden'
-                        : 'w-full max-w-[95vw] p-2 md:p-4 rounded-xl shadow-2xl border border-white/5'
-                }`}
-            style={containerStyle}
-            role="img"
-            aria-label={`Split flap display showing: ${accessibleLabel}`}
-            data-breakpoint={breakpointSettings.breakpoint}
-        >
-            {displayGrid.map((item, index) => {
-                // Calculate stagger delay
-                const row = Math.floor(index / cols)
-                const col = index % cols
-                // Diagonal wave effect
-                const delay = (row + col) * 0.03
+        <div className="relative flex items-center justify-center w-full h-full">
+            {/* Professional Frame */}
+            <div 
+                className={clsx(
+                    "relative bg-[#0a0a0a] rounded-[2rem] border-[12px] border-[#1a1a1a] shadow-[0_0_100px_rgba(0,0,0,0.8),inset_0_0_40px_rgba(0,0,0,0.9)] overflow-hidden",
+                    isFullscreen ? "p-4" : "p-8"
+                )}
+                style={{
+                    width: optimalGridDims.gridWidth + (isFullscreen ? 40 : 80),
+                    height: optimalGridDims.gridHeight + (isFullscreen ? 40 : 80),
+                }}
+            >
+                {/* Internal Bezel */}
+                <div className="absolute inset-0 border-[2px] border-white/5 rounded-[1.4rem] pointer-events-none z-20" />
+                
+                {/* Grid Content */}
+                <div 
+                    className="grid relative z-10"
+                    style={{
+                        gridTemplateColumns: `repeat(${cols}, ${optimalGridDims.characterWidth}px)`,
+                        gridTemplateRows: `repeat(${rows}, ${optimalGridDims.characterHeight}px)`,
+                        gap: `${optimalGridDims.gap}px`,
+                        width: optimalGridDims.gridWidth,
+                        height: optimalGridDims.gridHeight,
+                    }}
+                >
+                    {displayGrid.map((item, idx) => (
+                        <Character
+                            key={idx}
+                            char={item.char}
+                            color={item.color || lastColorTheme?.primary}
+                            delay={idx * 0.001}
+                            fontSize={fontSize}
+                            isFullscreen={true}
+                            animationType={lastAnimationType || 'flip'}
+                        />
+                    ))}
+                </div>
 
-                return (
-                    <Character
-                        key={index}
-                        char={item?.char || ' '}
-                        color={item?.color || null}
-                        animationType={lastAnimationType}
-                        colorTheme={lastColorTheme}
-                        delay={delay}
-                        fontSize={fontSize}
-                        isFullscreen={isFullscreen}
-                    />
-                )
-            })}
+                {/* Ambient Lighting Effects */}
+                <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/5 to-transparent pointer-events-none z-20" />
+                <div className="absolute bottom-0 left-0 w-full h-1/4 bg-gradient-to-t from-black/40 to-transparent pointer-events-none z-20" />
+            </div>
+
+            {/* Background Glow */}
+            <div className="absolute -inset-20 bg-teal-500/5 blur-[100px] rounded-full pointer-events-none" />
         </div>
     )
 }

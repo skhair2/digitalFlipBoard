@@ -83,7 +83,7 @@ export default function Hero() {
                         transition={{ duration: 0.8, ease: "easeOut" }}
                         className="max-w-4xl mx-auto"
                     >
-                        <h1 className="text-6xl lg:text-8xl font-black text-white mb-8 tracking-tight leading-[1.1]">
+                        <h1 className="text-4xl sm:text-6xl lg:text-8xl font-black text-white mb-8 tracking-tight leading-[1.1]">
                             The Virtual
                             <br />
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-cyan-300 to-purple-400 animate-gradient bg-[length:200%_auto]">
@@ -91,7 +91,7 @@ export default function Hero() {
                             </span>
                         </h1>
 
-                        <p className="text-xl lg:text-2xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed">
+                        <p className="text-lg sm:text-xl lg:text-2xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed">
                             Transform any screen into a stunning retro message board.
                             <span className="block mt-2 text-white font-medium">No Hardware. No App. Just Magic.</span>
                         </p>

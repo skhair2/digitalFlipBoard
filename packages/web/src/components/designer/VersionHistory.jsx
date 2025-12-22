@@ -8,17 +8,21 @@ import mixpanel from '../../services/mixpanelService'
 import PremiumGate from '../common/PremiumGate'
 
 export default function VersionHistory() {
-  const { currentDesign, designVersions, fetchVersions, restoreDesignVersion } = useDesignStore()
-  const { isPremium } = useAuthStore()
+  const activeDesign = useDesignStore(state => state.activeDesign)
+  const designVersions = useDesignStore(state => state.designVersions)
+  const fetchVersions = useDesignStore(state => state.fetchVersions)
+  const restoreDesignVersion = useDesignStore(state => state.restoreDesignVersion)
+  
+  const isPremium = useAuthStore(state => state.isPremium)
   const [isLoading, setIsLoading] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
   const [expandedVersionId, setExpandedVersionId] = useState(null)
 
   const loadVersions = useCallback(async () => {
-    if (!currentDesign) return
+    if (!activeDesign?.id) return
     setIsLoading(true)
     try {
-      await fetchVersions(currentDesign.id)
+      await fetchVersions(activeDesign.id)
     } catch (error) {
       toast.error('Failed to load version history')
       console.error('Error loading versions:', error)
@@ -26,25 +30,25 @@ export default function VersionHistory() {
     } finally {
       setIsLoading(false)
     }
-  }, [currentDesign, fetchVersions])
+  }, [activeDesign, fetchVersions])
 
   useEffect(() => {
-    if (currentDesign && isPremium) {
+    if (activeDesign?.id && isPremium) {
       loadVersions()
     }
-  }, [currentDesign, isPremium, loadVersions])
+  }, [activeDesign, isPremium, loadVersions])
 
   const handleRestoreVersion = async (versionId) => {
     if (!window.confirm('Restore this version? Your current changes will be replaced.')) return
 
     setIsRestoring(true)
     try {
-      const result = await restoreDesignVersion(currentDesign.id, versionId)
+      const result = await restoreDesignVersion(activeDesign.id, versionId)
       if (result.success) {
         toast.success('Version restored!')
         await loadVersions()
         mixpanel.track('Design Version Restored', { 
-          designId: currentDesign.id,
+          designId: activeDesign.id,
           versionId
         })
       } else {
@@ -93,7 +97,7 @@ export default function VersionHistory() {
     )
   }
 
-  if (!currentDesign) {
+  if (!activeDesign) {
     return (
       <div className="p-8 text-center rounded-lg border border-dashed border-slate-300 dark:border-slate-600">
         <SparklesIcon className="w-12 h-12 mx-auto text-slate-400 dark:text-slate-600 mb-2" />

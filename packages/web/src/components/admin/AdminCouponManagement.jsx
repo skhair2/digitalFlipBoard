@@ -1,15 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '../../store/authStore';
-import { useCouponStore } from '../../store/couponStore';
-import Spinner from '../ui/Spinner';
+﻿import React, { useState, useEffect, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useAuthStore } from '../../store/authStore'
+import { useCouponStore } from '../../store/couponStore'
+import Spinner from '../ui/Spinner'
+import {
+  TicketIcon,
+  PlusIcon,
+  QueueListIcon,
+  ChartBarIcon,
+  DocumentDuplicateIcon,
+  ArrowPathIcon,
+  TrashIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ArrowDownTrayIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  CalendarIcon,
+  TagIcon,
+  InformationCircleIcon,
+  ChevronRightIcon,
+  SparklesIcon,
+  BeakerIcon,
+  ClockIcon,
+  CurrencyDollarIcon,
+  UserGroupIcon
+} from '@heroicons/react/24/outline'
 
 /**
- * AdminCouponManagement Component
- * Senior-level coupon management with generation, validation, and analytics
+ * AdminCouponManagement - High-fidelity redesign
+ * Professional coupon engine with generation, templates, and real-time analytics.
  */
 
 export default function AdminCouponManagement() {
-  const { user } = useAuthStore();
+  const { user } = useAuthStore()
   const {
     coupons,
     couponsLoading,
@@ -29,11 +53,12 @@ export default function AdminCouponManagement() {
     fetchCouponAnalytics,
     createTemplate,
     exportCoupons
-  } = useCouponStore();
+  } = useCouponStore()
 
-  const [activeTab, setActiveTab] = useState('generate'); // 'generate', 'manage', 'templates', 'analytics'
-  const [showModal, setShowModal] = useState(false);
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [activeTab, setActiveTab] = useState('generate')
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  
   const [formData, setFormData] = useState({
     couponType: 'percentage',
     discountValue: 10,
@@ -44,7 +69,7 @@ export default function AdminCouponManagement() {
     expiryDate: '',
     description: '',
     prefix: 'FLIP'
-  });
+  })
 
   const [templateData, setTemplateData] = useState({
     templateName: '',
@@ -54,29 +79,26 @@ export default function AdminCouponManagement() {
     applicableTier: 'all',
     minPurchaseAmount: 0,
     description: ''
-  });
+  })
 
-  const [templateQuantity, setTemplateQuantity] = useState(10);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [generatedCodes, setGeneratedCodes] = useState([]);
+  const [templateQuantity, setTemplateQuantity] = useState(10)
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
 
   useEffect(() => {
-    if (activeTab === 'manage') {
-      fetchCoupons();
-    } else if (activeTab === 'templates') {
-      fetchTemplates();
-    } else if (activeTab === 'analytics') {
-      fetchCouponAnalytics();
-    }
-  }, [activeTab, fetchCoupons, fetchTemplates, fetchCouponAnalytics]);
+    if (activeTab === 'manage') fetchCoupons()
+    else if (activeTab === 'templates') fetchTemplates()
+    else if (activeTab === 'analytics') fetchCouponAnalytics()
+  }, [activeTab, fetchCoupons, fetchTemplates, fetchCouponAnalytics])
 
-  // ============================================
-  // COUPON GENERATION
-  // ============================================
+  const filteredCoupons = useMemo(() => {
+    return coupons.filter(c => 
+      c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  }, [coupons, searchQuery])
 
   const handleGenerateCoupons = async (e) => {
-    e.preventDefault();
-    
+    e.preventDefault()
     const config = {
       ...formData,
       discountValue: parseFloat(formData.discountValue),
@@ -84,778 +106,586 @@ export default function AdminCouponManagement() {
       maxUses: formData.maxUses ? parseInt(formData.maxUses) : null,
       minPurchaseAmount: formData.minPurchaseAmount ? parseFloat(formData.minPurchaseAmount) : 0,
       expiryDate: formData.expiryDate ? new Date(formData.expiryDate).toISOString() : null
-    };
+    }
 
-    const result = await generateCoupons(config, user.id);
-    
+    const result = await generateCoupons(config, user.id)
     if (result.success) {
-      setGeneratedCodes(result.codes);
-      alert(`✓ Generated ${result.count} coupon(s) successfully!`);
-      setFormData({
-        couponType: 'percentage',
-        discountValue: 10,
-        quantity: 10,
-        maxUses: 1,
-        applicableTier: 'all',
-        minPurchaseAmount: 0,
-        expiryDate: '',
-        description: '',
-        prefix: 'FLIP'
-      });
-      setGeneratedCodes([]);
-      setActiveTab('manage');
-      fetchCoupons();
-    } else {
-      alert('❌ Error: ' + result.error);
+      setActiveTab('manage')
+      fetchCoupons()
     }
-  };
-
-  const handleGenerateFromTemplate = async () => {
-    if (!selectedTemplate) {
-      alert('Please select a template');
-      return;
-    }
-
-    const result = await generateCouponsFromTemplate(
-      selectedTemplate,
-      parseInt(templateQuantity),
-      user.id
-    );
-
-    if (result.success) {
-      alert(`✓ Generated ${result.count} coupon(s) from template!`);
-      setTemplateQuantity(10);
-      setSelectedTemplate(null);
-      fetchCoupons();
-      setActiveTab('manage');
-    } else {
-      alert('❌ Error: ' + result.error);
-    }
-  };
-
-  // ============================================
-  // TEMPLATE MANAGEMENT
-  // ============================================
+  }
 
   const handleCreateTemplate = async (e) => {
-    e.preventDefault();
-    
+    e.preventDefault()
     const config = {
       ...templateData,
       discountValue: parseFloat(templateData.discountValue),
       maxUses: templateData.maxUses ? parseInt(templateData.maxUses) : null,
       minPurchaseAmount: templateData.minPurchaseAmount ? parseFloat(templateData.minPurchaseAmount) : 0
-    };
+    }
 
-    const result = await createTemplate(config, user.id);
-    
+    const result = await createTemplate(config, user.id)
     if (result.success) {
-      alert('✓ Template created successfully!');
-      setTemplateData({
-        templateName: '',
-        couponType: 'percentage',
-        discountValue: 10,
-        maxUses: 1,
-        applicableTier: 'all',
-        minPurchaseAmount: 0,
-        description: ''
-      });
-      setShowTemplateModal(false);
-      fetchTemplates();
-    } else {
-      alert('❌ Error: ' + result.error);
+      setShowTemplateModal(false)
+      fetchTemplates()
     }
-  };
+  }
 
-  // ============================================
-  // COUPON MANAGEMENT
-  // ============================================
-
-  const handleToggleCouponStatus = async (coupon) => {
-    const result = await updateCouponStatus(coupon.id, !coupon.is_active);
-    
-    if (result.success) {
-      alert(result.coupon.is_active ? '✓ Coupon activated' : '✓ Coupon deactivated');
-      fetchCoupons();
-    } else {
-      alert('❌ Error: ' + result.error);
-    }
-  };
-
-  const handleDeleteCoupon = async (couponId) => {
-    if (confirm('Are you sure? This action cannot be undone.')) {
-      const result = await deleteCoupon(couponId);
-      
-      if (result.success) {
-        alert('✓ Coupon deleted');
-        setSelectedCoupon(null);
-        fetchCoupons();
-      } else {
-        alert('❌ Error: ' + result.error);
-      }
-    }
-  };
-
-  const handleExportCoupons = async () => {
-    const couponIds = coupons.map(c => c.id);
-    const result = await exportCoupons(couponIds);
-    
-    if (result.success) {
-      // Convert to CSV
-      const csv = [
-        ['Code', 'Type', 'Discount Value', 'Max Uses', 'Current Uses', 'Active', 'Expiry Date', 'Description'],
-        ...result.data.map(c => [
-          c.code,
-          c.coupon_type,
-          c.discount_value,
-          c.max_uses || 'Unlimited',
-          c.current_uses,
-          c.is_active ? 'Yes' : 'No',
-          c.expiry_date ? new Date(c.expiry_date).toLocaleDateString() : 'No Expiry',
-          c.description
-        ])
-      ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `coupons-export-${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    }
-  };
-
-  // ============================================
-  // RENDER TABS
-  // ============================================
+  const tabs = [
+    { id: 'generate', label: 'Generate', icon: SparklesIcon },
+    { id: 'manage', label: 'Manage', icon: QueueListIcon },
+    { id: 'templates', label: 'Templates', icon: DocumentDuplicateIcon },
+    { id: 'analytics', label: 'Analytics', icon: ChartBarIcon }
+  ]
 
   return (
-    <div className="space-y-6">
-      {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-gray-700">
-        {['generate', 'manage', 'templates', 'analytics'].map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-3 font-medium transition-colors capitalize ${
-              activeTab === tab
-                ? 'text-teal-400 border-b-2 border-teal-400'
-                : 'text-gray-400 hover:text-gray-300'
-            }`}
-          >
-            {tab === 'generate' && '✨ Generate'}
-            {tab === 'manage' && '📋 Manage'}
-            {tab === 'templates' && '📝 Templates'}
-            {tab === 'analytics' && '📊 Analytics'}
-          </button>
-        ))}
-      </div>
-
-      {/* GENERATE COUPONS TAB */}
-      {activeTab === 'generate' && (
-        <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
-          <h3 className="text-xl font-bold text-white mb-6">Generate New Coupons</h3>
-
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <button
-              onClick={() => { setShowModal(true); setShowTemplateModal(false); }}
-              className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-3 rounded-lg font-medium transition-colors"
-            >
-              ➕ Create New Coupons
-            </button>
-            <button
-              onClick={() => { setShowTemplateModal(true); setShowModal(false); }}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg font-medium transition-colors"
-            >
-              🎨 Create Template
-            </button>
-          </div>
-
-          {/* Existing Templates */}
-          {!templatesLoading && templates.length > 0 && (
-            <div className="mb-6">
-              <h4 className="text-lg font-semibold text-white mb-3">Quick Generate from Template</h4>
-              <div className="flex gap-3 flex-wrap">
-                {templates.map(template => (
-                  <div key={template.id} className="flex gap-2">
-                    <select
-                      value={selectedTemplate === template.id ? template.id : ''}
-                      onChange={(e) => setSelectedTemplate(e.target.value === '' ? null : e.target.value)}
-                      className="bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                    >
-                      <option value="">{template.template_name}</option>
-                      <option value={template.id}>{template.template_name}</option>
-                    </select>
-                  </div>
-                ))}
-              </div>
-
-              {selectedTemplate && (
-                <div className="mt-4 flex gap-3">
-                  <input
-                    type="number"
-                    min="1"
-                    max="1000"
-                    value={templateQuantity}
-                    onChange={(e) => setTemplateQuantity(e.target.value)}
-                    className="bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 w-32"
-                    placeholder="Quantity"
-                  />
-                  <button
-                    onClick={handleGenerateFromTemplate}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium transition-colors"
-                  >
-                    Generate {templateQuantity} Coupons
-                  </button>
+    <div className="flex h-full overflow-hidden bg-slate-950">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Header */}
+        <header className="p-8 border-b border-slate-900 bg-slate-950/50 backdrop-blur-xl z-10">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="space-y-1">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-teal-500/20 rounded-xl">
+                  <TicketIcon className="w-6 h-6 text-teal-500" />
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Generated Codes Display */}
-          {generatedCodes.length > 0 && (
-            <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4 mb-6">
-              <h4 className="text-green-400 font-bold mb-3">✓ Generated Coupon Codes</h4>
-              <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
-                {generatedCodes.map((code, idx) => (
-                  <code
-                    key={idx}
-                    className="bg-slate-900 text-green-300 px-3 py-2 rounded text-sm font-mono border border-green-500/20 cursor-pointer hover:border-green-500 transition-colors"
-                    onClick={() => {
-                      navigator.clipboard.writeText(code);
-                      alert('Copied: ' + code);
-                    }}
-                  >
-                    {code}
-                  </code>
-                ))}
+                <h1 className="text-3xl font-black text-white uppercase tracking-tight">Coupon Engine</h1>
               </div>
-              <button
-                onClick={() => {
-                  const text = generatedCodes.join('\n');
-                  navigator.clipboard.writeText(text);
-                  alert('All codes copied!');
-                }}
-                className="mt-3 text-sm text-green-400 hover:text-green-300"
-              >
-                📋 Copy All Codes
-              </button>
+              <p className="text-slate-400 font-medium">Generate, manage, and analyze promotional campaigns.</p>
             </div>
-          )}
-        </div>
-      )}
 
-      {/* MANAGE COUPONS TAB */}
-      {activeTab === 'manage' && (
-        <div className="space-y-4">
-          <div className="flex gap-3 items-center">
-            <select
-              value={couponStatusFilter}
-              onChange={(e) => setCouponStatusFilter(e.target.value)}
-              className="bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-            >
-              <option value="all">All Coupons</option>
-              <option value="active">Active Only</option>
-              <option value="inactive">Inactive Only</option>
-            </select>
-            <button
-              onClick={handleExportCoupons}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium transition-colors ml-auto"
-            >
-              📥 Export CSV
-            </button>
-          </div>
-
-          {couponsLoading ? (
-            <Spinner />
-          ) : coupons.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">No coupons found</div>
-          ) : (
-            <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-slate-900">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Code</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Discount</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Uses</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Status</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Expiry</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-300">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700">
-                  {coupons.map(coupon => (
-                    <tr key={coupon.id} className="hover:bg-slate-700/30 transition-colors">
-                      <td className="px-4 py-3">
-                        <code className="bg-slate-900 text-teal-300 px-2 py-1 rounded text-sm font-mono">
-                          {coupon.code}
-                        </code>
-                      </td>
-                      <td className="px-4 py-3 text-white">
-                        {coupon.coupon_type === 'percentage' ? `${coupon.discount_value}%` : `$${coupon.discount_value}`}
-                      </td>
-                      <td className="px-4 py-3 text-gray-400">
-                        {coupon.current_uses}/{coupon.max_uses || '∞'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          coupon.is_active 
-                            ? 'bg-green-900/30 text-green-300' 
-                            : 'bg-red-900/30 text-red-300'
-                        }`}>
-                          {coupon.is_active ? '✓ Active' : '✗ Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-400 text-sm">
-                        {coupon.expiry_date ? new Date(coupon.expiry_date).toLocaleDateString() : 'Never'}
-                      </td>
-                      <td className="px-4 py-3 text-right space-x-2">
-                        <button
-                          onClick={() => setSelectedCoupon(coupon)}
-                          className="text-teal-400 hover:text-teal-300 text-sm font-medium"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => handleToggleCouponStatus(coupon)}
-                          className="text-blue-400 hover:text-blue-300 text-sm font-medium"
-                        >
-                          {coupon.is_active ? 'Disable' : 'Enable'}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCoupon(coupon.id)}
-                          className="text-red-400 hover:text-red-300 text-sm font-medium"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TEMPLATES TAB */}
-      {activeTab === 'templates' && (
-        <div className="space-y-4">
-          <button
-            onClick={() => setShowTemplateModal(true)}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded font-medium transition-colors"
-          >
-            ➕ New Template
-          </button>
-
-          {templatesLoading ? (
-            <Spinner />
-          ) : templates.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">No templates created yet</div>
-          ) : (
-            <div className="grid gap-4">
-              {templates.map(template => (
-                <div key={template.id} className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-                  <h4 className="text-white font-bold mb-2">{template.template_name}</h4>
-                  <p className="text-gray-400 text-sm mb-3">{template.description}</p>
-                  <div className="grid grid-cols-4 gap-4 text-sm mb-4">
-                    <div>
-                      <span className="text-gray-500">Type</span>
-                      <p className="text-white font-medium">{template.coupon_type}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Discount</span>
-                      <p className="text-white font-medium">
-                        {template.coupon_type === 'percentage' ? `${template.discount_value}%` : `$${template.discount_value}`}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Max Uses</span>
-                      <p className="text-white font-medium">{template.max_uses || '∞'}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Applicable To</span>
-                      <p className="text-white font-medium">{template.applicable_tier}</p>
-                    </div>
-                  </div>
-                </div>
+            <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-[1.5rem] border border-slate-800">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    activeTab === tab.id
+                      ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/20'
+                      : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <tab.icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
               ))}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        </header>
 
-      {/* ANALYTICS TAB */}
-      {activeTab === 'analytics' && (
-        <div className="space-y-6">
-          {couponAnalytics ? (
-            <>
-              {/* Key Metrics */}
-              <div className="grid grid-cols-4 gap-4">
-                <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-                  <p className="text-gray-400 text-sm">Total Redemptions</p>
-                  <p className="text-3xl font-bold text-teal-400">{couponAnalytics.totalRedemptions}</p>
-                </div>
-                <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-                  <p className="text-gray-400 text-sm">Total Discounted</p>
-                  <p className="text-3xl font-bold text-green-400">${couponAnalytics.totalDiscounted}</p>
-                </div>
-                <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-                  <p className="text-gray-400 text-sm">Avg Discount</p>
-                  <p className="text-3xl font-bold text-blue-400">${couponAnalytics.averageDiscount}</p>
-                </div>
-                <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-                  <p className="text-gray-400 text-sm">Utilization Rate</p>
-                  <p className="text-3xl font-bold text-purple-400">{couponAnalytics.utilizationRate}%</p>
-                </div>
-              </div>
+        {/* Tab Content */}
+        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+          <AnimatePresence mode="wait">
+            {activeTab === 'generate' && (
+              <motion.div
+                key="generate"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="max-w-4xl mx-auto space-y-8"
+              >
+                <div className="bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-10">
+                  <div className="flex items-center gap-4 mb-10">
+                    <div className="p-3 bg-teal-500/20 rounded-2xl text-teal-500">
+                      <SparklesIcon className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-white uppercase tracking-tight">Batch Generation</h2>
+                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Create unique promotional codes</p>
+                    </div>
+                  </div>
 
-              {/* Top Coupons */}
-              {couponAnalytics.topCoupons.length > 0 && (
-                <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
-                  <h3 className="text-xl font-bold text-white mb-4">Top Performing Coupons</h3>
-                  <div className="space-y-2">
-                    {couponAnalytics.topCoupons.map((coupon, idx) => (
-                      <div key={coupon.id} className="flex items-center justify-between pb-2 border-b border-slate-700">
-                        <div>
-                          <p className="text-white font-medium">#{idx + 1}: {coupon.code}</p>
-                          <p className="text-gray-400 text-sm">
-                            {coupon.coupon_type === 'percentage' ? `${coupon.discount_value}%` : `$${coupon.discount_value}`} off
-                          </p>
+                  <form onSubmit={handleGenerateCoupons} className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Coupon Type</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {['percentage', 'fixed'].map((type) => (
+                            <button
+                              key={type}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, couponType: type })}
+                              className={`py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+                                formData.couponType === type
+                                  ? 'bg-slate-800 border-slate-600 text-white'
+                                  : 'bg-slate-950/50 border-slate-800 text-slate-500 hover:border-slate-700'
+                              }`}
+                            >
+                              {type}
+                            </button>
+                          ))}
                         </div>
-                        <span className="text-teal-400 font-bold text-lg">{coupon.current_uses} uses</span>
                       </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Discount Value</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.discountValue}
+                            onChange={(e) => setFormData({ ...formData, discountValue: e.target.value })}
+                            className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl py-4 px-6 text-white font-bold focus:outline-none focus:border-teal-500/50 transition-all"
+                          />
+                          <span className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-500 font-black uppercase tracking-widest text-[10px]">
+                            {formData.couponType === 'percentage' ? '%' : 'USD'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Quantity to Generate</label>
+                        <input
+                          type="number"
+                          value={formData.quantity}
+                          onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                          className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl py-4 px-6 text-white font-bold focus:outline-none focus:border-teal-500/50 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Code Prefix</label>
+                        <input
+                          type="text"
+                          value={formData.prefix}
+                          onChange={(e) => setFormData({ ...formData, prefix: e.target.value.toUpperCase() })}
+                          className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl py-4 px-6 text-white font-bold focus:outline-none focus:border-teal-500/50 transition-all"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Expiry Date</label>
+                        <input
+                          type="date"
+                          value={formData.expiryDate}
+                          onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                          className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl py-4 px-6 text-white font-bold focus:outline-none focus:border-teal-500/50 transition-all"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Description</label>
+                        <textarea
+                          value={formData.description}
+                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                          placeholder="Summer Sale 2024..."
+                          className="w-full h-[108px] bg-slate-950/50 border border-slate-800 rounded-2xl py-4 px-6 text-white font-medium focus:outline-none focus:border-teal-500/50 transition-all resize-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2 pt-4">
+                      <button
+                        type="submit"
+                        className="w-full py-5 bg-teal-500 hover:bg-teal-400 text-white rounded-[2rem] font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-teal-500/20 flex items-center justify-center gap-3"
+                      >
+                        <SparklesIcon className="w-5 h-5" />
+                        Generate Batch Now
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-slate-900/30 border border-slate-800/50 rounded-[2rem] p-6 flex items-center gap-4">
+                    <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl">
+                      <InformationCircleIcon className="w-5 h-5" />
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
+                      Codes are generated using a cryptographically secure random engine.
+                    </p>
+                  </div>
+                  <div className="bg-slate-900/30 border border-slate-800/50 rounded-[2rem] p-6 flex items-center gap-4">
+                    <div className="p-3 bg-blue-500/10 text-blue-500 rounded-xl">
+                      <BeakerIcon className="w-5 h-5" />
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
+                      Prefixes help identify specific marketing campaigns in analytics.
+                    </p>
+                  </div>
+                  <div className="bg-slate-900/30 border border-slate-800/50 rounded-[2rem] p-6 flex items-center gap-4">
+                    <div className="p-3 bg-purple-500/10 text-purple-500 rounded-xl">
+                      <ClockIcon className="w-5 h-5" />
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
+                      Expiry dates are enforced at the database level for security.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'manage' && (
+              <motion.div
+                key="manage"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex h-full gap-8"
+              >
+                {/* Sidebar List */}
+                <div className="w-1/3 flex flex-col gap-6">
+                  <div className="relative group">
+                    <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-teal-500 transition-colors" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search codes..."
+                      className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-11 pr-4 text-xs font-medium text-white placeholder-slate-600 focus:outline-none focus:border-teal-500/50 transition-all"
+                    />
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar pr-2">
+                    {couponsLoading ? (
+                      <div className="flex justify-center py-12"><Spinner /></div>
+                    ) : filteredCoupons.map((coupon) => (
+                      <button
+                        key={coupon.id}
+                        onClick={() => setSelectedCoupon(coupon)}
+                        className={`w-full text-left p-5 rounded-[2rem] border transition-all ${
+                          selectedCoupon?.id === coupon.id
+                            ? 'bg-slate-900 border-teal-500/50 shadow-lg shadow-teal-500/5'
+                            : 'bg-slate-900/40 border-slate-800/50 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-black text-white uppercase tracking-tight">{coupon.code}</span>
+                          <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${coupon.is_active ? 'bg-teal-500/10 text-teal-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                            {coupon.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                          <span className="flex items-center gap-1">
+                            <TagIcon className="w-3 h-3" />
+                            {coupon.coupon_type === 'percentage' ? `${coupon.discount_value}%` : `$${coupon.discount_value}`}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <UserGroupIcon className="w-3 h-3" />
+                            {coupon.uses_count} / {coupon.max_uses || ''}
+                          </span>
+                        </div>
+                      </button>
                     ))}
                   </div>
                 </div>
-              )}
-            </>
-          ) : (
-            <Spinner />
-          )}
-        </div>
-      )}
 
-      {/* MODALS */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-white mb-4">Generate Coupons</h2>
-            
-            <form onSubmit={handleGenerateCoupons} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
-                <select
-                  value={formData.couponType}
-                  onChange={(e) => setFormData({ ...formData, couponType: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                >
-                  <option value="percentage">Percentage</option>
-                  <option value="fixed">Fixed Amount</option>
-                </select>
-              </div>
+                {/* Detail View */}
+                <div className="flex-1">
+                  <AnimatePresence mode="wait">
+                    {selectedCoupon ? (
+                      <motion.div
+                        key={selectedCoupon.id}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-10 h-full flex flex-col"
+                      >
+                        <div className="flex items-center justify-between mb-10">
+                          <div className="flex items-center gap-5">
+                            <div className="p-4 bg-slate-800 rounded-[1.5rem] text-teal-500">
+                              <TicketIcon className="w-8 h-8" />
+                            </div>
+                            <div>
+                              <h2 className="text-3xl font-black text-white uppercase tracking-tight">{selectedCoupon.code}</h2>
+                              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Coupon ID: {selectedCoupon.id}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => updateCouponStatus(selectedCoupon.id, !selectedCoupon.is_active)}
+                              className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                selectedCoupon.is_active
+                                  ? 'bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white'
+                                  : 'bg-teal-500/10 text-teal-500 hover:bg-teal-500 hover:text-white'
+                              }`}
+                            >
+                              {selectedCoupon.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button
+                              onClick={() => deleteCoupon(selectedCoupon.id)}
+                              className="p-3 bg-slate-800 text-slate-400 hover:text-rose-500 rounded-xl transition-all"
+                            >
+                              <TrashIcon className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Discount Value {formData.couponType === 'percentage' ? '(%)' : '($)'}
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.discountValue}
-                  onChange={(e) => setFormData({ ...formData, discountValue: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                />
-              </div>
+                        <div className="grid grid-cols-2 gap-8 mb-10">
+                          <div className="bg-slate-950/50 border border-slate-800 rounded-[2rem] p-6 space-y-4">
+                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Configuration</h3>
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-medium text-slate-400">Type</span>
+                                <span className="text-xs font-black text-white uppercase">{selectedCoupon.coupon_type}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-medium text-slate-400">Value</span>
+                                <span className="text-xs font-black text-white">
+                                  {selectedCoupon.coupon_type === 'percentage' ? `${selectedCoupon.discount_value}%` : `$${selectedCoupon.discount_value}`}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-medium text-slate-400">Min Purchase</span>
+                                <span className="text-xs font-black text-white">${selectedCoupon.min_purchase_amount || 0}</span>
+                              </div>
+                            </div>
+                          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Quantity</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="1000"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                />
-              </div>
+                          <div className="bg-slate-950/50 border border-slate-800 rounded-[2rem] p-6 space-y-4">
+                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Usage & Limits</h3>
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-medium text-slate-400">Total Uses</span>
+                                <span className="text-xs font-black text-white">{selectedCoupon.uses_count}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-medium text-slate-400">Max Uses</span>
+                                <span className="text-xs font-black text-white">{selectedCoupon.max_uses || 'Unlimited'}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-medium text-slate-400">Expiry</span>
+                                <span className="text-xs font-black text-white">
+                                  {selectedCoupon.expiry_date ? new Date(selectedCoupon.expiry_date).toLocaleDateString() : 'Never'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Prefix</label>
-                <input
-                  type="text"
-                  maxLength="4"
-                  value={formData.prefix}
-                  onChange={(e) => setFormData({ ...formData, prefix: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Max Uses per Code</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.maxUses}
-                  onChange={(e) => setFormData({ ...formData, maxUses: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Applicable Tier</label>
-                <select
-                  value={formData.applicableTier}
-                  onChange={(e) => setFormData({ ...formData, applicableTier: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                >
-                  <option value="all">All Tiers</option>
-                  <option value="free">Free Only</option>
-                  <option value="pro">Pro Only</option>
-                  <option value="enterprise">Enterprise Only</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Min Purchase Amount ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.minPurchaseAmount}
-                  onChange={(e) => setFormData({ ...formData, minPurchaseAmount: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Expiry Date (Optional)</label>
-                <input
-                  type="date"
-                  value={formData.expiryDate}
-                  onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 resize-none"
-                  rows="2"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded font-medium transition-colors"
-                >
-                  Generate
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* TEMPLATE MODAL */}
-      {showTemplateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-white mb-4">Create Coupon Template</h2>
-            
-            <form onSubmit={handleCreateTemplate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Template Name</label>
-                <input
-                  type="text"
-                  required
-                  value={templateData.templateName}
-                  onChange={(e) => setTemplateData({ ...templateData, templateName: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                  placeholder="e.g., Summer20"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
-                <select
-                  value={templateData.couponType}
-                  onChange={(e) => setTemplateData({ ...templateData, couponType: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                >
-                  <option value="percentage">Percentage</option>
-                  <option value="fixed">Fixed Amount</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Discount Value {templateData.couponType === 'percentage' ? '(%)' : '($)'}
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={templateData.discountValue}
-                  onChange={(e) => setTemplateData({ ...templateData, discountValue: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Max Uses per Code</label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  value={templateData.maxUses}
-                  onChange={(e) => setTemplateData({ ...templateData, maxUses: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Applicable Tier</label>
-                <select
-                  value={templateData.applicableTier}
-                  onChange={(e) => setTemplateData({ ...templateData, applicableTier: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                >
-                  <option value="all">All Tiers</option>
-                  <option value="free">Free Only</option>
-                  <option value="pro">Pro Only</option>
-                  <option value="enterprise">Enterprise Only</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Min Purchase Amount ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={templateData.minPurchaseAmount}
-                  onChange={(e) => setTemplateData({ ...templateData, minPurchaseAmount: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
-                <textarea
-                  value={templateData.description}
-                  onChange={(e) => setTemplateData({ ...templateData, description: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 resize-none"
-                  rows="2"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowTemplateModal(false)}
-                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded font-medium transition-colors"
-                >
-                  Create Template
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* COUPON DETAILS MODAL */}
-      {selectedCoupon && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-white mb-4">Coupon Details</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <p className="text-gray-400 text-sm">Code</p>
-                <code className="text-teal-300 font-mono text-lg font-bold">{selectedCoupon.code}</code>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-gray-400 text-sm">Type</p>
-                  <p className="text-white font-medium capitalize">{selectedCoupon.coupon_type}</p>
+                        <div className="flex-1 bg-slate-950/50 border border-slate-800 rounded-[2rem] p-8">
+                          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Description & Notes</h3>
+                          <p className="text-sm text-slate-300 font-medium leading-relaxed">
+                            {selectedCoupon.description || 'No description provided for this coupon.'}
+                          </p>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center bg-slate-900/20 border border-dashed border-slate-800 rounded-[3rem]">
+                        <div className="p-6 bg-slate-900 rounded-[2rem] mb-6">
+                          <TicketIcon className="w-12 h-12 text-slate-700" />
+                        </div>
+                        <h3 className="text-white font-black uppercase tracking-tight">Select a Coupon</h3>
+                        <p className="text-slate-500 text-xs font-medium mt-1">Choose a code from the list to view details.</p>
+                      </div>
+                    )}
+                  </AnimatePresence>
                 </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Discount</p>
-                  <p className="text-white font-medium">
-                    {selectedCoupon.coupon_type === 'percentage' ? `${selectedCoupon.discount_value}%` : `$${selectedCoupon.discount_value}`}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-gray-400 text-sm">Uses</p>
-                  <p className="text-white font-medium">{selectedCoupon.current_uses}/{selectedCoupon.max_uses || '∞'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Status</p>
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${
-                    selectedCoupon.is_active 
-                      ? 'bg-green-900/30 text-green-300' 
-                      : 'bg-red-900/30 text-red-300'
-                  }`}>
-                    {selectedCoupon.is_active ? '✓ Active' : '✗ Inactive'}
-                  </span>
-                </div>
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Description</p>
-                <p className="text-white">{selectedCoupon.description || '—'}</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Created</p>
-                <p className="text-white">{new Date(selectedCoupon.created_at).toLocaleDateString()}</p>
-              </div>
-              {selectedCoupon.expiry_date && (
-                <div>
-                  <p className="text-gray-400 text-sm">Expires</p>
-                  <p className="text-white">{new Date(selectedCoupon.expiry_date).toLocaleDateString()}</p>
-                </div>
-              )}
-            </div>
+              </motion.div>
+            )}
 
-            <div className="flex gap-3 pt-6">
-              <button
-                type="button"
-                onClick={() => setSelectedCoupon(null)}
-                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded font-medium transition-colors"
+            {activeTab === 'templates' && (
+              <motion.div
+                key="templates"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-8"
               >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  handleDeleteCoupon(selectedCoupon.id);
-                  setSelectedCoupon(null);
-                }}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-medium transition-colors"
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Coupon Templates</h2>
+                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Reusable configurations for quick generation</p>
+                  </div>
+                  <button
+                    onClick={() => setShowTemplateModal(true)}
+                    className="flex items-center gap-2 px-6 py-3 bg-teal-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-teal-400 transition-all shadow-lg shadow-teal-500/20"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    Create Template
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {templatesLoading ? (
+                    <div className="col-span-full flex justify-center py-12"><Spinner /></div>
+                  ) : templates.map((template) => (
+                    <div key={template.id} className="bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-8 flex flex-col">
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="p-3 bg-slate-800 rounded-2xl text-teal-500">
+                          <DocumentDuplicateIcon className="w-6 h-6" />
+                        </div>
+                        <span className="px-2 py-0.5 bg-slate-800 text-slate-400 rounded-md text-[8px] font-black uppercase tracking-widest">
+                          {template.coupon_type}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-black text-white uppercase tracking-tight mb-2">{template.template_name}</h3>
+                      <p className="text-xs text-slate-500 font-medium mb-8 line-clamp-2">{template.description || 'No description'}</p>
+                      
+                      <div className="mt-auto space-y-4">
+                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                          <span className="text-slate-500">Discount</span>
+                          <span className="text-white">
+                            {template.coupon_type === 'percentage' ? `${template.discount_value}%` : `$${template.discount_value}`}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedTemplate(template)
+                            // Logic to show generation modal from template
+                          }}
+                          className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                        >
+                          Generate from Template
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'analytics' && (
+              <motion.div
+                key="analytics"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-8"
               >
-                Delete
-              </button>
-            </div>
-          </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  {[
+                    { label: 'Total Redeemed', value: couponAnalytics?.totalRedeemed || 0, icon: CheckCircleIcon, color: 'text-teal-500', bg: 'bg-teal-500/10' },
+                    { label: 'Active Coupons', value: couponAnalytics?.activeCount || 0, icon: TicketIcon, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                    { label: 'Total Revenue', value: `$${(couponAnalytics?.totalRevenue || 0).toLocaleString()}`, icon: CurrencyDollarIcon, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+                    { label: 'Avg. Discount', value: `${couponAnalytics?.avgDiscount || 0}%`, icon: TagIcon, color: 'text-purple-500', bg: 'bg-purple-500/10' }
+                  ].map((stat) => (
+                    <div key={stat.label} className="bg-slate-900/50 border border-slate-800 rounded-[2rem] p-6 flex items-center gap-4">
+                      <div className={`p-4 rounded-2xl ${stat.bg} ${stat.color}`}>
+                        <stat.icon className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{stat.label}</p>
+                        <p className="text-2xl font-black text-white tracking-tight">{stat.value}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-8">
+                    <h3 className="text-lg font-black text-white uppercase tracking-tight mb-6">Top Performing Codes</h3>
+                    <div className="space-y-4">
+                      {(couponAnalytics?.topCoupons || []).map((c, i) => (
+                        <div key={c.code} className="flex items-center justify-between p-4 bg-slate-950/50 border border-slate-800 rounded-2xl">
+                          <div className="flex items-center gap-4">
+                            <span className="text-xs font-black text-slate-700">0{i + 1}</span>
+                            <span className="text-sm font-black text-white uppercase tracking-tight">{c.code}</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-black text-teal-500">{c.uses} Uses</p>
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">${c.revenue} Revenue</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-8">
+                    <h3 className="text-lg font-black text-white uppercase tracking-tight mb-6">Redemption Trends</h3>
+                    <div className="h-64 flex items-end justify-between gap-2 px-4">
+                      {(couponAnalytics?.trends || [40, 65, 45, 90, 55, 75, 85]).map((val, i) => (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-3">
+                          <motion.div
+                            initial={{ height: 0 }}
+                            animate={{ height: `${val}%` }}
+                            className="w-full bg-teal-500/20 border-t-2 border-teal-500 rounded-t-lg"
+                          />
+                          <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Day {i + 1}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      )}
+      </div>
+
+      {/* Template Modal */}
+      <AnimatePresence>
+        {showTemplateModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowTemplateModal(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-[3rem] p-10 shadow-2xl"
+            >
+              <h2 className="text-2xl font-black text-white uppercase tracking-tight mb-8">Create New Template</h2>
+              <form onSubmit={handleCreateTemplate} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Template Name</label>
+                  <input
+                    type="text"
+                    value={templateData.templateName}
+                    onChange={(e) => setTemplateData({ ...templateData, templateName: e.target.value })}
+                    placeholder="e.g. Holiday Promo 20%"
+                    className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl py-4 px-6 text-white font-bold focus:outline-none focus:border-teal-500/50 transition-all"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Type</label>
+                    <select
+                      value={templateData.couponType}
+                      onChange={(e) => setTemplateData({ ...templateData, couponType: e.target.value })}
+                      className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl py-4 px-6 text-white font-bold focus:outline-none focus:border-teal-500/50 transition-all appearance-none"
+                    >
+                      <option value="percentage">Percentage</option>
+                      <option value="fixed">Fixed Amount</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Value</label>
+                    <input
+                      type="number"
+                      value={templateData.discountValue}
+                      onChange={(e) => setTemplateData({ ...templateData, discountValue: e.target.value })}
+                      className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl py-4 px-6 text-white font-bold focus:outline-none focus:border-teal-500/50 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Description</label>
+                  <textarea
+                    value={templateData.description}
+                    onChange={(e) => setTemplateData({ ...templateData, description: e.target.value })}
+                    className="w-full h-32 bg-slate-950/50 border border-slate-800 rounded-2xl py-4 px-6 text-white font-medium focus:outline-none focus:border-teal-500/50 transition-all resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowTemplateModal(false)}
+                    className="flex-1 py-4 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-700 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-[2] py-4 bg-teal-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-teal-400 transition-all shadow-lg shadow-teal-500/20"
+                  >
+                    Save Template
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
-  );
+  )
 }

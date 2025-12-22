@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../../store/authStore'
 import { supabase } from '../../services/supabaseClient'
 import mixpanel from '../../services/mixpanelService'
-import { Tab } from '@headlessui/react'
-import { clsx } from 'clsx'
+import Spinner from '../ui/Spinner'
 import {
   ArrowPathIcon,
   ListBulletIcon,
@@ -24,7 +24,21 @@ import {
   StopCircleIcon,
   ArrowDownTrayIcon,
   AdjustmentsHorizontalIcon,
+  ChevronRightIcon,
+  DevicePhoneMobileIcon,
+  TvIcon,
+  ArrowUpRightIcon,
+  ArrowDownRightIcon,
+  ShieldCheckIcon,
+  CpuChipIcon,
+  GlobeAltIcon,
+  ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline'
+
+/**
+ * SessionStats - High-fidelity redesign
+ * Professional monitoring for display sessions and client health
+ */
 
 export default function SessionStats() {
   const { isAdmin } = useAuthStore()
@@ -34,14 +48,12 @@ export default function SessionStats() {
   const [loading, setLoading] = useState(false)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [filterStatus, setFilterStatus] = useState('all')
-  const [selectedTabIndex, setSelectedTabIndex] = useState(0)
   const [error, setError] = useState(null)
   
   // Advanced filters
   const [searchQuery, setSearchQuery] = useState('')
   const [dateRange, setDateRange] = useState('all')
   const [sortBy, setSortBy] = useState('recent')
-  const [showOnlyActive] = useState(false)
   const [terminateReason, setTerminateReason] = useState('')
   const [showTerminateModal, setShowTerminateModal] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
@@ -113,6 +125,49 @@ export default function SessionStats() {
     }
   }, [fetchSessions])
 
+  // Calculate filtered sessions
+  const filteredSessions = useMemo(() => {
+    return sessions.filter(session => {
+      // Status filter
+      if (filterStatus !== 'all' && session.status !== filterStatus) return false
+      
+      // Search query
+      if (searchQuery && !session.session_code.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false
+      }
+      
+      // Date range filter
+      if (dateRange !== 'all') {
+        const sessionDate = new Date(session.created_at)
+        const now = new Date()
+        const daysDiff = (now - sessionDate) / (1000 * 60 * 60 * 24)
+        
+        if (dateRange === 'today' && daysDiff > 1) return false
+        if (dateRange === 'week' && daysDiff > 7) return false
+        if (dateRange === 'month' && daysDiff > 30) return false
+      }
+      
+      return true
+    }).sort((a, b) => {
+      if (sortBy === 'recent') {
+        return new Date(b.created_at) - new Date(a.created_at)
+      } else if (sortBy === 'oldest') {
+        return new Date(a.created_at) - new Date(b.created_at)
+      } else if (sortBy === 'messages') {
+        return (b.total_messages_sent || 0) - (a.total_messages_sent || 0)
+      } else if (sortBy === 'duration') {
+        const aDur = a.ended_at 
+          ? new Date(a.ended_at) - new Date(a.created_at)
+          : Date.now() - new Date(a.created_at).getTime()
+        const bDur = b.ended_at 
+          ? new Date(b.ended_at) - new Date(b.created_at)
+          : Date.now() - new Date(b.created_at).getTime()
+        return bDur - aDur
+      }
+      return 0
+    })
+  }, [sessions, filterStatus, searchQuery, dateRange, sortBy])
+
   // Export sessions as CSV
   const exportSessions = useCallback(() => {
     const headers = ['Session Code', 'Status', 'Created', 'Messages', 'Duration (min)', 'Display', 'Controller']
@@ -159,50 +214,6 @@ export default function SessionStats() {
     }
   }, [selectedSession, fetchConnections])
 
-  // Calculate filtered sessions
-  const filteredSessions = sessions.filter(session => {
-    // Status filter
-    if (filterStatus !== 'all' && session.status !== filterStatus) return false
-    
-    // Active only filter
-    if (showOnlyActive && !session.is_active) return false
-    
-    // Search query
-    if (searchQuery && !session.session_code.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false
-    }
-    
-    // Date range filter
-    if (dateRange !== 'all') {
-      const sessionDate = new Date(session.created_at)
-      const now = new Date()
-      const daysDiff = (now - sessionDate) / (1000 * 60 * 60 * 24)
-      
-      if (dateRange === 'today' && daysDiff > 1) return false
-      if (dateRange === 'week' && daysDiff > 7) return false
-      if (dateRange === 'month' && daysDiff > 30) return false
-    }
-    
-    return true
-  }).sort((a, b) => {
-    if (sortBy === 'recent') {
-      return new Date(b.created_at) - new Date(a.created_at)
-    } else if (sortBy === 'oldest') {
-      return new Date(a.created_at) - new Date(b.created_at)
-    } else if (sortBy === 'messages') {
-      return (b.total_messages_sent || 0) - (a.total_messages_sent || 0)
-    } else if (sortBy === 'duration') {
-      const aDur = a.ended_at 
-        ? new Date(a.ended_at) - new Date(a.created_at)
-        : Date.now() - new Date(a.created_at).getTime()
-      const bDur = b.ended_at 
-        ? new Date(b.ended_at) - new Date(b.created_at)
-        : Date.now() - new Date(b.created_at).getTime()
-      return bDur - aDur
-    }
-    return 0
-  })
-
   // Stats calculation
   const totalMessages = sessions.reduce((sum, s) => sum + (s.total_messages_sent || 0), 0)
   const stats = {
@@ -216,16 +227,16 @@ export default function SessionStats() {
 
   const StatusBadge = ({ status }) => {
     const configs = {
-      active: { bg: 'bg-green-500/20', text: 'text-green-300', label: 'Active', icon: CheckCircleIcon },
-      disconnected: { bg: 'bg-gray-500/20', text: 'text-gray-300', label: 'Disconnected', icon: XMarkIcon },
-      expired: { bg: 'bg-yellow-500/20', text: 'text-yellow-300', label: 'Expired', icon: ClockIcon },
-      terminated: { bg: 'bg-red-500/20', text: 'text-red-300', label: 'Terminated', icon: StopCircleIcon },
+      active: { bg: 'bg-teal-500/10', text: 'text-teal-500', label: 'Active', icon: CheckCircleIcon },
+      disconnected: { bg: 'bg-slate-500/10', text: 'text-slate-500', label: 'Disconnected', icon: XMarkIcon },
+      expired: { bg: 'bg-amber-500/10', text: 'text-amber-500', label: 'Expired', icon: ClockIcon },
+      terminated: { bg: 'bg-rose-500/10', text: 'text-rose-500', label: 'Terminated', icon: StopCircleIcon },
     }
     const config = configs[status] || configs.disconnected
     const Icon = config.icon
     return (
-      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${config.bg} ${config.text}`}>
-        <Icon className="w-3.5 h-3.5" />
+      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${config.bg} ${config.text} border border-current/10`}>
+        <Icon className="w-3 h-3" />
         {config.label}
       </span>
     )
@@ -246,525 +257,423 @@ export default function SessionStats() {
     }
 
     const config = {
-      excellent: { bg: 'bg-green-500', label: 'Excellent' },
+      excellent: { bg: 'bg-teal-500', label: 'Excellent' },
       good: { bg: 'bg-blue-500', label: 'Good' },
-      fair: { bg: 'bg-yellow-500', label: 'Fair' },
-      poor: { bg: 'bg-red-500', label: 'Poor' },
+      fair: { bg: 'bg-amber-500', label: 'Fair' },
+      poor: { bg: 'bg-rose-500', label: 'Poor' },
     }
     const c = config[health]
 
     return (
       <div className="flex items-center gap-2">
-        <div className={`w-2 h-2 rounded-full ${c.bg}`} />
-        <span className="text-xs font-medium text-gray-300">{c.label}</span>
+        <div className={`w-1.5 h-1.5 rounded-full ${c.bg} shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-${c.bg.split('-')[1]}-500/50`} />
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{c.label}</span>
       </div>
     )
   }
-
-  const StatsGrid = () => (
-    <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-lg p-4">
-        <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Total Sessions</p>
-        <p className="text-2xl font-bold text-white">{stats.totalSessions}</p>
-      </div>
-      <div className="bg-gradient-to-br from-green-900/30 to-slate-900 border border-green-700/50 rounded-lg p-4">
-        <p className="text-xs text-green-300 uppercase tracking-wide mb-2">Active</p>
-        <p className="text-2xl font-bold text-green-300">{stats.activeSessions}</p>
-      </div>
-      <div className="bg-gradient-to-br from-blue-900/30 to-slate-900 border border-blue-700/50 rounded-lg p-4">
-        <p className="text-xs text-blue-300 uppercase tracking-wide mb-2">Displays On</p>
-        <p className="text-2xl font-bold text-blue-300">{stats.displayConnected}</p>
-      </div>
-      <div className="bg-gradient-to-br from-purple-900/30 to-slate-900 border border-purple-700/50 rounded-lg p-4">
-        <p className="text-xs text-purple-300 uppercase tracking-wide mb-2">Controllers On</p>
-        <p className="text-2xl font-bold text-purple-300">{stats.controllerConnected}</p>
-      </div>
-      <div className="bg-gradient-to-br from-amber-900/30 to-slate-900 border border-amber-700/50 rounded-lg p-4">
-        <p className="text-xs text-amber-300 uppercase tracking-wide mb-2">Total Messages</p>
-        <p className="text-2xl font-bold text-amber-300">{stats.totalMessages}</p>
-      </div>
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-lg p-4">
-        <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Avg Messages</p>
-        <p className="text-2xl font-bold text-white">{stats.avgMessages}</p>
-      </div>
-    </div>
-  )
-
-  const SessionsGrid = () => (
-    <div className="space-y-4">
-      <StatsGrid />
-
-      {/* Controls - Compact Version */}
-      <div className="flex flex-col gap-3 mb-6">
-        {/* Row 1: Refresh & Auto-refresh */}
-        <div className="flex flex-col md:flex-row gap-3 flex-wrap">
-          <button
-            onClick={fetchSessions}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex-shrink-0"
-          >
-            <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh Now
-          </button>
-
-          <label className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg cursor-pointer hover:bg-slate-700 transition-colors flex-shrink-0">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="w-4 h-4 accent-teal-500"
-            />
-            <span className="text-sm text-gray-300">Auto-refresh</span>
-          </label>
-
-          <button
-            onClick={exportSessions}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-gray-300 rounded-lg font-medium transition-colors flex-shrink-0"
-          >
-            <DocumentArrowDownIcon className="w-4 h-4" />
-            Export CSV
-          </button>
-
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors flex-shrink-0 ${
-              showFilters
-                ? 'bg-teal-600 text-white'
-                : 'bg-slate-800 border border-slate-700 text-gray-300 hover:bg-slate-700'
-            }`}
-          >
-            <AdjustmentsHorizontalIcon className="w-4 h-4" />
-            {showFilters ? 'Hide' : 'Show'} Filters
-          </button>
-        </div>
-
-        {/* Row 2: Filters (Collapsible) */}
-        {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-            {/* Search */}
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search session code..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-gray-500 text-sm focus:outline-none focus:border-teal-500"
-              />
-            </div>
-
-            {/* Status Filter */}
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-teal-500"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active Only</option>
-              <option value="disconnected">Disconnected</option>
-              <option value="expired">Expired</option>
-              <option value="terminated">Terminated</option>
-            </select>
-
-            {/* Date Range */}
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-teal-500"
-            >
-              <option value="all">All Time</option>
-              <option value="today">Today</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-            </select>
-
-            {/* Sort */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-teal-500"
-            >
-              <option value="recent">Most Recent</option>
-              <option value="oldest">Oldest</option>
-              <option value="messages">Most Messages</option>
-              <option value="duration">Longest Duration</option>
-            </select>
-          </div>
-        )}
-      </div>
-
-      {/* Error Display */}
-      {error && (
-        <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 flex items-start gap-3 mb-6">
-          <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-semibold">Error loading sessions</p>
-            <p className="text-sm text-red-300">{error}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Results count */}
-      <div className="text-sm text-gray-400 mb-4">
-        Showing {filteredSessions.length} of {sessions.length} sessions
-      </div>
-
-      {/* Sessions Table */}
-      {filteredSessions.length === 0 ? (
-        <div className="p-12 text-center text-gray-400 bg-slate-800/30 rounded-lg border border-slate-700 border-dashed">
-          <p className="text-lg">No sessions found</p>
-          <p className="text-sm mt-1">Try adjusting your filters or refreshing</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-700">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-700 bg-slate-800/50">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-300 uppercase tracking-wide">Session Code</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-300 uppercase tracking-wide">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-300 uppercase tracking-wide">Health</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-300 uppercase tracking-wide">Messages</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-300 uppercase tracking-wide">Duration</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-300 uppercase tracking-wide">Created</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-300 uppercase tracking-wide">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700">
-              {filteredSessions.map((session) => (
-                <tr
-                  key={session.id}
-                  className="hover:bg-slate-800/50 transition-colors cursor-pointer"
-                  onClick={() => setSelectedSession(session)}
-                >
-                  <td className="px-4 py-3">
-                    <span className="font-mono font-bold text-teal-300">{session.session_code}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={session.status} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <HealthIndicator session={session} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-white font-semibold">{session.total_messages_sent || 0}</span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-400">
-                    {session.ended_at
-                      ? `${Math.round((new Date(session.ended_at) - new Date(session.created_at)) / 1000 / 60)}m`
-                      : Math.round((Date.now() - new Date(session.created_at).getTime()) / 1000 / 60) + 'm'}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-gray-400">
-                    {new Date(session.created_at).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setSelectedSession(session)
-                        setSelectedTabIndex(1)
-                      }}
-                      className="text-teal-400 hover:text-teal-300 text-sm font-semibold"
-                    >
-                      View →
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-
-  const SessionDetails = () => {
-    if (!selectedSession) {
-      return (
-        <div className="p-12 text-center text-gray-400 bg-slate-800/30 rounded-lg border border-slate-700 border-dashed">
-          <p className="text-lg">Select a session from the table to view details</p>
-        </div>
-      )
-    }
-
-    return (
-      <div className="space-y-6">
-        {/* Header with Actions */}
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-700 rounded-lg p-6">
-          <div className="flex items-start justify-between mb-4 flex-wrap gap-4">
-            <div>
-              <h3 className="text-2xl font-bold font-mono text-teal-300 mb-2">
-                {selectedSession.session_code}
-              </h3>
-              <p className="text-sm text-gray-400">
-                Created {new Date(selectedSession.created_at).toLocaleString()}
-              </p>
-            </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <StatusBadge status={selectedSession.status} />
-              <HealthIndicator session={selectedSession} />
-              {selectedSession.status !== 'terminated' && (
-                <button
-                  onClick={() => setShowTerminateModal(true)}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-colors"
-                >
-                  <StopCircleIcon className="w-4 h-4" />
-                  Terminate
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Total Messages</p>
-              <p className="text-2xl font-bold text-white">{selectedSession.total_messages_sent || 0}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Duration</p>
-              <p className="text-2xl font-bold text-white">
-                {selectedSession.ended_at
-                  ? `${Math.round((new Date(selectedSession.ended_at) - new Date(selectedSession.created_at)) / 1000 / 60)}m`
-                  : Math.round((Date.now() - new Date(selectedSession.created_at).getTime()) / 1000 / 60) + 'm'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Last Activity</p>
-              <p className="text-xs text-gray-300 font-mono">
-                {selectedSession.last_activity_at ? new Date(selectedSession.last_activity_at).toLocaleTimeString() : 'Never'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Disconnect Reason</p>
-              <p className="text-xs text-gray-300 capitalize">{selectedSession.disconnect_reason || 'N/A'}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Terminate Modal */}
-        {showTerminateModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 rounded-lg p-4">
-            <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 max-w-sm w-full">
-              <h3 className="text-lg font-semibold text-white mb-4">Terminate Session?</h3>
-              <p className="text-gray-400 mb-4">
-                Are you sure you want to terminate session <span className="font-mono text-teal-300">{selectedSession.session_code}</span>? This action cannot be undone.
-              </p>
-              <textarea
-                placeholder="Optional reason for termination..."
-                value={terminateReason}
-                onChange={(e) => setTerminateReason(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-gray-500 text-sm mb-4 focus:outline-none focus:border-teal-500 resize-none"
-                rows="3"
-              />
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowTerminateModal(false)
-                    setTerminateReason('')
-                  }}
-                  className="flex-1 px-4 py-2 bg-slate-800 text-gray-300 rounded-lg font-medium hover:bg-slate-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => terminateSession(selectedSession.id, terminateReason)}
-                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  Terminate
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Connection Timeline */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
-            <ClockIcon className="w-5 h-5 text-teal-400" />
-            Connection Timeline
-          </h3>
-          <div className="space-y-4">
-            {/* Display Connection */}
-            <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-3 h-3 rounded-full bg-blue-500" />
-                <h4 className="font-semibold text-white">Display Device</h4>
-                {selectedSession.display_connected_at && !selectedSession.display_disconnected_at && (
-                  <span className="ml-auto text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded">Connected</span>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-gray-500">Connected At</p>
-                  <p className="text-gray-300 font-mono text-xs">
-                    {selectedSession.display_connected_at
-                      ? new Date(selectedSession.display_connected_at).toLocaleString()
-                      : 'Not connected'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Disconnected At</p>
-                  <p className="text-gray-300 font-mono text-xs">
-                    {selectedSession.display_disconnected_at
-                      ? new Date(selectedSession.display_disconnected_at).toLocaleString()
-                      : 'Still connected'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Controller Connection */}
-            <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-3 h-3 rounded-full bg-purple-500" />
-                <h4 className="font-semibold text-white">Controller Device</h4>
-                {selectedSession.controller_connected_at && !selectedSession.controller_disconnected_at && (
-                  <span className="ml-auto text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded">Connected</span>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-gray-500">Connected At</p>
-                  <p className="text-gray-300 font-mono text-xs">
-                    {selectedSession.controller_connected_at
-                      ? new Date(selectedSession.controller_connected_at).toLocaleString()
-                      : 'Not connected'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Disconnected At</p>
-                  <p className="text-gray-300 font-mono text-xs">
-                    {selectedSession.controller_disconnected_at
-                      ? new Date(selectedSession.controller_disconnected_at).toLocaleString()
-                      : 'Still connected'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Client Information */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <SignalIcon className="w-5 h-5 text-teal-400" />
-            Connected Clients ({connections.length})
-          </h3>
-
-          {connections.length === 0 ? (
-            <p className="text-gray-400">No client connections recorded for this session</p>
-          ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {connections.map((connection) => (
-                <div
-                  key={connection.id}
-                  className="bg-slate-700/50 rounded-lg p-4 border border-slate-600 hover:border-slate-500 transition-colors"
-                >
-                  <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
-                    <div>
-                      <p className="font-semibold text-white">
-                        {connection.connection_type === 'display' ? '📺 Display' : '📱 Controller'}
-                      </p>
-                      {connection.email && <p className="text-xs text-gray-400">{connection.email}</p>}
-                    </div>
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${connection.disconnected_at ? 'bg-gray-500/20 text-gray-300' : 'bg-green-500/20 text-green-300'}`}>
-                      {connection.disconnected_at ? 'Disconnected' : 'Connected'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-gray-400">
-                    <div>
-                      <p className="text-gray-500 mb-1">IP Address</p>
-                      <p className="text-gray-300 font-mono break-all">{connection.ip_address || 'Unknown'}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500 mb-1">Duration</p>
-                      <p className="text-gray-300">
-                        {connection.duration_seconds
-                          ? Math.round(connection.duration_seconds / 60) + ' min'
-                          : 'Active'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500 mb-1">Messages</p>
-                      <p className="text-gray-300 font-semibold">{connection.message_count || 0}</p>
-                    </div>
-                    <div className="col-span-1 md:col-span-3">
-                      <p className="text-gray-500 mb-1">Device Info</p>
-                      <p className="text-gray-300 text-xs break-all">
-                        {connection.device_info?.platform || 'Unknown'} • {connection.device_info?.browser || 'Unknown'} • {connection.device_info?.os || 'Unknown'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  const tabs = [
-    { name: 'All Sessions', icon: ListBulletIcon, component: <SessionsGrid /> },
-    { name: 'Session Details', icon: ChartBarIcon, component: <SessionDetails /> },
-  ]
 
   if (!isAdmin) {
     return (
-      <div className="p-8 bg-yellow-500/20 border border-yellow-500/50 rounded-lg text-yellow-200 flex items-center gap-3">
-        <ExclamationTriangleIcon className="w-6 h-6 flex-shrink-0" />
-        <div>
-          <p className="font-semibold">Access Denied</p>
-          <p className="text-sm mt-1">You must be an admin to access session statistics.</p>
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="max-w-md w-full bg-rose-500/10 border border-rose-500/20 rounded-[2rem] p-8 text-center space-y-4">
+          <div className="w-16 h-16 bg-rose-500/20 rounded-2xl flex items-center justify-center mx-auto">
+            <ShieldCheckIcon className="w-8 h-8 text-rose-500" />
+          </div>
+          <h2 className="text-xl font-black text-white uppercase tracking-tight">Access Restricted</h2>
+          <p className="text-slate-400 text-sm">You do not have the required administrative privileges to view session analytics.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="w-full">
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <ChartBarIcon className="w-8 h-8 text-teal-400" />
-          <h1 className="text-3xl font-bold text-white">Display Session Statistics</h1>
+    <div className="flex h-full overflow-hidden">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-8 space-y-8">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-teal-500/20 rounded-xl">
+                  <SignalIcon className="w-6 h-6 text-teal-500" />
+                </div>
+                <h1 className="text-3xl font-black text-white uppercase tracking-tight">Session Monitor</h1>
+              </div>
+              <p className="text-slate-400 font-medium max-w-md">
+                Real-time tracking of active display nodes and controller pairings.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={fetchSessions}
+                disabled={loading}
+                className="p-3 bg-slate-900 border border-slate-800 rounded-2xl text-slate-400 hover:text-white hover:border-slate-700 transition-all group"
+              >
+                <ArrowPathIcon className={`w-5 h-5 ${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+              </button>
+              <button
+                onClick={exportSessions}
+                className="px-6 py-3 bg-slate-900 border border-slate-800 rounded-2xl text-slate-300 font-bold uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-all flex items-center gap-2"
+              >
+                <DocumentArrowDownIcon className="w-4 h-4" />
+                Export CSV
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Active', value: stats.activeSessions, icon: BoltIcon, color: 'text-teal-400', bg: 'bg-teal-500/10' },
+              { label: 'Displays', value: stats.displayConnected, icon: TvIcon, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+              { label: 'Controllers', value: stats.controllerConnected, icon: DevicePhoneMobileIcon, color: 'text-purple-400', bg: 'bg-purple-500/10' },
+              { label: 'Messages', value: stats.totalMessages, icon: ChatBubbleLeftRightIcon, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+            ].map((stat, idx) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.05 }}
+                className="bg-slate-900/50 border border-slate-800 p-4 rounded-2xl flex items-center gap-4"
+              >
+                <div className={`p-2.5 ${stat.bg} rounded-xl`}>
+                  <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">{stat.label}</p>
+                  <p className="text-xl font-black text-white">{stat.value.toLocaleString()}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Filters Bar */}
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-slate-900/30 border border-slate-800/50 p-4 rounded-[2rem]">
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <div className="relative flex-1 md:w-64">
+                <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="SEARCH SESSION CODE..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3 bg-slate-950/50 border border-slate-800 rounded-2xl text-white placeholder-slate-600 text-[10px] font-black uppercase tracking-widest focus:outline-none focus:border-teal-500/50 transition-all"
+                />
+              </div>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`p-3 rounded-2xl border transition-all ${showFilters ? 'bg-teal-500/10 border-teal-500/50 text-teal-500' : 'bg-slate-950/50 border-slate-800 text-slate-500 hover:text-slate-300'}`}
+              >
+                <AdjustmentsHorizontalIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="flex-1 md:w-40 px-4 py-3 bg-slate-950/50 border border-slate-800 rounded-2xl text-slate-400 text-[10px] font-black uppercase tracking-widest focus:outline-none focus:border-teal-500/50 appearance-none cursor-pointer"
+              >
+                <option value="all">ALL STATUS</option>
+                <option value="active">ACTIVE</option>
+                <option value="disconnected">DISCONNECTED</option>
+                <option value="expired">EXPIRED</option>
+                <option value="terminated">TERMINATED</option>
+              </select>
+              
+              <label className="flex items-center gap-3 px-4 py-3 bg-slate-950/50 border border-slate-800 rounded-2xl cursor-pointer group">
+                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${autoRefresh ? 'bg-teal-500 border-teal-500' : 'border-slate-700 group-hover:border-slate-500'}`}>
+                  {autoRefresh && <CheckCircleIcon className="w-3 h-3 text-white" />}
+                </div>
+                <input
+                  type="checkbox"
+                  className="hidden"
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                />
+                <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest group-hover:text-slate-300 transition-colors">Auto-refresh</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Sessions Table */}
+          <div className="bg-slate-900/50 border border-slate-800 rounded-[2.5rem] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/30">
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Session</th>
+                    <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Status</th>
+                    <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Health</th>
+                    <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Activity</th>
+                    <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Duration</th>
+                    <th className="px-8 py-5 text-right text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  <AnimatePresence mode="popLayout">
+                    {filteredSessions.map((session) => (
+                      <motion.tr
+                        key={session.id}
+                        layout
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setSelectedSession(session)}
+                        className={`group cursor-pointer transition-all hover:bg-slate-800/30 ${selectedSession?.id === session.id ? 'bg-teal-500/5' : ''}`}
+                      >
+                        <td className="px-8 py-5">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-black text-white font-mono tracking-wider group-hover:text-teal-400 transition-colors">{session.session_code}</span>
+                            <span className="text-[10px] text-slate-500 font-medium mt-1">{new Date(session.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5">
+                          <StatusBadge status={session.status} />
+                        </td>
+                        <td className="px-6 py-5">
+                          <HealthIndicator session={session} />
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-2">
+                            <ChatBubbleLeftRightIcon className="w-4 h-4 text-slate-600" />
+                            <span className="text-sm font-bold text-slate-300">{session.total_messages_sent || 0}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5">
+                          <span className="text-xs font-medium text-slate-400">
+                            {session.ended_at
+                              ? `${Math.round((new Date(session.ended_at) - new Date(session.created_at)) / 1000 / 60)}m`
+                              : `${Math.round((Date.now() - new Date(session.created_at).getTime()) / 1000 / 60)}m`}
+                          </span>
+                        </td>
+                        <td className="px-8 py-5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button className="p-2 bg-slate-800/50 rounded-xl text-slate-500 group-hover:text-teal-400 group-hover:bg-teal-500/10 transition-all">
+                              <ChevronRightIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
+            
+            {filteredSessions.length === 0 && (
+              <div className="p-20 text-center space-y-4">
+                <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto">
+                  <MagnifyingGlassIcon className="w-8 h-8 text-slate-700" />
+                </div>
+                <p className="text-slate-500 font-black uppercase tracking-widest text-xs">No matching sessions found</p>
+              </div>
+            )}
+          </div>
         </div>
-        <p className="text-gray-400">
-          Monitor active display connections, controller pairing, message throughput, and client health
-        </p>
       </div>
 
-      <Tab.Group selectedIndex={selectedTabIndex} onChange={setSelectedTabIndex}>
-        <Tab.List className="flex space-x-1 rounded-xl bg-slate-800/50 p-1 mb-8 border border-slate-700 overflow-x-auto">
-          {tabs.map((tab) => {
-            const Icon = tab.icon
-            return (
-              <Tab
-                key={tab.name}
-                className={({ selected }) =>
-                  clsx(
-                    'flex items-center gap-2 px-4 py-2.5 text-sm font-medium leading-5 rounded-lg transition-all whitespace-nowrap',
-                    'ring-white/60 ring-offset-2 ring-offset-slate-900 focus:outline-none focus:ring-2',
-                    selected
-                      ? 'bg-teal-500 text-white shadow-lg'
-                      : 'text-gray-400 hover:bg-white/[0.12] hover:text-white'
-                  )
-                }
+      {/* Detail Sidebar */}
+      <AnimatePresence>
+        {selectedSession && (
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="w-full md:w-[450px] bg-slate-950 border-l border-slate-800 flex flex-col shadow-2xl z-20"
+          >
+            {/* Sidebar Header */}
+            <div className="p-8 border-b border-slate-800 flex items-center justify-between bg-slate-900/20">
+              <div className="space-y-1">
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Session Details</p>
+                <h2 className="text-2xl font-black text-white font-mono tracking-tight">{selectedSession.session_code}</h2>
+              </div>
+              <button
+                onClick={() => setSelectedSession(null)}
+                className="p-3 bg-slate-900 border border-slate-800 rounded-2xl text-slate-500 hover:text-white transition-all"
               >
-                <Icon className="w-4 h-4" />
-                {tab.name}
-              </Tab>
-            )
-          })}
-        </Tab.List>
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
 
-        <Tab.Panels>
-          {tabs.map((tab, idx) => (
-            <Tab.Panel key={idx} className={clsx('focus:outline-none')}>
-              {tab.component}
-            </Tab.Panel>
-          ))}
-        </Tab.Panels>
-      </Tab.Group>
+            <div className="flex-1 overflow-y-auto p-8 space-y-8">
+              {/* Quick Actions */}
+              <div className="flex gap-3">
+                {selectedSession.status !== 'terminated' && (
+                  <button
+                    onClick={() => setShowTerminateModal(true)}
+                    className="flex-1 py-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center gap-2"
+                  >
+                    <StopCircleIcon className="w-4 h-4" />
+                    Terminate Session
+                  </button>
+                )}
+                <button className="flex-1 py-4 bg-slate-900 border border-slate-800 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 hover:text-white transition-all flex items-center justify-center gap-2">
+                  <ArrowPathIcon className="w-4 h-4" />
+                  Force Sync
+                </button>
+              </div>
+
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-900/50 border border-slate-800 p-5 rounded-2xl space-y-1">
+                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Total Messages</p>
+                  <p className="text-2xl font-black text-white">{selectedSession.total_messages_sent || 0}</p>
+                </div>
+                <div className="bg-slate-900/50 border border-slate-800 p-5 rounded-2xl space-y-1">
+                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Duration</p>
+                  <p className="text-2xl font-black text-white">
+                    {selectedSession.ended_at
+                      ? `${Math.round((new Date(selectedSession.ended_at) - new Date(selectedSession.created_at)) / 1000 / 60)}m`
+                      : `${Math.round((Date.now() - new Date(selectedSession.created_at).getTime()) / 1000 / 60)}m`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Connection Status */}
+              <div className="space-y-4">
+                <h3 className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Node Status</h3>
+                
+                {/* Display Node */}
+                <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${selectedSession.display_connected_at && !selectedSession.display_disconnected_at ? 'bg-teal-500/10 text-teal-500' : 'bg-slate-800 text-slate-600'}`}>
+                        <TvIcon className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-black text-white uppercase tracking-widest">Display Node</span>
+                    </div>
+                    <div className={`w-2 h-2 rounded-full ${selectedSession.display_connected_at && !selectedSession.display_disconnected_at ? 'bg-teal-500 animate-pulse' : 'bg-slate-700'}`} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-[10px]">
+                    <div className="space-y-1">
+                      <p className="text-slate-500 font-black uppercase tracking-widest">Connected</p>
+                      <p className="text-slate-300 font-mono">{selectedSession.display_connected_at ? new Date(selectedSession.display_connected_at).toLocaleTimeString() : '---'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-slate-500 font-black uppercase tracking-widest">Disconnected</p>
+                      <p className="text-slate-300 font-mono">{selectedSession.display_disconnected_at ? new Date(selectedSession.display_disconnected_at).toLocaleTimeString() : '---'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Controller Node */}
+                <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${selectedSession.controller_connected_at && !selectedSession.controller_disconnected_at ? 'bg-purple-500/10 text-purple-500' : 'bg-slate-800 text-slate-600'}`}>
+                        <DevicePhoneMobileIcon className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-black text-white uppercase tracking-widest">Controller Node</span>
+                    </div>
+                    <div className={`w-2 h-2 rounded-full ${selectedSession.controller_connected_at && !selectedSession.controller_disconnected_at ? 'bg-purple-500 animate-pulse' : 'bg-slate-700'}`} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-[10px]">
+                    <div className="space-y-1">
+                      <p className="text-slate-500 font-black uppercase tracking-widest">Connected</p>
+                      <p className="text-slate-300 font-mono">{selectedSession.controller_connected_at ? new Date(selectedSession.controller_connected_at).toLocaleTimeString() : '---'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-slate-500 font-black uppercase tracking-widest">Disconnected</p>
+                      <p className="text-slate-300 font-mono">{selectedSession.controller_disconnected_at ? new Date(selectedSession.controller_disconnected_at).toLocaleTimeString() : '---'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Client History */}
+              <div className="space-y-4">
+                <h3 className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Client History ({connections.length})</h3>
+                <div className="space-y-3">
+                  {connections.map((conn) => (
+                    <div key={conn.id} className="bg-slate-900/30 border border-slate-800/50 p-4 rounded-2xl flex items-center justify-between group hover:border-slate-700 transition-all">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${conn.connection_type === 'display' ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
+                          {conn.connection_type === 'display' ? <TvIcon className="w-4 h-4" /> : <DevicePhoneMobileIcon className="w-4 h-4" />}
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-white uppercase tracking-widest">{conn.connection_type}</p>
+                          <p className="text-[9px] text-slate-500 font-mono mt-0.5">{conn.ip_address || '0.0.0.0'}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{conn.message_count || 0} MSG</p>
+                        <p className={`text-[9px] font-black uppercase tracking-widest mt-0.5 ${conn.disconnected_at ? 'text-slate-600' : 'text-teal-500'}`}>
+                          {conn.disconnected_at ? 'OFFLINE' : 'ONLINE'}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {connections.length === 0 && (
+                    <p className="text-center py-8 text-[10px] text-slate-600 font-black uppercase tracking-widest">No connection history</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Terminate Modal */}
+      <AnimatePresence>
+        {showTerminateModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowTerminateModal(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl space-y-6"
+            >
+              <div className="w-16 h-16 bg-rose-500/20 rounded-2xl flex items-center justify-center mx-auto">
+                <StopCircleIcon className="w-8 h-8 text-rose-500" />
+              </div>
+              
+              <div className="text-center space-y-2">
+                <h3 className="text-xl font-black text-white uppercase tracking-tight">Terminate Session?</h3>
+                <p className="text-slate-400 text-sm">
+                  This will immediately disconnect all clients from session <span className="font-mono text-teal-400 font-bold">{selectedSession?.session_code}</span>.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Reason for termination</p>
+                <textarea
+                  placeholder="E.G. SYSTEM MAINTENANCE, POLICY VIOLATION..."
+                  value={terminateReason}
+                  onChange={(e) => setTerminateReason(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-white placeholder-slate-700 text-[10px] font-black uppercase tracking-widest focus:outline-none focus:border-rose-500/50 transition-all resize-none"
+                  rows="3"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowTerminateModal(false)}
+                  className="flex-1 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => terminateSession(selectedSession.id, terminateReason)}
+                  className="flex-1 py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all shadow-lg shadow-rose-500/20"
+                >
+                  Confirm
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

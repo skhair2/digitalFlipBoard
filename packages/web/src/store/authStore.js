@@ -3,7 +3,6 @@ import { persist } from 'zustand/middleware'
 import { supabase } from '../services/supabaseClient'
 import mixpanel from '../services/mixpanelService'
 import { isUserAdmin } from '../services/permissionService'
-import { emailService } from '../services/emailService.jsx'
 
 export const useAuthStore = create(
     persist(
@@ -24,11 +23,13 @@ export const useAuthStore = create(
 
             // Initialize auth state
             initialize: async () => {
-                // Check for OAuth session first
-                const oauthSession = localStorage.getItem('auth_session')
-                if (oauthSession) {
-                    try {
-                        const session = JSON.parse(oauthSession)
+                set({ loading: true })
+
+                try {
+                    // Get session from Supabase (handles persistence automatically)
+                    const { data: { session } } = await supabase.auth.getSession()
+                    
+                    if (session) {
                         // Fetch profile data
                         const { data: profile } = await supabase
                             .from('profiles')
@@ -57,54 +58,27 @@ export const useAuthStore = create(
                         })
 
                         mixpanel.identify(session.user.id)
-                        return
-                    } catch (err) {
-                        console.error('Failed to restore OAuth session:', err)
-                        localStorage.removeItem('auth_session')
+                        
+                        if (session.user.email) {
+                            mixpanel.people.set({
+                                $email: session.user.email,
+                                $name: profile?.full_name || session.user.user_metadata?.full_name,
+                                subscription_tier: tier,
+                                is_premium: isPremium
+                            })
+                        }
+                    } else {
+                        set({ 
+                            user: null, 
+                            session: null, 
+                            profile: null, 
+                            isPremium: false, 
+                            isAdmin: false,
+                            loading: false 
+                        })
                     }
-                }
-
-                // Fall back to Supabase session
-                const { data: { session } } = await supabase.auth.getSession()
-                if (session) {
-                    // Fetch profile data
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', session.user.id)
-                        .single()
-
-                    const tier = profile?.subscription_tier || 'free'
-                    const isPremium = tier === 'pro' || tier === 'enterprise'
-                    const adminStatus = await isUserAdmin(session.user.id)
-
-                    set({
-                        user: session.user,
-                        session,
-                        profile: profile || null,
-                        isPremium,
-                        isAdmin: adminStatus,
-                        subscriptionTier: tier,
-                        designLimits: {
-                            maxDesigns: isPremium ? 999999 : 5,
-                            maxCollections: tier === 'enterprise' ? 999999 : (isPremium ? 20 : 0),
-                            canShareDesigns: isPremium,
-                            versionHistory: isPremium
-                        },
-                        loading: false
-                    })
-
-                    mixpanel.identify(session.user.id)
-                    mixpanel.people.set({
-                        $email: session.user.email,
-                        $name: profile?.full_name || session.user.user_metadata?.full_name,
-                        signupDate: session.user.created_at,
-                        isPremium: isPremium,
-                        subscriptionTier: tier,
-                        isAdmin: adminStatus,
-                        maxDesigns: isPremium ? 999999 : 5
-                    })
-                } else {
+                } catch (err) {
+                    console.error('Auth initialization failed:', err)
                     set({ loading: false })
                 }
 
@@ -207,6 +181,7 @@ export const useAuthStore = create(
 
                     // Send custom verification email via Resend (not Supabase's default)
                     try {
+                        const { emailService } = await import('../services/emailService.jsx')
                         // Generate a 6-digit verification code
                         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
                         
@@ -224,6 +199,7 @@ export const useAuthStore = create(
 
                     // Also send welcome email after successful signup
                     try {
+                        const { emailService } = await import('../services/emailService.jsx')
                         await emailService.sendWelcome(email, fullName || 'User')
                         mixpanel.track('Welcome Email Sent', { email })
 

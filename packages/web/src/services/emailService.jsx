@@ -1,4 +1,3 @@
-import { useAuthStore } from '../store/authStore';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
     WelcomeEmail,
@@ -20,6 +19,7 @@ const API_URL = import.meta.env.VITE_API_URL || '';
 async function sendEmail(to, subject, template) {
     try {
         // Get auth token
+        const { useAuthStore } = await import('../store/authStore');
         const session = useAuthStore.getState().session;
         const token = session?.access_token;
 

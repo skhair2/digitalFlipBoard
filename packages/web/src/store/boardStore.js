@@ -1,7 +1,11 @@
 import { create } from 'zustand'
 import { supabase } from '../services/supabaseClient'
 
-export const useBoardStore = create((set) => ({
+console.log('Board Store Module Loading...')
+
+export const useBoardStore = create((set) => {
+    console.log('Initializing Board Store...')
+    const store = {
     boards: [],
     schedules: [],
     isLoading: false,
@@ -83,7 +87,7 @@ export const useBoardStore = create((set) => ({
         }
     },
 
-    createSchedule: async (boardId, content, scheduledTime) => {
+    createSchedule: async (boardId, content, scheduledTime, layout = null, metadata = {}) => {
         set({ isLoading: true, error: null })
         try {
             const { data, error } = await supabase
@@ -92,13 +96,15 @@ export const useBoardStore = create((set) => ({
                     board_id: boardId,
                     content,
                     scheduled_time: scheduledTime,
+                    layout,
+                    metadata,
                     status: 'pending'
                 }])
                 .select()
                 .single()
 
             if (error) throw error
-            set((state) => ({ schedules: [...state.schedules, data] }))
+            set((state) => ({ schedules: [data, ...state.schedules] }))
             return data
         } catch (error) {
             set({ error: error.message })
@@ -124,4 +130,7 @@ export const useBoardStore = create((set) => ({
             set({ isLoading: false })
         }
     }
-}))
+    }
+    console.log('Board Store Actions:', Object.keys(store))
+    return store
+})

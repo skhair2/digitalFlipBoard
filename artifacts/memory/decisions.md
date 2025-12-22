@@ -48,6 +48,30 @@ This document tracks durable architectural decisions, domain rules, and API assu
     - Type-safe validation on both client and server.
     - Automatic error reporting for invalid payloads.
 
+## Decision: Senior UI/UX Design System
+- **Context**: The user requested a professional, high-fidelity redesign of the entire platform.
+- **Decision**: Adopted a **Teal/Slate/Glassmorphism** design language using Tailwind CSS and Framer Motion.
+- **Consequences**:
+    - Unified visual identity across `web` and `display` packages.
+    - Professional "Command Center" aesthetic for administrative tools.
+    - Smooth, animated transitions for all UI state changes.
+
+## Decision: Admin Suite Overhaul
+- **Context**: Legacy administrative tools were functional but lacked professional polish and data density.
+- **Decision**: Redesigned all 10 major Admin components using the **Sidebar-Detail** and **Tabbed Engine** patterns.
+- **Consequences**:
+    - Improved administrative efficiency with real-time telemetry.
+    - Consistent management experience across Users, Roles, and Sessions.
+    - High-fidelity financial and activity audit trails.
+
+## Decision: Active Design Tracking in Store
+- **Context**: The `EnhancedGridEditor` needs to know the metadata (ID, name) of the design being edited, but `currentDesign` was only storing the layout array.
+- **Decision**: Added `activeDesign` to `useDesignStore` to store the full design object from Supabase.
+- **Consequences**: 
+    - Enables "Save" (update) functionality for existing designs.
+    - Allows "Cast" to include design metadata for better tracking.
+    - Decouples the raw layout array from the design metadata.
+
 ## Decision: Hybrid WebSocket + HTTP Strategy
 - **Context**: WebSocket connections can be unstable in some environments (e.g., corporate firewalls).
 - **Decision**: Implemented a hybrid strategy where 90% of traffic is WebSocket and 10% is HTTP polling for fallback and heartbeats.
@@ -63,9 +87,26 @@ This document tracks durable architectural decisions, domain rules, and API assu
     - Clearer UI states: "Waiting for Setup" -> "Waiting for Controller" -> "Connected".
     - Reduced unnecessary WebSocket connections.
 
-## Decision: CORS Whitelist Enforcement
-- **Context**: Open CORS policies posed a security risk (DDoS/abuse).
-- **Decision**: Enforced a strict whitelist-based CORS policy in production.
+## Decision: Smart Designer 2.0 (Direct Manipulation)
+- **Context**: Cell-by-cell editing was high-friction for long messages.
+- **Decision**: Implemented a "Magic Input" for real-time grid population and "Word-Block Dragging" for semantic repositioning.
 - **Consequences**: 
-    - Only authorized domains (`flipdisplay.online`, etc.) can interact with the API.
-    - Development origins are permitted only in non-production environments.
+    - Significantly reduced time-to-design for users.
+    - Improved UX by treating text as semantic blocks rather than individual cells.
+    - Enhanced visual fidelity with skeuomorphic "flip-disc" styling.
+
+## Decision: Circular Dependency Resolution via Dynamic Imports
+- **Context**: `authStore`, `designStore`, and `sessionStore` had circular references that caused initialization deadlocks and "not a function" errors (e.g., `fetchVersions`).
+- **Decision**: Moved static imports to dynamic `await import()` calls within store actions.
+- **Consequences**: 
+    - Resolved runtime `TypeError` during store initialization.
+    - Improved module loading reliability.
+    - Enabled stores to be initialized independently of their dependencies.
+
+## Decision: Robust Store Initialization Pattern
+- **Context**: Standard object-based store creation in Zustand was prone to syntax errors and lacked visibility into initialization.
+- **Decision**: Refactored stores to use a functional initialization pattern with internal logging.
+- **Consequences**: 
+    - Added visibility into store lifecycle via console logs.
+    - Ensured all actions are correctly attached before the store is returned.
+    - Reduced risk of corrupted store files during edits.

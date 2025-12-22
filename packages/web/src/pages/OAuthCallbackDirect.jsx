@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { supabase } from '../services/supabaseClient'
 import googleOAuthService from '../services/googleOAuthServiceDirect'
-import { emailService } from '../services/emailService'
+import { emailService } from '../services/emailService.jsx'
 import Spinner from '../components/ui/Spinner'
 import Logo from '../components/ui/Logo'
 
@@ -137,30 +137,22 @@ export default function OAuthCallback() {
 
                     const { user: supabaseUser, profile } = await backendResponse.json()
 
-                    // Now set the Supabase session manually using the backend-created user
-                    // This simulates a successful OAuth login
-                    const supabaseSession = {
-                        user: {
-                            id: supabaseUser.id,
-                            email: supabaseUser.email,
-                            user_metadata: supabaseUser.user_metadata,
-                            email_confirmed_at: supabaseUser.email_confirmed_at || new Date().toISOString(),
-                        },
-                        access_token: tokens.access_token, // Use Google's access token for now
-                        refresh_token: tokens.refresh_token,
+                    // Now set the Supabase session using the ID token
+                    // This ensures we have a valid Supabase JWT, not just a Google token
+                    console.log('Signing into Supabase with ID token...')
+                    const { data: authData, error: authError } = await supabase.auth.signInWithIdToken({
+                        provider: 'google',
+                        token: tokens.id_token,
+                    })
+
+                    if (authError) {
+                        console.error('Supabase ID token sign-in failed:', authError)
+                        throw authError
                     }
 
-                    // Update auth store
-                    setUser(supabaseSession.user)
+                    // Update auth store with the real Supabase session
+                    setUser(authData.user)
                     await setProfile(profile)
-
-                    // Store session in Supabase session storage for consistency
-                    try {
-                        await supabase.auth.setSession(supabaseSession)
-                    } catch (err) {
-                        console.warn('Failed to set Supabase session:', err)
-                        // Session stored in local storage via setUser/setProfile should still work
-                    }
 
                     // Fire-and-forget: Send welcome email in background (don't await)
                     if (profile && !profile.welcome_email_sent) {

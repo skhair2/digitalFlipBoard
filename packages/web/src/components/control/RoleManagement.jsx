@@ -3,7 +3,7 @@ import { generateCSRFToken, grantAdminRole, revokeAdminRole, fetchAllAdmins, fet
 import { useAuthStore } from '../../store/authStore'
 import mixpanel from '../../services/mixpanelService'
 import { Tab } from '@headlessui/react'
-import { clsx } from 'clsx'
+import clsx from 'clsx'
 
 export default function RoleManagement() {
   const { user } = useAuthStore()

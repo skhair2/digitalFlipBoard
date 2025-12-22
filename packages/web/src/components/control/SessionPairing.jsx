@@ -1,14 +1,27 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useSessionStore } from '../../store/sessionStore'
 import { useAuthStore } from '../../store/authStore'
 import { useUsageStore } from '../../store/usageStore'
 import { Button, Input, Card } from '../ui/Components'
-import { ClockIcon, ExclamationTriangleIcon, DeviceTabletIcon } from '@heroicons/react/24/outline'
+import { 
+    ClockIcon, 
+    ExclamationTriangleIcon, 
+    DeviceTabletIcon,
+    ArrowPathIcon,
+    PlusIcon,
+    ArrowLeftIcon,
+    CheckIcon,
+    SignalIcon,
+    CpuChipIcon,
+    SparklesIcon
+} from '@heroicons/react/24/outline'
 import mixpanelService from '../../services/mixpanelService'
 import { pairSession } from '../../services/sessionService'
 import { getUserBoards } from '../../services/boardService'
+import clsx from 'clsx'
 
 const CONNECTION_TIMEOUT_MS = 15 * 60 * 1000 // 15 minutes
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
@@ -18,12 +31,13 @@ export default function SessionPairing({ suggestedCode }) {
     const [error, setError] = useState('')
     const [showReconnect, setShowReconnect] = useState(false)
     const [remainingTime, setRemainingTime] = useState(null)
-    const [isWarning, setIsWarning] = useState(false) // Amber warning at <2 min
-    const [showCodeForm, setShowCodeForm] = useState(false) // Track if user wants to enter new code
-    const [showQuickReconnect, setShowQuickReconnect] = useState(false) // Show reconnect option within 24h
+    const [isWarning, setIsWarning] = useState(false)
+    const [showCodeForm, setShowCodeForm] = useState(false)
+    const [showQuickReconnect, setShowQuickReconnect] = useState(false)
     const [boards, setBoards] = useState([])
     const [selectedBoardId, setSelectedBoardId] = useState(null)
     const [isLoadingBoards, setIsLoadingBoards] = useState(false)
+    const [isPairing, setIsPairing] = useState(false)
     const navigate = useNavigate()
     
     const { 
@@ -47,7 +61,6 @@ export default function SessionPairing({ suggestedCode }) {
         }
     }, [suggestedCode, code])
 
-    // Fetch user boards if authenticated
     useEffect(() => {
         const fetchBoards = async () => {
             if (user?.id) {
@@ -68,7 +81,6 @@ export default function SessionPairing({ suggestedCode }) {
         fetchBoards()
     }, [user])
 
-    // Initialize: Check if last session was within 24 hours
     useEffect(() => {
         if (lastSessionCode && !showCodeForm) {
             const lastSessionTime = localStorage.getItem('lastSessionTime')
@@ -79,7 +91,6 @@ export default function SessionPairing({ suggestedCode }) {
                 if (timeSinceLastSession < TWENTY_FOUR_HOURS) {
                     setShowQuickReconnect(true)
                 } else {
-                    // Last session was more than 24 hours ago - show new form
                     setShowCodeForm(true)
                     setShowQuickReconnect(false)
                 }
@@ -90,7 +101,6 @@ export default function SessionPairing({ suggestedCode }) {
         }
     }, [lastSessionCode, showCodeForm])
 
-    // Monitor dual timeout: Hard 15-min limit + 5-min inactivity
     useEffect(() => {
         if (!isConnected || !connectionStartTime) return
 
@@ -98,156 +108,95 @@ export default function SessionPairing({ suggestedCode }) {
             const now = Date.now()
             const totalElapsed = now - connectionStartTime
             const inactiveElapsed = now - (lastActivityTime || connectionStartTime)
-            
-            // Hard 15-minute timeout
             const remaining = CONNECTION_TIMEOUT_MS - totalElapsed
-            
-            // 5-minute inactivity timeout
             const inactivityExpired = inactiveElapsed >= INACTIVITY_TIMEOUT_MS
 
             if (inactivityExpired) {
-                // Inactivity timeout - disconnect silently
                 setConnectionExpired(true, 'inactivity')
                 setShowReconnect(true)
                 setRemainingTime(null)
-                mixpanelService.track('connection_expired', { 
-                    reason: 'inactivity',
-                    duration_seconds: Math.round(totalElapsed / 1000)
-                })
             } else if (remaining <= 0) {
-                // Hard timeout - expired
                 setConnectionExpired(true, 'timeout')
                 setShowReconnect(true)
                 setRemainingTime(null)
-                mixpanelService.track('connection_expired', { 
-                    reason: 'timeout',
-                    duration_seconds: Math.round(totalElapsed / 1000)
-                })
             } else {
                 const secondsRemaining = Math.ceil(remaining / 1000)
                 setRemainingTime(secondsRemaining)
-                
-                // Show amber warning at <2 minutes
                 if (secondsRemaining <= 120 && !isWarning) {
                     setIsWarning(true)
-                    mixpanelService.track('connection_expiring_soon', { 
-                        remaining_seconds: secondsRemaining
-                    })
                 }
             }
         }
 
         checkTimeout()
         const interval = setInterval(checkTimeout, 1000)
-        
         return () => clearInterval(interval)
     }, [isConnected, connectionStartTime, lastActivityTime, isWarning, setConnectionExpired])
 
-    // Handle NEW session (uses free quota)
     const handlePair = async (e) => {
         e.preventDefault()
         const trimmedCode = code.trim().toUpperCase()
 
-        // Controller must never generate its own code
-        // Only use code entered by user
-        if (!trimmedCode || trimmedCode === 'TEMPORARY' || trimmedCode === 'XXXXXX') {
-            setError('Please enter the pairing code shown on the display')
+        if (!trimmedCode || trimmedCode.length !== 6) {
+            setError('Please enter a valid 6-character code')
             return
         }
 
-        if (trimmedCode.length !== 6) {
-            setError('Code must be 6 characters')
-            return
-        }
-
-        // Validate that the Display has created this session code (exists on backend)
-        try {
-            // Use the new pairing endpoint (Lazy Connection)
-            const result = await pairSession(trimmedCode, user?.id, selectedBoardId)
-            
-            // Update store with tier info from backend
-            if (result.userTier) {
-                // We'll update the store below
-            }
-        } catch (err) {
-            if (err.message.includes('already paired')) {
-                setError('This display is already being controlled. If this is your display, try refreshing it to get a new code.')
-            } else {
-                setError(err.message || 'Unable to verify display code. Please try again.')
-            }
-            return
-        }
-
-        // Check limits for non-authenticated users
-        if (!user && freeSessionUsed) {
-            setError('Free session limit reached. Please sign in to continue.')
-            return
-        }
-
-        // This is a NEW session - increment quota
-        if (!user) {
-            incrementSession()
-        }
-
-        setSessionCode(trimmedCode, { 
-            isReconnecting: false, 
-            markControllerPaired: true,
-            boardId: selectedBoardId 
-        })
-        // Mark controller as active on this browser to prevent auto-connect on display
-        sessionStorage.setItem(`controller_active_${trimmedCode}`, 'true')
-        localStorage.setItem('lastSessionTime', Date.now().toString()) // Save current time for 24h tracking
-        setShowReconnect(false)
-        setShowQuickReconnect(false)
+        setIsPairing(true)
         setError('')
-        setIsWarning(false)
 
-        mixpanelService.track('connection_started', { 
-            code: trimmedCode.substring(0, 2) + '****',
-            is_authenticated: !!user,
-            session_type: 'new_session',
-            has_prior_session: !!lastSessionCode
-        })
+        try {
+            await pairSession(trimmedCode, user?.id, selectedBoardId)
+            
+            if (!user) {
+                incrementSession()
+            }
+
+            setSessionCode(trimmedCode, { 
+                isReconnecting: false, 
+                markControllerPaired: true,
+                boardId: selectedBoardId 
+            })
+            
+            sessionStorage.setItem(`controller_active_${trimmedCode}`, 'true')
+            localStorage.setItem('lastSessionTime', Date.now().toString())
+            setShowReconnect(false)
+            setShowQuickReconnect(false)
+            setIsWarning(false)
+
+            mixpanelService.track('connection_started', { 
+                code: trimmedCode.substring(0, 2) + '****',
+                is_authenticated: !!user
+            })
+        } catch (err) {
+            setError(err.message || 'Unable to verify display code')
+        } finally {
+            setIsPairing(false)
+        }
     }
 
-    // Handle RECONNECT to last session (NO quota used, tagged as reconnect)
     const handleContinueSession = async () => {
         if (!lastSessionCode) return
+        setIsPairing(true)
         
         try {
-            // Ensure session is paired on backend (Lazy Connection)
             await pairSession(lastSessionCode, user?.id)
+            setSessionCode(lastSessionCode, { isReconnecting: true, markControllerPaired: true })
+            sessionStorage.setItem(`controller_active_${lastSessionCode}`, 'true')
+            localStorage.setItem('lastSessionTime', Date.now().toString())
+            setShowReconnect(false)
+            setShowQuickReconnect(false)
+            setError('')
+            setIsWarning(false)
+            recordActivity()
         } catch (err) {
-            console.warn('[SessionPairing] Reconnect pairing failed:', err)
-            // If it fails, maybe the session is gone. Show the form.
-            if (err.message.includes('already paired')) {
-                setError('This display is already being controlled by another device.')
-            } else {
-                setError('Previous session expired. Please enter a new code.')
-            }
+            setError('Previous session expired. Please enter a new code.')
             setShowCodeForm(true)
-            return
+        } finally {
+            setIsPairing(false)
         }
-
-        setSessionCode(lastSessionCode, { isReconnecting: true, markControllerPaired: true })
-        // Mark controller as active on this browser to prevent auto-connect on display
-        sessionStorage.setItem(`controller_active_${lastSessionCode}`, 'true')
-        localStorage.setItem('lastSessionTime', Date.now().toString()) // Save current time
-        setShowReconnect(false)
-        setShowQuickReconnect(false)
-        setError('')
-        setIsWarning(false)
-        recordActivity() // Reset activity timer
-
-        mixpanelService.track('connection_continued', { 
-            code: lastSessionCode.substring(0, 2) + '****',
-            is_authenticated: !!user,
-            session_type: 'reconnect',
-            user_action: 'quick_reconnect'
-        })
     }
 
-    // Handle user choosing to enter NEW code (clear reconnect state)
     const handleEnterNewCode = () => {
         setCode('')
         setShowCodeForm(true)
@@ -255,322 +204,356 @@ export default function SessionPairing({ suggestedCode }) {
         setIsWarning(false)
     }
 
-    // Success Animation State - Connected & Active
+    const containerVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+        exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }
+    }
+
+    // --- CONNECTED STATE ---
     if (isConnected && !isConnectionExpired) {
         const minutes = Math.floor((remainingTime || 0) / 60)
         const seconds = (remainingTime || 0) % 60
         const activeCode = sessionCode || lastSessionCode || code
 
-        // Show amber warning when <2 minutes remaining
-        const timerBgColor = isWarning ? 'bg-amber-500/10 border-amber-500/30' : 'bg-teal-500/10 border-teal-500/30'
-        const timerTextColor = isWarning ? 'text-amber-300' : 'text-teal-300'
-        const timerIconColor = isWarning ? 'text-amber-400' : 'text-teal-400'
-
         return (
-            <Card className={`max-w-md mx-auto w-full ${isWarning ? 'bg-amber-900/20 border-amber-500/50' : 'bg-teal-900/20 border-teal-500/50'}`}>
-                <div className="text-center py-8">
-                    {/* Animated Success Icon */}
-                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg ${
-                        isWarning 
-                            ? 'bg-amber-500 animate-pulse' 
-                            : 'bg-teal-500 animate-bounce'
-                    }`}>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-10 h-10 text-white">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                        </svg>
-                    </div>
+            <motion.div 
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="w-full max-w-md mx-auto"
+            >
+                <Card className={clsx(
+                    "relative overflow-hidden border-2 transition-colors duration-500",
+                    isWarning ? "border-amber-500/50 bg-amber-900/10" : "border-teal-500/50 bg-teal-900/10"
+                )}>
+                    {/* Background Glow */}
+                    <div className={clsx(
+                        "absolute -top-24 -right-24 w-48 h-48 blur-[100px] rounded-full opacity-20",
+                        isWarning ? "bg-amber-500" : "bg-teal-500"
+                    )} />
 
-                    <h2 className="text-3xl font-bold text-white mb-2">
-                        {isWarning ? 'Connection Expiring Soon' : 'Connected!'}
-                    </h2>
-                    <p className={`mb-4 ${isWarning ? 'text-amber-200' : 'text-teal-200'}`}>
-                        {isWarning 
-                            ? 'Your session will end shortly. Reconnect to continue.' 
-                            : 'Your device is paired successfully.'}
-                    </p>
+                    <div className="relative z-10 text-center py-8 px-4">
+                        <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: 'spring', damping: 12 }}
+                            className={clsx(
+                                "w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl",
+                                isWarning ? "bg-amber-500" : "bg-teal-500"
+                            )}
+                        >
+                            {isWarning ? (
+                                <ExclamationTriangleIcon className="w-10 h-10 text-white" />
+                            ) : (
+                                <CheckIcon className="w-10 h-10 text-white" />
+                            )}
+                        </motion.div>
 
-                    {/* Connected Code Display */}
-                    <div className={`mb-6 border rounded-lg px-4 py-3 ${timerBgColor}`}>
-                        <p className="text-xs text-gray-400 mb-1">Connected to</p>
-                        <p className="text-2xl font-mono font-bold text-white tracking-widest">{activeCode}</p>
-                    </div>
-                    
-                    {/* Connection Timer with Warning */}
-                    <div className={`flex items-center justify-center gap-2 mb-8 rounded-lg px-3 py-2 ${timerBgColor}`}>
-                        {isWarning && <ExclamationTriangleIcon className="w-4 h-4 text-amber-400" />}
-                        <ClockIcon className={`w-4 h-4 ${timerIconColor}`} />
-                        <span className={`text-sm font-mono font-bold ${timerTextColor}`}>
-                            {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-                        </span>
-                    </div>
+                        <h2 className="text-3xl font-black text-white mb-2 tracking-tight">
+                            {isWarning ? 'SESSION EXPIRING' : 'SYSTEM PAIRED'}
+                        </h2>
+                        <p className={clsx(
+                            "text-sm font-medium mb-8",
+                            isWarning ? "text-amber-300" : "text-teal-300"
+                        )}>
+                            {isWarning 
+                                ? 'Your connection will terminate shortly.' 
+                                : 'Controller linked to display successfully.'}
+                        </p>
 
-                    <Button
-                        onClick={() => navigate('/control/dashboard')}
-                        className={`w-full font-bold ${
-                            isWarning
-                                ? 'bg-amber-500 hover:bg-amber-400 text-white'
-                                : 'bg-teal-500 hover:bg-teal-400 text-white'
-                        }`}
-                    >
-                        Go to Dashboard
-                    </Button>
-                </div>
-            </Card>
+                        <div className="grid grid-cols-2 gap-4 mb-8">
+                            <div className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 text-left">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Active Code</p>
+                                <p className="text-xl font-mono font-bold text-white tracking-widest">{activeCode}</p>
+                            </div>
+                            <div className={clsx(
+                                "border rounded-xl p-4 text-left transition-colors",
+                                isWarning ? "bg-amber-500/10 border-amber-500/30" : "bg-teal-500/10 border-teal-500/30"
+                            )}>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Time Remaining</p>
+                                <div className="flex items-center gap-2">
+                                    <ClockIcon className={clsx("w-4 h-4", isWarning ? "text-amber-400" : "text-teal-400")} />
+                                    <p className={clsx("text-xl font-mono font-bold", isWarning ? "text-amber-400" : "text-teal-400")}>
+                                        {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <Button
+                            onClick={() => navigate('/control/dashboard')}
+                            size="lg"
+                            className={clsx(
+                                "w-full font-black uppercase tracking-widest shadow-xl",
+                                isWarning ? "bg-amber-500 hover:bg-amber-600" : "bg-teal-500 hover:bg-teal-600"
+                            )}
+                        >
+                            Enter Dashboard
+                        </Button>
+                    </div>
+                </Card>
+            </motion.div>
         )
     }
 
-    // Connection Expired - Show Reconnect Options
+    // --- EXPIRED STATE ---
     if (isConnectionExpired && showReconnect) {
-        const expiredMessage = disconnectReason === 'inactivity' 
-            ? 'No activity for 5 minutes. Your session ended.'
-            : 'Your 15-minute session has timed out.'
-
         return (
-            <Card className="max-w-md mx-auto w-full bg-red-900/20 border-red-500/50">
-                <div className="text-center py-8">
-                    <div className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-10 h-10 text-white">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+            <motion.div 
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="w-full max-w-md mx-auto"
+            >
+                <Card className="border-red-500/50 bg-red-900/10 text-center py-10 px-6">
+                    <div className="w-20 h-20 bg-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-red-500/20">
+                        <SignalIcon className="w-10 h-10 text-white" />
                     </div>
-                    <h2 className="text-2xl font-bold text-white mb-2">Connection Expired</h2>
-                    <p className="text-red-200 mb-8">{expiredMessage}</p>
+                    <h2 className="text-2xl font-black text-white mb-2 tracking-tight uppercase">Link Severed</h2>
+                    <p className="text-red-300 text-sm mb-8">
+                        {disconnectReason === 'inactivity' 
+                            ? 'Session terminated due to 5 minutes of inactivity.'
+                            : 'The 15-minute session window has closed.'}
+                    </p>
 
                     <div className="space-y-3">
                         {lastSessionCode && (
                             <Button
                                 onClick={handleContinueSession}
-                                className="w-full bg-teal-500 hover:bg-teal-400 text-white font-bold"
+                                disabled={isPairing}
+                                className="w-full bg-teal-500 hover:bg-teal-600 text-white font-black uppercase tracking-widest"
                             >
-                                🔄 Reconnect to {lastSessionCode}
+                                {isPairing ? <ArrowPathIcon className="w-5 h-5 animate-spin" /> : `Reconnect to ${lastSessionCode}`}
                             </Button>
                         )}
                         <Button
                             onClick={handleEnterNewCode}
                             variant="outline"
-                            className="w-full"
+                            className="w-full border-slate-700 text-slate-300 font-bold uppercase tracking-widest"
                         >
-                            ➕ Enter New Display Code
+                            New Pairing Code
                         </Button>
                     </div>
-
-                    {lastSessionCode && (
-                        <p className="text-xs text-gray-500 text-center mt-4">
-                            Reconnecting won't use another free session
-                        </p>
-                    )}
-                </div>
-            </Card>
+                </Card>
+            </motion.div>
         )
     }
 
     return (
-        <Card className="max-w-md mx-auto w-full">
-            {/* SCENARIO 1: First Time / Cold Start (no prior session) */}
-            {!lastSessionCode && !showCodeForm && (
-                <div className="text-center py-8">
-                    <div className="w-16 h-16 bg-teal-500/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-teal-500/50">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-teal-400">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 7.5V3m0 4.5H3m0 13.5h12m-12 0V8.25m0 13.5H3" />
-                        </svg>
-                    </div>
-                    <h2 className="text-2xl font-bold text-white mb-2">Connect Your Display</h2>
-                    <p className="text-gray-400 text-center mb-8">Enter the 6-character code shown on your display screen</p>
-
-                    <form onSubmit={handlePair} className="space-y-4">
-                        <Input
-                            value={code}
-                            onChange={(e) => {
-                                setCode(e.target.value.toUpperCase())
-                                setError('')
-                            }}
-                            placeholder="A1B2C3"
-                            maxLength={6}
-                            className="text-center text-3xl tracking-[0.5em] font-mono uppercase"
-                            autoFocus
-                        />
-
-                        {error && (
-                            <div className="text-center">
-                                <p className="text-red-400 text-sm">{error}</p>
-                                {!user && freeSessionUsed && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => navigate('/login')}
-                                        className="mt-2"
-                                    >
-                                        Sign In for Unlimited Access
-                                    </Button>
-                                )}
-                            </div>
-                        )}
-
-                        <Button type="submit" className="w-full" size="lg" disabled={code.length !== 6}>
-                            Connect Device
-                        </Button>
-
-                        {!user && !freeSessionUsed && (
-                            <p className="text-xs text-gray-500 text-center">
-                                ✓ 1 free session available without sign in
-                            </p>
-                        )}
-                    </form>
-
-                    <div className="text-xs text-gray-500 text-center mt-6 space-y-1 border-t border-gray-700 pt-4">
-                        <div className="flex items-center justify-center gap-2 text-gray-400">
-                            <ClockIcon className="w-3 h-3" />
-                            <span>15 min session • auto-disconnect at 5 min idle</span>
-                        </div>
-                        <p className="text-gray-600">💡 Code will be remembered for quick reconnect</p>
-                    </div>
-                </div>
-            )}
-
-            {/* SCENARIO 2: Returning User within 24h (has lastSessionCode in localStorage) */}
-            {lastSessionCode && !showCodeForm && showQuickReconnect && (
-                <div className="text-center py-8">
-                    <div className="w-16 h-16 bg-teal-500/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-teal-500/50">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-teal-400">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.693 7.38A2 2 0 0115.385 20H7m0 0a2 2 0 100-4m0 4v4m0 0H3m0 0a2 2 0 100-4m0 4v4" />
-                        </svg>
-                    </div>
-                    <h2 className="text-2xl font-bold text-white mb-1">Welcome back! 👋</h2>
-                    <p className="text-gray-400 text-center mb-6">Your last display code is saved</p>
-
-                    {/* Show last code prominently */}
-                    <div className="bg-teal-500/10 border border-teal-500/30 rounded-lg px-4 py-4 mb-6">
-                        <p className="text-xs text-gray-400 mb-2">Last used display</p>
-                        <p className="text-4xl font-mono font-bold text-teal-300 tracking-widest">{lastSessionCode}</p>
-                    </div>
-
-                    <div className="space-y-2 mb-6">
-                        <Button 
-                            onClick={handleContinueSession}
-                            className="w-full bg-teal-500 hover:bg-teal-400 text-white font-bold py-3"
-                        >
-                            🔄 Continue with {lastSessionCode}
-                        </Button>
-                        <Button 
-                            onClick={handleEnterNewCode}
-                            variant="outline"
-                            className="w-full"
-                        >
-                            ➕ Enter Different Display Code
-                        </Button>
-                    </div>
-
-                    <p className="text-xs text-gray-500 text-center border-t border-gray-700 pt-4">
-                        ✓ Reconnecting doesn't use another free session
-                    </p>
-                </div>
-            )}
-
-            {/* SCENARIO 3: User chose "Enter New Code" - show form */}
-            {showCodeForm && (
-                <div className="text-center py-8">
-                    <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-blue-500/50">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-blue-400">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
-                    <h2 className="text-2xl font-bold text-white mb-2">Connect New Display</h2>
-                    <p className="text-gray-400 text-center mb-8">Enter a different 6-character code</p>
-
-                    <form onSubmit={handlePair} className="space-y-4">
-                        <Input
-                            value={code}
-                            onChange={(e) => {
-                                setCode(e.target.value.toUpperCase())
-                                setError('')
-                            }}
-                            placeholder="A1B2C3"
-                            maxLength={6}
-                            className="text-center text-3xl tracking-[0.5em] font-mono uppercase"
-                            autoFocus
-                        />
-
-                        {user && boards.length > 0 && (
-                            <div className="space-y-2 text-left">
-                                <label className="text-xs text-gray-400 font-medium uppercase tracking-wider">
-                                    Link to Board
-                                </label>
-                                <div className="grid grid-cols-1 gap-2">
-                                    {boards.map((board) => (
-                                        <button
-                                            key={board.id}
-                                            type="button"
-                                            onClick={() => setSelectedBoardId(board.id)}
-                                            className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
-                                                selectedBoardId === board.id
-                                                    ? 'bg-blue-500/20 border-blue-500 text-white'
-                                                    : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <DeviceTabletIcon className="w-5 h-5" />
-                                                <span className="font-medium">{board.name}</span>
-                                            </div>
-                                            {selectedBoardId === board.id && (
-                                                <div className="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]"></div>
-                                            )}
-                                        </button>
-                                    ))}
+        <div className="w-full max-w-md mx-auto">
+            <AnimatePresence mode="wait">
+                {/* SCENARIO 1: Cold Start */}
+                {!lastSessionCode && !showCodeForm && (
+                    <motion.div
+                        key="cold-start"
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                    >
+                        <Card className="p-8">
+                            <div className="flex items-center justify-between mb-8">
+                                <div>
+                                    <h2 className="text-2xl font-black text-white tracking-tight uppercase">Pair Device</h2>
+                                    <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">System Initialization</p>
+                                </div>
+                                <div className="w-12 h-12 bg-teal-500/10 border border-teal-500/30 rounded-xl flex items-center justify-center">
+                                    <CpuChipIcon className="w-6 h-6 text-teal-400" />
                                 </div>
                             </div>
-                        )}
 
-                        {error && (
-                            <div className="text-center">
-                                <p className="text-red-400 text-sm">{error}</p>
-                                {!user && freeSessionUsed && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => navigate('/login')}
-                                        className="mt-2"
+                            <form onSubmit={handlePair} className="space-y-6">
+                                <div className="relative">
+                                    <Input
+                                        value={code}
+                                        onChange={(e) => {
+                                            setCode(e.target.value.toUpperCase())
+                                            setError('')
+                                        }}
+                                        placeholder="------"
+                                        maxLength={6}
+                                        className="text-center text-4xl tracking-[0.4em] font-mono font-black uppercase h-20 bg-slate-900/50 border-2 border-slate-700 focus:border-teal-500 transition-all"
+                                        autoFocus
+                                    />
+                                    <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-slate-800 border border-slate-700 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                        Display Code
+                                    </div>
+                                </div>
+
+                                {error && (
+                                    <motion.p 
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="text-red-400 text-xs font-bold text-center bg-red-400/10 py-2 rounded-lg border border-red-400/20"
                                     >
-                                        Sign In for Unlimited Access
-                                    </Button>
+                                        {error}
+                                    </motion.p>
                                 )}
+
+                                <Button 
+                                    type="submit" 
+                                    size="lg"
+                                    disabled={code.length !== 6 || isPairing}
+                                    className="w-full font-black uppercase tracking-widest shadow-xl shadow-teal-500/10"
+                                >
+                                    {isPairing ? <ArrowPathIcon className="w-6 h-6 animate-spin" /> : 'Establish Link'}
+                                </Button>
+
+                                <div className="flex items-center justify-center gap-4 pt-4 border-t border-slate-800">
+                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                        <ClockIcon className="w-3.5 h-3.5" />
+                                        15m Session
+                                    </div>
+                                    <div className="w-1 h-1 rounded-full bg-slate-700" />
+                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                        <SparklesIcon className="w-3.5 h-3.5" />
+                                        Free Tier
+                                    </div>
+                                </div>
+                            </form>
+                        </Card>
+                    </motion.div>
+                )}
+
+                {/* SCENARIO 2: Quick Reconnect */}
+                {lastSessionCode && !showCodeForm && showQuickReconnect && (
+                    <motion.div
+                        key="quick-reconnect"
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                    >
+                        <Card className="p-8 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4">
+                                <div className="flex items-center gap-2 px-2 py-1 bg-teal-500/10 border border-teal-500/20 rounded-full">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+                                    <span className="text-[8px] font-black text-teal-500 uppercase tracking-widest">Cached</span>
+                                </div>
                             </div>
-                        )}
 
-                        <div className="flex gap-3">
-                            <Button 
-                                type="submit" 
-                                className="flex-1 bg-blue-500 hover:bg-blue-400" 
-                                disabled={code.length !== 6}
-                            >
-                                Connect New
-                            </Button>
-                            <Button 
-                                type="button"
-                                variant="outline"
-                                className="flex-1"
-                                onClick={() => {
-                                    setShowCodeForm(false)
-                                    setCode('')
-                                    setError('')
-                                }}
-                            >
-                                Back
-                            </Button>
-                        </div>
+                            <h2 className="text-2xl font-black text-white mb-1 tracking-tight uppercase">Welcome Back</h2>
+                            <p className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-8">Resume previous session</p>
 
-                        {!user && !freeSessionUsed && (
-                            <p className="text-xs text-gray-500 text-center">
-                                ✓ 1 free session available
-                            </p>
-                        )}
-                    </form>
+                            <div className="bg-slate-900/80 border-2 border-teal-500/30 rounded-2xl p-6 mb-8 text-center group hover:border-teal-500/50 transition-all">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Last Known Display</p>
+                                <p className="text-5xl font-mono font-black text-teal-400 tracking-widest group-hover:scale-110 transition-transform duration-500">
+                                    {lastSessionCode}
+                                </p>
+                            </div>
 
-                    <p className="text-xs text-gray-500 text-center border-t border-gray-700 pt-4 mt-4">
-                        This will start a new session (uses 1 free connection)
-                    </p>
-                </div>
-            )}
-        </Card>
+                            <div className="space-y-3">
+                                <Button 
+                                    onClick={handleContinueSession}
+                                    disabled={isPairing}
+                                    className="w-full bg-teal-500 hover:bg-teal-600 text-white font-black uppercase tracking-widest py-4 shadow-xl shadow-teal-500/20"
+                                >
+                                    {isPairing ? <ArrowPathIcon className="w-6 h-6 animate-spin" /> : 'Resume Connection'}
+                                </Button>
+                                <Button 
+                                    onClick={handleEnterNewCode}
+                                    variant="ghost"
+                                    className="w-full text-slate-400 hover:text-white font-bold uppercase tracking-widest text-xs"
+                                >
+                                    Pair Different Display
+                                </Button>
+                            </div>
+                        </Card>
+                    </motion.div>
+                )}
+
+                {/* SCENARIO 3: New Code Form */}
+                {showCodeForm && (
+                    <motion.div
+                        key="new-code"
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                    >
+                        <Card className="p-8">
+                            <div className="flex items-center gap-4 mb-8">
+                                <button 
+                                    onClick={() => setShowCodeForm(false)}
+                                    className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-400 hover:text-white"
+                                >
+                                    <ArrowLeftIcon className="w-5 h-5" />
+                                </button>
+                                <div>
+                                    <h2 className="text-xl font-black text-white tracking-tight uppercase text-left">New Pairing</h2>
+                                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest text-left">Manual Override</p>
+                                </div>
+                            </div>
+
+                            <form onSubmit={handlePair} className="space-y-6">
+                                <div className="relative">
+                                    <Input
+                                        value={code}
+                                        onChange={(e) => {
+                                            setCode(e.target.value.toUpperCase())
+                                            setError('')
+                                        }}
+                                        placeholder="------"
+                                        maxLength={6}
+                                        className="text-center text-4xl tracking-[0.4em] font-mono font-black uppercase h-20 bg-slate-900/50 border-2 border-slate-700 focus:border-teal-500 transition-all"
+                                        autoFocus
+                                    />
+                                </div>
+
+                                {user && boards.length > 0 && (
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                                            Target Board
+                                        </label>
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {boards.map((board) => (
+                                                <button
+                                                    key={board.id}
+                                                    type="button"
+                                                    onClick={() => setSelectedBoardId(board.id)}
+                                                    className={clsx(
+                                                        "flex items-center justify-between p-4 rounded-xl border-2 transition-all text-left",
+                                                        selectedBoardId === board.id
+                                                            ? "bg-teal-500/10 border-teal-500 text-white shadow-lg shadow-teal-500/5"
+                                                            : "bg-slate-900/50 border-slate-800 text-slate-500 hover:border-slate-700"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <DeviceTabletIcon className={clsx("w-5 h-5", selectedBoardId === board.id ? "text-teal-400" : "text-slate-600")} />
+                                                        <span className="font-bold text-sm uppercase tracking-tight">{board.name}</span>
+                                                    </div>
+                                                    {selectedBoardId === board.id && (
+                                                        <div className="w-2 h-2 rounded-full bg-teal-400 shadow-[0_0_10px_rgba(45,212,191,0.8)]" />
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {error && (
+                                    <p className="text-red-400 text-xs font-bold text-center bg-red-400/10 py-2 rounded-lg border border-red-400/20">
+                                        {error}
+                                    </p>
+                                )}
+
+                                <Button 
+                                    type="submit" 
+                                    size="lg"
+                                    disabled={code.length !== 6 || isPairing}
+                                    className="w-full font-black uppercase tracking-widest shadow-xl"
+                                >
+                                    {isPairing ? <ArrowPathIcon className="w-6 h-6 animate-spin" /> : 'Establish Link'}
+                                </Button>
+                            </form>
+                        </Card>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
     )
 }
 

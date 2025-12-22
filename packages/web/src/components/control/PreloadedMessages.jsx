@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
 import { Button, Card } from '../ui/Components'
+import clsx from 'clsx'
 
 const PRELOADED_MESSAGES = [
     { id: 1, text: 'WELCOME HOME', category: 'Greeting' },
@@ -21,33 +22,32 @@ export default function PreloadedMessages({ onSelect }) {
     }
 
     return (
-        <Card className="w-full">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-white">Quick Messages</h3>
+        <div className="space-y-4">
+            <div className="flex justify-between items-center">
+                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Quick Messages</h3>
                 {!user && (
-                    <span className="text-xs text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded">
-                        Sign in to save custom
+                    <span className="text-[10px] text-amber-400 font-mono uppercase tracking-wider">
+                        Sign in for custom
                     </span>
                 )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                 {PRELOADED_MESSAGES.map((msg) => (
                     <button
                         key={msg.id}
                         onClick={() => handleSelect(msg)}
-                        className={`
-                            p-3 rounded-lg text-sm font-medium transition-all
-                            ${selectedId === msg.id
-                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                                : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
-                            }
-                        `}
+                        className={clsx(
+                            "p-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border",
+                            selectedId === msg.id
+                                ? "bg-teal-500 border-teal-400 text-white shadow-lg shadow-teal-500/20"
+                                : "bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-300"
+                        )}
                     >
                         {msg.text}
                     </button>
                 ))}
             </div>
-        </Card>
+        </div>
     )
 }

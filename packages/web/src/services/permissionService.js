@@ -545,7 +545,7 @@ export async function fetchAllAdmins() {
         granted_at,
         granted_by,
         status,
-        profiles!admin_roles_granted_by_fkey(email as granted_by_email, full_name as granted_by_name),
+        grantedBy:profiles!admin_roles_granted_by_fkey(email, full_name),
         user:profiles!admin_roles_user_id_fkey(email, full_name, created_at)
       `)
       .eq('status', 'active')
@@ -564,8 +564,8 @@ export async function fetchAllAdmins() {
       permissions: admin.permissions,
       grantedAt: admin.granted_at,
       grantedBy: {
-        email: admin.profiles?.granted_by_email,
-        name: admin.profiles?.granted_by_name,
+        email: admin.grantedBy?.email,
+        name: admin.grantedBy?.full_name,
       },
       status: admin.status,
     })) || [];
@@ -670,7 +670,9 @@ export async function fetchAuditLog(options = {}) {
         old_role,
         new_role,
         reason,
-        created_at
+        created_at,
+        user:profiles!role_change_audit_log_user_id_fkey(email, full_name),
+        admin:profiles!role_change_audit_log_admin_id_fkey(email, full_name)
       `,
         { count: 'exact' }
       )
@@ -697,14 +699,20 @@ export async function fetchAuditLog(options = {}) {
 
     if (error) throw error;
 
-    // Format response (fetch user details separately to prevent SQL injection)
+    // Format response
     const formatted = data?.map(entry => ({
       id: entry.id,
       action: entry.action,
       userId: entry.user_id,
       adminId: entry.admin_id,
-      user: null,
-      admin: null,
+      user: entry.user ? {
+        email: entry.user.email,
+        name: entry.user.full_name
+      } : null,
+      admin: entry.admin ? {
+        email: entry.admin.email,
+        name: entry.admin.full_name
+      } : null,
       oldRole: entry.old_role,
       newRole: entry.new_role,
       reason: entry.reason,

@@ -1,10 +1,17 @@
-import { motion, AnimatePresence } from 'framer-motion'
+﻿import { motion, AnimatePresence } from 'framer-motion'
 import PropTypes from 'prop-types'
 import { useState } from 'react'
+import { 
+    XMarkIcon, 
+    SunIcon, 
+    SpeakerWaveIcon, 
+    ArrowsPointingOutIcon,
+    ArrowLeftOnRectangleIcon,
+    InformationCircleIcon
+} from '@heroicons/react/24/outline'
+import clsx from 'clsx'
 
-const MotionDiv = motion.div
-
-export default function SettingsPanel({ isOpen, onClose, settings, onSettingsChange }) {
+export default function SettingsPanel({ isOpen, onClose, settings, onSettingsChange, onExit }) {
     const [localSettings, setLocalSettings] = useState(settings)
 
     const handleChange = (key, value) => {
@@ -18,157 +25,119 @@ export default function SettingsPanel({ isOpen, onClose, settings, onSettingsCha
             {isOpen && (
                 <>
                     {/* Backdrop */}
-                    <MotionDiv
-                        key="settings-backdrop"
+                    <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200]"
+                        className="fixed inset-0 bg-black/60 backdrop-blur-md z-[200]"
                     />
 
                     {/* Settings Panel */}
-                    <MotionDiv
-                        key="settings-panel"
-                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        transition={{ duration: 0.2 }}
-                        className="fixed inset-0 z-[201] flex items-center justify-center p-4"
-                        onClick={onClose}
+                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        className="fixed inset-0 z-[201] flex items-center justify-center p-6 pointer-events-none"
                     >
                         <div
-                            className="bg-slate-800/95 backdrop-blur-md border border-slate-700 rounded-2xl p-8 max-w-md w-full shadow-2xl"
+                            className="bg-slate-900/90 backdrop-blur-2xl border border-slate-800 rounded-[2.5rem] p-10 max-w-lg w-full shadow-[0_0_100px_rgba(0,0,0,0.5)] pointer-events-auto relative overflow-hidden"
                             onClick={(e) => e.stopPropagation()}
                         >
+                            {/* Ambient Glow */}
+                            <div className="absolute -top-24 -right-24 w-48 h-48 bg-teal-500/10 blur-[80px] rounded-full" />
+
                             {/* Header */}
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-white text-2xl font-bold">Display Settings</h3>
+                            <div className="flex items-center justify-between mb-10 relative z-10">
+                                <div>
+                                    <h3 className="text-white text-3xl font-black tracking-tight uppercase">System Config</h3>
+                                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-1">Display Parameters</p>
+                                </div>
                                 <button
                                     onClick={onClose}
-                                    className="text-gray-400 hover:text-white transition-colors p-2"
-                                    aria-label="Close settings"
+                                    className="w-12 h-12 bg-slate-800/50 hover:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 hover:text-white transition-all border border-slate-700/50"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
+                                    <XMarkIcon className="w-6 h-6" />
                                 </button>
                             </div>
 
                             {/* Settings Controls */}
-                            <div className="space-y-6">
+                            <div className="space-y-10 relative z-10">
                                 {/* Brightness Control */}
-                                <div>
-                                    <label className="flex items-center justify-between mb-3">
-                                        <span className="text-white font-medium">Brightness</span>
-                                        <span className="text-primary-400 font-mono text-sm">{localSettings.brightness}%</span>
-                                    </label>
+                                <div className="group">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                                                <SunIcon className="w-4 h-4 text-amber-500" />
+                                            </div>
+                                            <span className="text-slate-300 font-black text-xs uppercase tracking-widest">Luminance</span>
+                                        </div>
+                                        <span className="text-teal-400 font-mono text-sm font-black">{localSettings.brightness}%</span>
+                                    </div>
                                     <input
                                         type="range"
                                         min="20"
                                         max="100"
                                         value={localSettings.brightness}
                                         onChange={(e) => handleChange('brightness', parseInt(e.target.value))}
-                                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary-500"
-                                        style={{
-                                            background: `linear-gradient(to right, #21808d 0%, #21808d ${localSettings.brightness}%, #334155 ${localSettings.brightness}%, #334155 100%)`
-                                        }}
+                                        className="w-full h-1.5 bg-slate-800 rounded-full appearance-none cursor-pointer accent-teal-500"
                                     />
-                                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                                        <span>Dim</span>
-                                        <span>Bright</span>
-                                    </div>
                                 </div>
 
                                 {/* Volume Control */}
-                                <div>
-                                    <label className="flex items-center justify-between mb-3">
-                                        <span className="text-white font-medium">Volume</span>
-                                        <span className="text-primary-400 font-mono text-sm">{localSettings.volume}%</span>
-                                    </label>
+                                <div className="group">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                                                <SpeakerWaveIcon className="w-4 h-4 text-blue-500" />
+                                            </div>
+                                            <span className="text-slate-300 font-black text-xs uppercase tracking-widest">Acoustics</span>
+                                        </div>
+                                        <span className="text-teal-400 font-mono text-sm font-black">{localSettings.volume}%</span>
+                                    </div>
                                     <input
                                         type="range"
                                         min="0"
                                         max="100"
                                         value={localSettings.volume}
                                         onChange={(e) => handleChange('volume', parseInt(e.target.value))}
-                                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary-500"
-                                        style={{
-                                            background: `linear-gradient(to right, #21808d 0%, #21808d ${localSettings.volume}%, #334155 ${localSettings.volume}%, #334155 100%)`
-                                        }}
+                                        className="w-full h-1.5 bg-slate-800 rounded-full appearance-none cursor-pointer accent-teal-500"
                                     />
-                                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                                        <span>Mute</span>
-                                        <span>Max</span>
-                                    </div>
-                                    <p className="text-xs text-gray-500 mt-2">For future audio notifications</p>
                                 </div>
 
-                                {/* Clock Mode Toggle */}
-                                <div className="flex items-center justify-between py-3 border-t border-slate-700">
-                                    <div>
-                                        <span className="text-white font-medium block">Clock Mode</span>
-                                        <span className="text-xs text-gray-500">Display current time when idle</span>
-                                    </div>
+                                {/* Action Buttons */}
+                                <div className="grid grid-cols-2 gap-4 pt-4">
                                     <button
-                                        onClick={() => handleChange('clockMode', !localSettings.clockMode)}
-                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.clockMode ? 'bg-primary-500' : 'bg-slate-700'
-                                            }`}
-                                        aria-label="Toggle clock mode"
+                                        onClick={() => {
+                                            if (document.documentElement.requestFullscreen) {
+                                                document.documentElement.requestFullscreen();
+                                            }
+                                        }}
+                                        className="flex items-center justify-center gap-3 p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 rounded-2xl text-slate-300 hover:text-white transition-all group"
                                     >
-                                        <span
-                                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.clockMode ? 'translate-x-6' : 'translate-x-1'
-                                                }`}
-                                        />
+                                        <ArrowsPointingOutIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Fullscreen</span>
                                     </button>
-                                </div>
-
-                                {/* Auto-Hide Controls Toggle */}
-                                <div className="flex items-center justify-between py-3 border-t border-slate-700">
-                                    <div>
-                                        <span className="text-white font-medium block">Auto-Hide Controls</span>
-                                        <span className="text-xs text-gray-500">Hide controls after 3 seconds</span>
-                                    </div>
                                     <button
-                                        onClick={() => handleChange('autoHideControls', !localSettings.autoHideControls)}
-                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.autoHideControls ? 'bg-primary-500' : 'bg-slate-700'
-                                            }`}
-                                        aria-label="Toggle auto-hide controls"
+                                        onClick={onExit}
+                                        className="flex items-center justify-center gap-3 p-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-2xl text-red-400 hover:text-red-300 transition-all group"
                                     >
-                                        <span
-                                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.autoHideControls ? 'translate-x-6' : 'translate-x-1'
-                                                }`}
-                                        />
+                                        <ArrowLeftOnRectangleIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Terminate</span>
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Footer */}
-                            <div className="mt-8 flex gap-3">
-                                <button
-                                    onClick={() => {
-                                        const defaults = {
-                                            brightness: 100,
-                                            volume: 50,
-                                            clockMode: false,
-                                            autoHideControls: true,
-                                        }
-                                        setLocalSettings(defaults)
-                                        onSettingsChange(defaults)
-                                    }}
-                                    className="flex-1 py-2 px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                                >
-                                    Reset to Defaults
-                                </button>
-                                <button
-                                    onClick={onClose}
-                                    className="flex-1 py-2 px-4 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors"
-                                >
-                                    Done
-                                </button>
+                            {/* Footer Info */}
+                            <div className="mt-10 pt-8 border-t border-slate-800/50 flex items-center justify-between relative z-10">
+                                <div className="flex items-center gap-2">
+                                    <InformationCircleIcon className="w-4 h-4 text-slate-600" />
+                                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">v2.4.0 Stable Build</span>
+                                </div>
+                                <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Digital FlipBoard OS</span>
                             </div>
                         </div>
-                    </MotionDiv>
+                    </motion.div>
                 </>
             )}
         </AnimatePresence>
@@ -178,11 +147,7 @@ export default function SettingsPanel({ isOpen, onClose, settings, onSettingsCha
 SettingsPanel.propTypes = {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
-    settings: PropTypes.shape({
-        brightness: PropTypes.number,
-        volume: PropTypes.number,
-        clockMode: PropTypes.bool,
-        autoHideControls: PropTypes.bool,
-    }).isRequired,
+    settings: PropTypes.object.isRequired,
     onSettingsChange: PropTypes.func.isRequired,
+    onExit: PropTypes.func.isRequired
 }

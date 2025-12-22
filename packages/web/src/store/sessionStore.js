@@ -13,7 +13,8 @@ export const useSessionStore = create(
             isClockMode: false,
             lastAnimationType: 'flip',
             lastColorTheme: 'monochrome',
-            gridConfig: { rows: 6, cols: 22 }, // Default config
+            gridConfig: null, // Default to null for auto-calculation
+            isFullscreen: false, // Track fullscreen state globally
             
             // Connection timeout tracking
             connectionTimeout: null,
@@ -62,6 +63,7 @@ export const useSessionStore = create(
             setControllerSubscriptionTier: (tier) => set({ controllerSubscriptionTier: tier }),
             setClockMode: (status) => set({ isClockMode: status }),
             setGridConfig: (config) => set({ gridConfig: config }),
+            setIsFullscreen: (status) => set({ isFullscreen: status }),
             setAnimationType: (animationType) => set({ lastAnimationType: animationType }),
             setColorTheme: (colorTheme) => set({ lastColorTheme: colorTheme }),
             setConnectionExpired: (expired, reason = 'timeout') => set({ 

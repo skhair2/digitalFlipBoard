@@ -54,7 +54,7 @@ async function registerSession(req, res) {
  * Controller pairs with a waiting session code.
  */
 async function pairSession(req, res) {
-  const { sessionCode, userId, boardId } = req.body;
+  const { sessionCode, userId, boardId, deviceId } = req.body;
 
   if (!sessionCode) {
     return res.status(400).json({ error: 'sessionCode is required' });
@@ -68,10 +68,26 @@ async function pairSession(req, res) {
     }
 
     if (session.status !== 'waiting') {
-      // If already paired, check if it's the same user (idempotency)
+      // If already paired, check if it's the same user or same device (idempotency)
       // This allows controllers to refresh or reconnect without error
-      if (session.status === 'paired' && (userId === session.controllerId || (!userId && !session.controllerId))) {
-        logger.info('session_already_paired_idempotent', { sessionCode, userId });
+      const isSameUser = userId && session.controllerId === userId;
+      const isSameDevice = deviceId && session.deviceId === deviceId;
+      // Fallback for legacy sessions that don't have a deviceId yet
+      const isLegacyGuest = !userId && !session.controllerId && !session.deviceId;
+
+      logger.info('pairing_idempotency_check', { 
+        sessionCode, 
+        userId, 
+        deviceId, 
+        sessionControllerId: session.controllerId, 
+        sessionDeviceId: session.deviceId,
+        isSameUser,
+        isSameDevice,
+        isLegacyGuest
+      });
+
+      if (session.status === 'paired' && (isSameUser || isSameDevice || isLegacyGuest)) {
+        logger.info('session_already_paired_idempotent', { sessionCode, userId, deviceId });
         return res.status(200).json({ 
           message: 'Session already paired', 
           sessionCode, 
@@ -110,6 +126,7 @@ async function pairSession(req, res) {
     const success = await sessionStore.update(sessionCode, {
       status: 'paired',
       controllerId: userId,
+      deviceId, // Store deviceId for future idempotency checks
       boardId,
       userTier,
       pairedAt: new Date().toISOString()

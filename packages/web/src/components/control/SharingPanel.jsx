@@ -62,13 +62,15 @@ export default function SharingPanel() {
 
     if (!isPremium) {
         return (
-            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center">
-                <UserGroupIcon className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-                <h3 className="text-white text-xl font-bold mb-2">Collaboration is a Pro Feature</h3>
-                <p className="text-gray-400 mb-4">
+            <div className="p-12 text-center bg-slate-900/50 border border-slate-800 rounded-2xl">
+                <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <UserGroupIcon className="w-8 h-8 text-slate-500" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-tight">Collaboration is a Pro Feature</h3>
+                <p className="text-slate-400 text-sm mb-8 max-w-xs mx-auto">
                     Upgrade to Pro to invite collaborators and share your boards with your team.
                 </p>
-                <button className="px-6 py-2 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-lg transition-colors">
+                <button className="px-8 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition-all active:scale-95 shadow-lg shadow-amber-500/20 uppercase text-xs tracking-widest">
                     Upgrade to Pro
                 </button>
             </div>
@@ -76,93 +78,119 @@ export default function SharingPanel() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             {/* Invite Form */}
-            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                <h3 className="text-white text-lg font-semibold mb-4 flex items-center gap-2">
-                    <EnvelopeIcon className="w-5 h-5" />
-                    Invite Collaborator
-                </h3>
+            <div className="bg-slate-950/50 border border-slate-800 rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-teal-500/10 rounded-lg">
+                        <EnvelopeIcon className="w-4 h-4 text-teal-400" />
+                    </div>
+                    <h4 className="text-sm font-bold text-white uppercase tracking-widest">Invite Collaborator</h4>
+                </div>
 
-                <form onSubmit={handleInvite} className="space-y-4">
-                    <div>
-                        <label className="block text-sm text-gray-400 mb-2">Email Address</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="colleague@example.com"
-                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500"
-                        />
+                <form onSubmit={handleInvite} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Email Address</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="COLLEAGUE@EXAMPLE.COM"
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-700 focus:outline-none focus:border-teal-500 transition-all font-mono uppercase tracking-widest"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Permission Level</label>
+                            <select
+                                value={permission}
+                                onChange={(e) => setPermission(e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-500 transition-all appearance-none cursor-pointer font-mono uppercase tracking-widest"
+                            >
+                                <option value="view">VIEW ONLY</option>
+                                <option value="edit">CAN EDIT</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm text-gray-400 mb-2">Permission Level</label>
-                        <select
-                            value={permission}
-                            onChange={(e) => setPermission(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-teal-500"
+                    <div className="flex items-center justify-between pt-2">
+                        <div className="text-[10px] font-mono uppercase tracking-wider">
+                            {error && <span className="text-red-400">{error}</span>}
+                            {success && <span className="text-teal-400">{success}</span>}
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={!email || isInviting}
+                            className="px-8 py-3 bg-teal-500 hover:bg-teal-600 disabled:bg-slate-800 disabled:text-slate-600 text-white font-bold rounded-xl transition-all active:scale-95 shadow-lg shadow-teal-500/20 uppercase text-xs tracking-widest flex items-center gap-2"
                         >
-                            <option value="view">View Only</option>
-                            <option value="edit">Can Edit</option>
-                        </select>
+                            {isInviting ? (
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <PlusIcon className="w-4 h-4" />
+                            )}
+                            Send Invite
+                        </button>
                     </div>
-
-                    {error && (
-                        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-400 text-sm">
-                            {error}
-                        </div>
-                    )}
-
-                    {success && (
-                        <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 text-green-400 text-sm">
-                            {success}
-                        </div>
-                    )}
-
-                    <button
-                        type="submit"
-                        disabled={!email || isInviting}
-                        className="w-full px-6 py-2 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
-                    >
-                        {isInviting ? 'Sending Invite...' : 'Send Invite'}
-                    </button>
                 </form>
             </div>
 
             {/* Collaborators List */}
-            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                <h3 className="text-white text-lg font-semibold mb-4 flex items-center gap-2">
-                    <UserGroupIcon className="w-5 h-5" />
-                    Collaborators ({collaborators.length})
-                </h3>
-
-                {collaborators.length === 0 ? (
-                    <p className="text-gray-500 text-sm">No collaborators yet. Invite someone to get started!</p>
-                ) : (
-                    <div className="space-y-2">
-                        {collaborators.map((collab, index) => (
-                            <div
-                                key={index}
-                                className="flex items-center justify-between bg-slate-900 p-3 rounded-lg"
-                            >
-                                <div>
-                                    <p className="text-white font-medium">{collab.email}</p>
-                                    <p className="text-xs text-gray-500">
-                                        {collab.permission === 'edit' ? 'Can Edit' : 'View Only'}
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => handleRemove(collab.user_id)}
-                                    className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                                    title="Remove collaborator"
-                                >
-                                    <TrashIcon className="w-5 h-5" />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
+            <div className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Collaborators</h4>
+                    <span className="text-[10px] font-mono text-teal-500">{collaborators.length} TOTAL</span>
+                </div>
+                
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden">
+                    {collaborators.length === 0 ? (
+                        <div className="p-12 text-center">
+                            <p className="text-slate-600 font-mono uppercase tracking-widest text-xs">No collaborators yet</p>
+                        </div>
+                    ) : (
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-slate-800 bg-slate-900/50">
+                                    <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">User</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Role</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/50">
+                                {collaborators.map((collab, index) => (
+                                    <tr key={index} className="hover:bg-slate-900/30 transition-colors group">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center text-[10px] font-bold text-teal-500 border border-slate-700">
+                                                    {collab.email[0].toUpperCase()}
+                                                </div>
+                                                <span className="text-sm font-bold text-white uppercase tracking-tight">{collab.email}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={clsx(
+                                                "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider",
+                                                collab.permission === 'edit' ? "bg-teal-500/10 text-teal-500 border border-teal-500/20" :
+                                                "bg-slate-800 text-slate-400 border border-slate-700"
+                                            )}>
+                                                {collab.permission === 'edit' ? 'CAN EDIT' : 'VIEW ONLY'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <button
+                                                onClick={() => handleRemove(collab.user_id)}
+                                                className="p-2 text-slate-600 hover:text-red-400 transition-colors"
+                                                title="Remove Collaborator"
+                                            >
+                                                <TrashIcon className="w-4 h-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
             </div>
         </div>
     )

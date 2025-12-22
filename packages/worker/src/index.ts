@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import { createClient } from 'redis';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { ScheduleProcessor } from './scheduler';
+import { ChannelProcessor } from './channels';
 
 dotenv.config();
 
@@ -21,7 +23,20 @@ async function bootstrap() {
   redis.on('error', (err) => console.error('[Worker] Redis Error:', err));
   await redis.connect();
 
-  // 2. Enable Keyspace Notifications (Ex = Expired events)
+  // 2. Initialize Scheduler and Channels if Supabase is available
+  if (supabase) {
+    const scheduler = new ScheduleProcessor(supabase, redis as any);
+    scheduler.start(30000); // Poll every 30 seconds
+    console.log('[Worker] ✓ Scheduler initialized');
+
+    const channels = new ChannelProcessor(supabase, redis as any);
+    channels.start(60000); // Check every minute
+    console.log('[Worker] ✓ Channel Processor initialized');
+  } else {
+    console.warn('[Worker] ⚠ Supabase not configured, background jobs disabled');
+  }
+
+  // 3. Enable Keyspace Notifications (Ex = Expired events)
   // This ensures Redis emits events when keys expire
   try {
     await redis.configSet('notify-keyspace-events', 'Ex');
@@ -30,11 +45,11 @@ async function bootstrap() {
     console.warn('[Worker] ⚠ Could not set notify-keyspace-events. Ensure Redis user has CONFIG permissions.');
   }
 
-  // 3. Create Subscriber client for keyspace events
+  // 4. Create Subscriber client for keyspace events
   const subscriber = redis.duplicate();
   await subscriber.connect();
 
-  // 4. Subscribe to expired events
+  // 5. Subscribe to expired events
   // Pattern: __keyevent@<db>__:expired
   const expiredPattern = '__keyevent@0__:expired';
   

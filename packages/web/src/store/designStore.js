@@ -1,28 +1,116 @@
 import { create } from 'zustand'
 import { supabase } from '../services/supabaseClient'
-import { useAuthStore } from './authStore'
-import { useSessionStore } from './sessionStore'
 import mixpanel from '../services/mixpanelService'
 
-export const useDesignStore = create((set, get) => ({
+console.log('Design Store Module Loading...')
+
+export const useDesignStore = create((set, get) => {
+    console.log('Initializing Design Store...')
+    const store = {
     savedDesigns: [],
     currentDesign: [],
+    activeDesign: null,
+    designVersions: [],
     designCollections: [],
+    templates: [],
     isLoading: false,
     error: null,
     designCount: 0,
     maxDesigns: 5,  // Default free tier limit
 
+    fetchTemplates: async () => {
+        set({ isLoading: true })
+        try {
+            const { TEMPLATES } = await import('../data/templates')
+            set({ templates: TEMPLATES })
+        } catch (error) {
+            console.error('Failed to load templates:', error)
+        } finally {
+            set({ isLoading: false })
+        }
+    },
+
     // Initialize design based on current grid config
-    initializeDesign: () => {
+    initializeDesign: async () => {
+        const { useSessionStore } = await import('./sessionStore')
         const { gridConfig } = useSessionStore.getState()
         const rows = gridConfig?.rows || 6
         const cols = gridConfig?.cols || 22
-        set({ currentDesign: Array(rows * cols).fill({ char: ' ', color: null }) })
+        set({ 
+            currentDesign: Array(rows * cols).fill({ char: ' ', color: null }),
+            activeDesign: null
+        })
+    },
+
+    fetchVersions: async (designId) => {
+        if (!designId) return { success: false, error: 'No design ID provided' }
+        set({ isLoading: true, error: null })
+        try {
+            const { data, error } = await supabase
+                .from('design_versions')
+                .select('*')
+                .eq('design_id', designId)
+                .order('version_number', { ascending: false })
+
+            if (error) throw error
+            set({ designVersions: data || [] })
+            return { success: true, data }
+        } catch (error) {
+            set({ error: error.message })
+            return { success: false, error: error.message }
+        } finally {
+            set({ isLoading: false })
+        }
+    },
+
+    restoreDesignVersion: async (designId, versionId) => {
+        set({ isLoading: true, error: null })
+        try {
+            const { data: version, error: fetchError } = await supabase
+                .from('design_versions')
+                .select('*')
+                .eq('id', versionId)
+                .single()
+
+            if (fetchError) throw fetchError
+
+            const { data: updatedDesign, error: updateError } = await supabase
+                .from('premium_designs')
+                .update({ 
+                    layout: version.layout,
+                    version: (get().activeDesign?.version || 1) + 1
+                })
+                .eq('id', designId)
+                .select()
+                .single()
+
+            if (updateError) throw updateError
+
+            await supabase.from('design_versions').insert([{
+                design_id: designId,
+                layout: version.layout,
+                version_number: updatedDesign.version,
+                metadata: { restored_from: versionId }
+            }])
+
+            set(state => ({ 
+                currentDesign: version.layout || [],
+                activeDesign: updatedDesign,
+                savedDesigns: state.savedDesigns.map(d => d.id === designId ? updatedDesign : d)
+            }))
+
+            return { success: true }
+        } catch (error) {
+            set({ error: error.message })
+            return { success: false, error: error.message }
+        } finally {
+            set({ isLoading: false })
+        }
     },
 
     // Actions
     setCurrentDesign: (design) => set({ currentDesign: design }),
+    setActiveDesign: (design) => set({ activeDesign: design }),
 
     updateCell: (index, value) => {
         const newDesign = [...get().currentDesign]
@@ -30,7 +118,8 @@ export const useDesignStore = create((set, get) => ({
         set({ currentDesign: newDesign })
     },
 
-    clearDesign: () => {
+    clearDesign: async () => {
+        const { useSessionStore } = await import('./sessionStore')
         const { gridConfig } = useSessionStore.getState()
         const rows = gridConfig?.rows || 6
         const cols = gridConfig?.cols || 22
@@ -39,6 +128,7 @@ export const useDesignStore = create((set, get) => ({
 
     // Async Actions - Premium Designs (new table)
     fetchDesigns: async () => {
+        const { useAuthStore } = await import('./authStore')
         const { user, isPremium } = useAuthStore.getState()
         if (!user) return
 
@@ -67,6 +157,7 @@ export const useDesignStore = create((set, get) => ({
     },
 
     fetchCollections: async () => {
+        const { useAuthStore } = await import('./authStore')
         const { user } = useAuthStore.getState()
         if (!user) return
 
@@ -88,6 +179,7 @@ export const useDesignStore = create((set, get) => ({
     },
 
     saveDesign: async (name, description = null) => {
+        const { useAuthStore } = await import('./authStore')
         const { user, isPremium } = useAuthStore.getState()
         if (!user) return { success: false, error: 'Not authenticated' }
 
@@ -101,6 +193,7 @@ export const useDesignStore = create((set, get) => ({
             }
         }
 
+        const { useSessionStore } = await import('./sessionStore')
         const { gridConfig } = useSessionStore.getState()
         const rows = gridConfig?.rows || 6
         const cols = gridConfig?.cols || 22
@@ -124,9 +217,18 @@ export const useDesignStore = create((set, get) => ({
 
             if (error) throw error
 
+            // Create initial version
+            await supabase.from('design_versions').insert([{
+                design_id: data[0].id,
+                layout: get().currentDesign,
+                version_number: 1,
+                metadata: { is_initial: true }
+            }])
+
             set(state => ({
                 savedDesigns: [data[0], ...state.savedDesigns],
-                designCount: state.designCount + 1
+                designCount: state.designCount + 1,
+                activeDesign: data[0]
             }))
             
             mixpanel.track('Design Saved', { 
@@ -160,8 +262,19 @@ export const useDesignStore = create((set, get) => ({
 
             if (error) throw error
 
+            // Create new version if layout was updated
+            if (updates.layout) {
+                await supabase.from('design_versions').insert([{
+                    design_id: id,
+                    layout: updates.layout,
+                    version_number: data.version,
+                    metadata: updates.metadata || {}
+                }])
+            }
+
             set(state => ({
-                savedDesigns: state.savedDesigns.map(d => d.id === id ? data : d)
+                savedDesigns: state.savedDesigns.map(d => d.id === id ? data : d),
+                activeDesign: state.activeDesign?.id === id ? data : state.activeDesign
             }))
 
             mixpanel.track('Design Updated', { designId: id })
@@ -210,7 +323,10 @@ export const useDesignStore = create((set, get) => ({
 
             if (error) throw error
 
-            set({ currentDesign: data.layout || [] })
+            set({ 
+                currentDesign: data.layout || [],
+                activeDesign: data
+            })
             return { success: true }
         } catch (error) {
             set({ error: error.message })
@@ -222,6 +338,7 @@ export const useDesignStore = create((set, get) => ({
 
     // Collection operations (Pro feature)
     createCollection: async (name, description = null) => {
+        const { useAuthStore } = await import('./authStore')
         const { user, isPremium } = useAuthStore.getState()
         if (!user) return { success: false, error: 'Not authenticated' }
         if (!isPremium) return { success: false, error: 'Collections are a Pro feature', requiresUpgrade: true }
@@ -292,4 +409,7 @@ export const useDesignStore = create((set, get) => ({
             set({ isLoading: false })
         }
     }
-}))
+    }
+    console.log('Design Store Actions:', Object.keys(store))
+    return store
+})

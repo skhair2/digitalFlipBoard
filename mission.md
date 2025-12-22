@@ -15,3 +15,10 @@ This project provides a digital alternative to mechanical split-flap boards, ena
 - **Scalability**: The system supports multiple concurrent sessions using a Redis-backed Socket.io adapter.
 - **Security**: User data and board access are protected via Supabase Auth and Row-Level Security (RLS) policies.
 - **Reliability**: The system handles reconnections and network interruptions gracefully without losing state.
+
+## Current Status (Phase 2: Content & UX)
+- [x] **Auth Stabilization**: Fixed 401 errors and circular dependencies in `authStore`.
+- [x] **Display Optimization**: Resolved `NaN` CSS warnings and improved grid dimension safety.
+- [x] **Library v2**: Integrated 50 pre-filled templates with category filtering and search.
+- [x] **Mobile UX**: Implemented responsive navigation, optimized input controls, and improved landing page responsiveness.
+- [ ] **Next Steps**: Enhance E2E testing and finalize deployment-ready checklist.

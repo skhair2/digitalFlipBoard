@@ -27,17 +27,17 @@ export const useScreenResolution = () => {
     })
 
     // Calculate optimal character size based on screen resolution and grid dimensions
-    const calculateOptimalCharSize = useCallback((rows, cols, width, height) => {
+    const calculateOptimalCharSize = useCallback((rows, cols, width, height, padding = 16, gap = 2) => {
         // Reserve space for padding and gaps
-        const horizontalPadding = 16 * 2 // 2rem on each side = 32px
-        const verticalPadding = 16 * 2 // 2rem on top/bottom = 32px
+        const horizontalPadding = padding * 2 
+        const verticalPadding = padding * 2 
         
         // Calculate available space
         const availableWidth = width - horizontalPadding
         const availableHeight = height - verticalPadding
 
-        // Account for gaps between characters (0.125rem = 2px per gap)
-        const gapSize = 2
+        // Account for gaps between characters
+        const gapSize = gap
         const totalHorizontalGaps = (cols - 1) * gapSize
         const totalVerticalGaps = (rows - 1) * gapSize
 

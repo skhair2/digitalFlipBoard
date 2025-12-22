@@ -357,6 +357,19 @@ function setupSystemEventListeners() {
       const { sessionCode } = data;
       logger.info('System event: session_expired', { sessionCode });
       terminateSession(sessionCode, 'session expired (worker cleanup)');
+    } else if (data.type === 'message:broadcast') {
+      const { sessionCode, content, animation, color } = data.data;
+      logger.info('System event: message_broadcast', { sessionCode, content });
+      
+      // Broadcast to the specific session room
+      io.to(sessionCode).emit('message:received', {
+        content,
+        animation: animation || 'flip',
+        color: color || 'monochrome',
+        sessionCode,
+        timestamp: Date.now(),
+        source: 'system'
+      });
     }
   });
 }

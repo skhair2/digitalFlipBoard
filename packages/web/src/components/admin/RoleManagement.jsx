@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useRoleStore } from '../../store/roleStore';
 import { useAuthStore } from '../../store/authStore';
 import Spinner from '../ui/Spinner';
@@ -9,12 +10,16 @@ import {
   CheckIcon,
   ExclamationTriangleIcon,
   ClockIcon,
+  UserPlusIcon,
+  UserGroupIcon,
+  ClipboardDocumentListIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 
 /**
  * Role Management Component
  * Complete admin role management UI with user lookup, grant/revoke, and audit log
- * Integrated subcomponents: UserLookupPanel, AdminsList, AuditLog
+ * Redesigned for high-fidelity Senior UI/UX standards
  */
 
 export default function RoleManagement() {
@@ -88,12 +93,7 @@ export default function RoleManagement() {
     const result = await grantAdminRole(user.id, grantReason);
     if (result.success) {
       setGrantReason('');
-      // Store will handle closing modal
     }
-  };
-
-  const handleRevokeClick = async (adminUserId) => {
-    openRevokeModal(adminUserId);
   };
 
   const handleRevokeConfirm = async () => {
@@ -118,459 +118,600 @@ export default function RoleManagement() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
-        <div className="p-3 bg-indigo-600/20 rounded-lg">
-          <ShieldCheckIcon className="w-6 h-6 text-indigo-400" />
+    <div className="space-y-8 max-w-7xl mx-auto">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-teal-400 font-mono text-sm tracking-wider uppercase">
+            <ShieldCheckIcon className="w-4 h-4" />
+            <span>Security & Access</span>
+          </div>
+          <h1 className="text-4xl font-black text-white tracking-tight">
+            ROLE <span className="text-teal-500">MANAGEMENT</span>
+          </h1>
+          <p className="text-slate-400 max-w-2xl">
+            Configure administrative privileges, monitor access changes, and manage the core team permissions.
+          </p>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold text-white">Role Management</h1>
-          <p className="text-gray-400 text-sm mt-1">Manage admin roles and permissions ({adminCount} active admins)</p>
+
+        <div className="flex items-center gap-4 bg-slate-900/50 border border-slate-800 p-4 rounded-2xl backdrop-blur-sm">
+          <div className="text-right">
+            <p className="text-xs text-slate-500 uppercase font-bold tracking-widest">Active Admins</p>
+            <p className="text-2xl font-black text-white font-mono">{adminCount}</p>
+          </div>
+          <div className="w-12 h-12 bg-teal-500/10 rounded-xl flex items-center justify-center border border-teal-500/20">
+            <UserGroupIcon className="w-6 h-6 text-teal-500" />
+          </div>
         </div>
       </div>
 
       {/* Error Banner */}
-      {(adminError || grantError || revokeError) && (
-        <div className="p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-300 flex items-start gap-3">
-          <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-medium">{adminError || grantError || revokeError}</p>
-            <p className="text-sm mt-1">Please try again or contact support if the problem persists.</p>
-          </div>
-        </div>
-      )}
-
-      {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-gray-700">
-        {[
-          { id: 'lookup', label: '🔍 Find & Grant', icon: MagnifyingGlassIcon },
-          { id: 'admins', label: '👥 All Admins', icon: ShieldCheckIcon },
-          { id: 'audit', label: '📋 Audit Log', icon: ClockIcon },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => switchTab(tab.id)}
-            className={`px-4 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === tab.id
-              ? 'border-indigo-500 text-white'
-              : 'border-transparent text-gray-400 hover:text-gray-300'
-              }`}
+      <AnimatePresence>
+        {(adminError || grantError || revokeError) && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 flex items-start gap-4 backdrop-blur-md"
           >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+            <div className="p-2 bg-red-500/20 rounded-lg">
+              <ExclamationTriangleIcon className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold uppercase tracking-tight text-sm">System Error</p>
+              <p className="text-sm opacity-80">{adminError || grantError || revokeError}</p>
+            </div>
+            <button 
+              onClick={() => fetchAllAdmins()}
+              className="p-2 hover:bg-red-500/20 rounded-lg transition-colors"
+            >
+              <ArrowPathIcon className="w-5 h-5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* TAB 1: USER LOOKUP & GRANT */}
-      {activeTab === 'lookup' && (
-        <div className="space-y-6">
-          {/* Search Panel */}
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-white mb-4">Search User by Email</h2>
+      {/* Main Content Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Sidebar Navigation */}
+        <div className="lg:col-span-3 space-y-2">
+          {[
+            { id: 'lookup', label: 'Find & Grant', icon: UserPlusIcon, desc: 'Add new administrators' },
+            { id: 'admins', label: 'Active Team', icon: ShieldCheckIcon, desc: 'Manage current admins' },
+            { id: 'audit', label: 'Audit Log', icon: ClipboardDocumentListIcon, desc: 'Track all role changes' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => switchTab(tab.id)}
+              className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 group ${activeTab === tab.id
+                ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/20'
+                : 'bg-slate-900/50 text-slate-400 hover:bg-slate-800 border border-slate-800/50'
+                }`}
+            >
+              <div className={`p-2 rounded-xl transition-colors ${activeTab === tab.id ? 'bg-white/20' : 'bg-slate-800 group-hover:bg-slate-700'}`}>
+                <tab.icon className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <p className="font-bold text-sm uppercase tracking-tight">{tab.label}</p>
+                <p className={`text-[10px] uppercase tracking-widest opacity-60 font-medium ${activeTab === tab.id ? 'text-white' : 'text-slate-500'}`}>
+                  {tab.desc}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
 
-            {/* Search Input */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">User Email</label>
-                <div className="relative">
+        {/* Content Panel */}
+        <div className="lg:col-span-9">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="bg-slate-900/50 border border-slate-800 rounded-3xl overflow-hidden backdrop-blur-xl min-h-[500px]"
+          >
+            {/* TAB 1: USER LOOKUP & GRANT */}
+            {activeTab === 'lookup' && (
+              <div className="p-8 space-y-8">
+                <div className="space-y-2">
+                  <h2 className="text-xl font-black text-white uppercase tracking-tight">User Discovery</h2>
+                  <p className="text-slate-400 text-sm">Search for users by email to grant administrative privileges.</p>
+                </div>
+
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                    <MagnifyingGlassIcon className="w-5 h-5 text-slate-500 group-focus-within:text-teal-500 transition-colors" />
+                  </div>
                   <input
                     type="email"
-                    placeholder="jane@example.com"
+                    placeholder="Search by email address..."
                     onChange={(e) => handleSearchChange(e.target.value)}
-                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-950/50 border border-slate-800 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all font-medium"
                   />
                   {searchLoading && (
-                    <div className="absolute right-3 top-3">
+                    <div className="absolute right-4 top-4">
                       <Spinner size="sm" />
                     </div>
                   )}
-                  {!searchLoading && searchQuery && (
-                    <MagnifyingGlassIcon className="absolute right-3 top-3.5 w-5 h-5 text-gray-500" />
-                  )}
                 </div>
+
+                {/* Search Results */}
+                <AnimatePresence mode="wait">
+                  {searchResults.length > 0 && !selectedUser ? (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="space-y-3"
+                    >
+                      <p className="text-[10px] text-slate-500 uppercase font-black tracking-[0.2em] px-2">
+                        Search Results ({searchResults.length})
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {searchResults.map(result => (
+                          <button
+                            key={result.id}
+                            onClick={() => selectUser(result.id)}
+                            className="p-4 bg-slate-950/30 hover:bg-slate-800/50 border border-slate-800 rounded-2xl text-left transition-all group"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-teal-500 font-bold group-hover:bg-teal-500 group-hover:text-white transition-colors">
+                                {result.full_name?.[0] || '?'}
+                              </div>
+                              <span className="text-[10px] px-2 py-1 bg-slate-800 text-slate-400 rounded-lg font-bold uppercase tracking-widest">
+                                {result.subscription_tier}
+                              </span>
+                            </div>
+                            <p className="font-bold text-white truncate">{result.full_name || 'Anonymous User'}</p>
+                            <p className="text-xs text-slate-500 truncate font-mono">{result.email}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  ) : selectedUser ? (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="p-6 bg-teal-500/5 border border-teal-500/20 rounded-3xl relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 p-4">
+                        <button
+                          onClick={clearSearch}
+                          className="p-2 hover:bg-teal-500/10 rounded-xl text-teal-500 transition-colors"
+                        >
+                          <XMarkIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-6 mb-8">
+                        <div className="w-20 h-20 bg-teal-500 rounded-2xl flex items-center justify-center text-3xl font-black text-white shadow-lg shadow-teal-500/20">
+                          {selectedUser.full_name?.[0] || '?'}
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-black text-white uppercase tracking-tight">{selectedUser.full_name}</h3>
+                          <p className="text-teal-500 font-mono text-sm">{selectedUser.email}</p>
+                          <div className="flex gap-2 mt-2">
+                            <span className="text-[10px] px-2 py-1 bg-teal-500/20 text-teal-400 rounded-lg font-bold uppercase tracking-widest border border-teal-500/20">
+                              {selectedUser.subscription_tier}
+                            </span>
+                            <span className="text-[10px] px-2 py-1 bg-slate-800 text-slate-400 rounded-lg font-bold uppercase tracking-widest">
+                              Joined {new Date(selectedUser.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {selectedUser.isAdmin ? (
+                        <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-400">
+                          <ShieldCheckIcon className="w-5 h-5" />
+                          <p className="text-sm font-bold uppercase tracking-tight">User already has administrative access</p>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={openGrantModal}
+                          className="w-full py-4 bg-teal-500 hover:bg-teal-400 text-white rounded-2xl font-black uppercase tracking-widest transition-all shadow-lg shadow-teal-500/20 flex items-center justify-center gap-2"
+                        >
+                          <UserPlusIcon className="w-5 h-5" />
+                          Grant Admin Privileges
+                        </button>
+                      )}
+                    </motion.div>
+                  ) : searchQuery && !searchLoading ? (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="p-12 text-center space-y-4"
+                    >
+                      <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto">
+                        <MagnifyingGlassIcon className="w-8 h-8 text-slate-600" />
+                      </div>
+                      <p className="text-slate-500 font-medium">No users found matching "{searchQuery}"</p>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {/* TAB 2: ALL ADMINS */}
+            {activeTab === 'admins' && (
+              <div className="flex flex-col h-full">
+                <div className="p-8 border-b border-slate-800 flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Administrative Team</h2>
+                    <p className="text-slate-400 text-sm">Current users with system-wide access.</p>
+                  </div>
+                  <button 
+                    onClick={() => fetchAllAdmins()}
+                    className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 transition-colors"
+                  >
+                    <ArrowPathIcon className={`w-5 h-5 ${loadingAdmins ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+
+                {loadingAdmins ? (
+                  <div className="flex-1 flex items-center justify-center p-12">
+                    <Spinner />
+                  </div>
+                ) : admins.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-4">
+                    <div className="w-20 h-20 bg-slate-800 rounded-3xl flex items-center justify-center">
+                      <ShieldCheckIcon className="w-10 h-10 text-slate-600" />
+                    </div>
+                    <p className="text-slate-500 font-medium">No active administrators found.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="text-[10px] text-slate-500 uppercase font-black tracking-[0.2em] border-b border-slate-800">
+                          <th className="px-8 py-4 text-left">Administrator</th>
+                          <th className="px-8 py-4 text-left">Access Level</th>
+                          <th className="px-8 py-4 text-left">Granted</th>
+                          <th className="px-8 py-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/50">
+                        {admins.map(admin => (
+                          <tr key={admin.id} className="group hover:bg-slate-800/30 transition-colors">
+                            <td className="px-8 py-6">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-teal-500 font-bold">
+                                  {admin.fullName?.[0] || '?'}
+                                </div>
+                                <div>
+                                  <p className="font-bold text-white flex items-center gap-2">
+                                    {admin.fullName || 'Unknown'}
+                                    {admin.userId === user.id && (
+                                      <span className="text-[8px] px-1.5 py-0.5 bg-teal-500/20 text-teal-400 rounded font-black uppercase tracking-widest">You</span>
+                                    )}
+                                  </p>
+                                  <p className="text-xs text-slate-500 font-mono">{admin.email}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-8 py-6">
+                              <span className="text-[10px] px-2 py-1 bg-slate-800 text-slate-300 rounded-lg font-bold uppercase tracking-widest border border-slate-700">
+                                {admin.role}
+                              </span>
+                            </td>
+                            <td className="px-8 py-6">
+                              <p className="text-xs text-slate-400 font-medium">{new Date(admin.grantedAt).toLocaleDateString()}</p>
+                              <p className="text-[10px] text-slate-600 uppercase font-bold">by {admin.grantedBy?.name || 'System'}</p>
+                            </td>
+                            <td className="px-8 py-6 text-right">
+                              <button
+                                onClick={() => handleRevokeClick(admin.userId)}
+                                disabled={admin.userId === user.id || revokingRole === admin.userId}
+                                className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl transition-all ${admin.userId === user.id
+                                  ? 'text-slate-700 cursor-not-allowed'
+                                  : revokingRole === admin.userId
+                                    ? 'text-slate-500 animate-pulse'
+                                    : 'text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/20'
+                                  }`}
+                              >
+                                {revokingRole === admin.userId ? 'Revoking...' : 'Revoke Access'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: AUDIT LOG */}
+            {activeTab === 'audit' && (
+              <div className="flex flex-col h-full">
+                <div className="p-8 border-b border-slate-800 flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Security Audit Log</h2>
+                    <p className="text-slate-400 text-sm">Immutable record of all administrative access changes.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-teal-500 rounded-full animate-pulse" />
+                    <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Live Monitoring</span>
+                  </div>
+                </div>
+
+                {auditLoading && auditLogs.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center p-12">
+                    <Spinner />
+                  </div>
+                ) : auditLogs.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-4">
+                    <div className="w-20 h-20 bg-slate-800 rounded-3xl flex items-center justify-center">
+                      <ClipboardDocumentListIcon className="w-10 h-10 text-slate-600" />
+                    </div>
+                    <p className="text-slate-500 font-medium">No audit entries recorded yet.</p>
+                  </div>
+                ) : (
+                  <div className="flex-1 overflow-y-auto custom-scrollbar">
+                    <div className="divide-y divide-slate-800/50">
+                      {auditLogs.map(log => (
+                        <div key={log.id} className="px-8 py-6 hover:bg-slate-800/20 transition-colors group">
+                          <div className="flex items-start justify-between gap-6">
+                            <div className="flex gap-4">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${log.action === 'GRANT'
+                                ? 'bg-teal-500/10 text-teal-500'
+                                : 'bg-red-500/10 text-red-500'
+                                }`}>
+                                {log.action === 'GRANT' ? <UserPlusIcon className="w-5 h-5" /> : <XMarkIcon className="w-5 h-5" />}
+                              </div>
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-3">
+                                  <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${log.action === 'GRANT'
+                                    ? 'bg-teal-500/20 text-teal-400'
+                                    : 'bg-red-500/20 text-red-400'
+                                    }`}>
+                                    {log.action}
+                                  </span>
+                                  <span className="text-white font-bold">{log.user?.email || 'Unknown User'}</span>
+                                </div>
+                                <p className="text-xs text-slate-500">
+                                  Action performed by <span className="text-slate-300 font-medium">{log.admin?.name || log.admin?.email || 'System'}</span>
+                                </p>
+                                {log.reason && (
+                                  <div className="mt-2 p-3 bg-slate-950/50 rounded-xl border border-slate-800/50">
+                                    <p className="text-xs text-slate-400 italic">"{log.reason}"</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-xs text-white font-mono font-bold">
+                                {new Date(log.timestamp).toLocaleDateString()}
+                              </p>
+                              <p className="text-[10px] text-slate-500 font-mono uppercase">
+                                {new Date(log.timestamp).toLocaleTimeString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Load More */}
+                    {auditHasMore && (
+                      <div className="p-8">
+                        <button
+                          onClick={loadMoreAuditLogs}
+                          className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl transition-all text-xs font-black uppercase tracking-[0.2em] border border-slate-700"
+                        >
+                          Load More Entries
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </motion.div>
+        </div>
+      </div>
+
+      {/* MODAL: Grant Admin */}
+      <AnimatePresence>
+        {showGrantModal && selectedUser && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeGrantModal}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-slate-900 border border-slate-800 rounded-[2.5rem] max-w-md w-full overflow-hidden shadow-2xl relative z-10"
+            >
+              {/* Modal Header */}
+              <div className="px-8 py-6 border-b border-slate-800 bg-slate-950/50">
+                <h2 className="text-xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+                  <div className="p-2 bg-teal-500/20 rounded-xl">
+                    <ShieldCheckIcon className="w-6 h-6 text-teal-500" />
+                  </div>
+                  Grant Access
+                </h2>
               </div>
 
-              {/* Search Error */}
-              {searchError && (
-                <div className="p-3 bg-red-500/10 border border-red-500/50 rounded text-red-300 text-sm">
-                  {searchError}
+              {/* Modal Content */}
+              <div className="p-8 space-y-6">
+                <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
+                  <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Target User</p>
+                  <p className="text-white font-bold">{selectedUser.email}</p>
                 </div>
-              )}
 
-              {/* Search Results */}
-              {searchResults.length > 0 && !selectedUser && (
-                <div className="space-y-2">
-                  <p className="text-xs text-gray-400 uppercase tracking-wide">Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</p>
-                  <div className="space-y-2">
-                    {searchResults.map(result => (
-                      <button
-                        key={result.id}
-                        onClick={() => selectUser(result.id)}
-                        className="w-full p-3 bg-gray-700 hover:bg-gray-650 border border-gray-600 rounded-lg text-left transition-colors"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-medium text-white">{result.full_name || 'Unknown'}</p>
-                            <p className="text-sm text-gray-400">{result.email}</p>
-                          </div>
-                          <span className="text-xs px-2 py-1 bg-gray-600 text-gray-300 rounded">
-                            {result.subscription_tier}
-                          </span>
-                        </div>
-                      </button>
+                {/* Verification Step */}
+                <div className="space-y-3">
+                  <label className="block text-[10px] text-slate-500 uppercase font-black tracking-widest">
+                    Security Confirmation
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      value={grantVerificationEmail}
+                      onChange={(e) => verifyGrantEmail(e.target.value)}
+                      placeholder="Type user email to confirm..."
+                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-700 focus:outline-none focus:border-teal-500 transition-all text-sm"
+                    />
+                    {grantVerificationConfirmed && (
+                      <div className="absolute right-3 top-3 text-teal-500">
+                        <CheckIcon className="w-5 h-5" />
+                      </div>
+                    )}
+                  </div>
+                  {grantVerificationConfirmed && (
+                    <p className="text-[10px] text-teal-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                      Identity Confirmed
+                    </p>
+                  )}
+                </div>
+
+                {/* Reason */}
+                <div className="space-y-3">
+                  <label className="block text-[10px] text-slate-500 uppercase font-black tracking-widest">
+                    Authorization Reason
+                  </label>
+                  <textarea
+                    value={grantReason}
+                    onChange={(e) => setGrantReason(e.target.value)}
+                    placeholder="Why is this access being granted?"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-700 focus:outline-none focus:border-teal-500 transition-all text-sm resize-none"
+                    rows="2"
+                  />
+                </div>
+
+                {/* Permissions Preview */}
+                <div className="p-4 bg-slate-950/30 rounded-2xl border border-slate-800/50">
+                  <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-3">Privileges Included</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['User Management', 'Role Control', 'Coupon Access', 'Audit Viewing'].map(p => (
+                      <div key={p} className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                        <div className="w-1 h-1 bg-teal-500 rounded-full" />
+                        {p}
+                      </div>
                     ))}
                   </div>
                 </div>
-              )}
 
-              {/* No Results */}
-              {searchQuery && searchResults.length === 0 && !searchLoading && !selectedUser && (
-                <div className="p-4 bg-gray-700/50 border border-gray-600 rounded-lg text-center text-gray-400">
-                  No users found with that email
-                </div>
-              )}
-
-              {/* Selected User Card */}
-              {selectedUser && (
-                <div className="mt-6 p-4 bg-indigo-600/10 border border-indigo-500/50 rounded-lg">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Selected User</p>
-                      <h3 className="text-lg font-semibold text-white">{selectedUser.full_name}</h3>
-                      <p className="text-sm text-gray-400">{selectedUser.email}</p>
-                    </div>
-                    <button
-                      onClick={clearSearch}
-                      className="text-gray-400 hover:text-gray-300 transition-colors"
-                    >
-                      <XMarkIcon className="w-5 h-5" />
-                    </button>
+                {grantRateLimit && (
+                  <div className="px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-[10px] font-bold uppercase tracking-widest">
+                    {grantRateLimit.remaining === 0
+                      ? `Rate limited. Reset in ${getCooldownSeconds(grantRateLimit)}s`
+                      : `${grantRateLimit.remaining}/${grantRateLimit.limit} attempts remaining`}
                   </div>
-
-                  {/* User Details */}
-                  <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
-                    <div>
-                      <p className="text-gray-400">Subscription</p>
-                      <p className="text-white font-medium">{selectedUser.subscription_tier}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Member Since</p>
-                      <p className="text-white font-medium">
-                        {new Date(selectedUser.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Current Role */}
-                  {selectedUser.isAdmin ? (
-                    <div className="p-3 bg-amber-500/10 border border-amber-500/50 rounded text-amber-300 text-sm">
-                      ⚠️ This user is already an admin
-                    </div>
-                  ) : (
-                    <button
-                      onClick={openGrantModal}
-                      className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
-                    >
-                      ✓ Grant Admin Role
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: ALL ADMINS */}
-      {activeTab === 'admins' && (
-        <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
-          {loadingAdmins ? (
-            <div className="p-8 flex justify-center">
-              <Spinner />
-            </div>
-          ) : admins.length === 0 ? (
-            <div className="p-8 text-center text-gray-400">
-              <ShieldCheckIcon className="w-12 h-12 mx-auto mb-3 opacity-40" />
-              <p>No admins found</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-900 border-b border-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-gray-300 font-semibold">Admin</th>
-                    <th className="px-6 py-3 text-left text-gray-300 font-semibold">Email</th>
-                    <th className="px-6 py-3 text-left text-gray-300 font-semibold">Granted</th>
-                    <th className="px-6 py-3 text-left text-gray-300 font-semibold">By</th>
-                    <th className="px-6 py-3 text-left text-gray-300 font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-700">
-                  {admins.map(admin => (
-                    <tr key={admin.id} className="hover:bg-gray-750 transition-colors">
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-medium text-white">{admin.fullName || 'Unknown'}</p>
-                          {admin.userId === user.id && (
-                            <p className="text-xs text-indigo-400 mt-1">You</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-400">{admin.email}</td>
-                      <td className="px-6 py-4 text-gray-400 text-sm">
-                        {new Date(admin.grantedAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-gray-400 text-sm">
-                        {admin.grantedBy?.name || 'System'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => handleRevokeClick(admin.userId)}
-                          disabled={admin.userId === user.id || revokingRole === admin.userId}
-                          className={`text-sm font-medium px-3 py-1 rounded transition-colors ${admin.userId === user.id
-                            ? 'text-gray-500 cursor-not-allowed opacity-50'
-                            : revokingRole === admin.userId
-                              ? 'text-gray-400'
-                              : 'text-red-400 hover:text-red-300 hover:bg-red-500/10'
-                            }`}
-                        >
-                          {revokingRole === admin.userId ? 'Revoking...' : 'Revoke'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 3: AUDIT LOG */}
-      {activeTab === 'audit' && (
-        <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
-          {auditLoading && auditLogs.length === 0 ? (
-            <div className="p-8 flex justify-center">
-              <Spinner />
-            </div>
-          ) : auditLogs.length === 0 ? (
-            <div className="p-8 text-center text-gray-400">
-              <ClockIcon className="w-12 h-12 mx-auto mb-3 opacity-40" />
-              <p>No role changes yet</p>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {auditLogs.map(log => (
-                <div key={log.id} className="px-6 py-4 border-b border-gray-700 hover:bg-gray-750 transition-colors">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1">
-                        <span className={`text-sm font-semibold px-2 py-1 rounded ${log.action === 'GRANT'
-                          ? 'bg-green-500/20 text-green-400'
-                          : 'bg-red-500/20 text-red-400'
-                          }`}>
-                          {log.action}
-                        </span>
-                        <span className="text-white font-medium">{log.user?.email}</span>
-                      </div>
-                      <p className="text-sm text-gray-400">
-                        by {log.admin?.name || log.admin?.email || 'System'}
-                      </p>
-                      {log.reason && (
-                        <p className="text-xs text-gray-500 mt-1 italic">{log.reason}</p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">
-                        {new Date(log.timestamp).toLocaleDateString()}
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        {new Date(log.timestamp).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {/* Load More */}
-              {auditHasMore && (
-                <div className="px-6 py-4 border-t border-gray-700">
-                  <button
-                    onClick={loadMoreAuditLogs}
-                    className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors text-sm font-medium"
-                  >
-                    Load More
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* MODAL: Grant Admin */}
-      {showGrantModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-md w-full overflow-hidden">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-700 bg-gray-750">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <ShieldCheckIcon className="w-5 h-5 text-indigo-400" />
-                Grant Admin Role
-              </h2>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 space-y-4">
-              <div>
-                <p className="text-sm text-gray-400 mb-2">User</p>
-                <p className="text-white font-medium">{selectedUser.email}</p>
-              </div>
-
-              {/* Verification Step */}
-              <div className="pt-4 border-t border-gray-700">
-                <label className="block text-sm text-gray-400 mb-2">
-                  Type email to confirm:
-                </label>
-                <input
-                  type="email"
-                  value={grantVerificationEmail}
-                  onChange={(e) => verifyGrantEmail(e.target.value)}
-                  placeholder={selectedUser.email}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500"
-                />
-                {grantVerificationConfirmed && (
-                  <p className="text-xs text-green-400 mt-1 flex items-center gap-1">
-                    <CheckIcon className="w-4 h-4" />
-                    Email verified
-                  </p>
                 )}
               </div>
 
-              {/* Reason (Optional) */}
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">
-                  Reason (optional)
-                </label>
-                <textarea
-                  value={grantReason}
-                  onChange={(e) => setGrantReason(e.target.value)}
-                  placeholder="e.g. New team member"
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 resize-none"
-                  rows="2"
-                />
+              {/* Modal Footer */}
+              <div className="px-8 py-6 border-t border-slate-800 bg-slate-950/50 flex gap-4">
+                <button
+                  onClick={closeGrantModal}
+                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-all font-bold uppercase tracking-widest text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleGrantClick}
+                  disabled={!grantVerificationConfirmed || grantingRole === selectedUser.id || grantRateLimit?.remaining === 0}
+                  className="flex-1 py-3 bg-teal-500 hover:bg-teal-400 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-all font-black uppercase tracking-widest text-xs shadow-lg shadow-teal-500/20"
+                >
+                  {grantingRole === selectedUser.id ? 'Processing...' : 'Confirm Grant'}
+                </button>
               </div>
-
-              {/* Permissions Preview */}
-              <div className="pt-4 border-t border-gray-700">
-                <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Permissions Granted</p>
-                <div className="space-y-1 text-xs text-gray-300">
-                  <p>✓ View all users</p>
-                  <p>✓ Grant/revoke admin roles</p>
-                  <p>✓ Manage coupons</p>
-                  <p>✓ View audit logs</p>
-                </div>
-              </div>
-
-              {grantRateLimit && (
-                <div className="pt-3">
-                  <div className="px-3 py-2 bg-amber-500/10 border border-amber-500/50 rounded-lg text-amber-200 text-xs">
-                    {grantRateLimit.remaining === 0
-                      ? `Rate limited. Try again in ${getCooldownSeconds(grantRateLimit)}s`
-                      : `${grantRateLimit.remaining}/${grantRateLimit.limit} grant attempts remaining`}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-700 bg-gray-750 flex gap-3">
-              <button
-                onClick={closeGrantModal}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleGrantClick}
-                disabled={!grantVerificationConfirmed || grantingRole === selectedUser.id || grantRateLimit?.remaining === 0}
-                className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg transition-colors font-medium"
-              >
-                {grantingRole === selectedUser.id ? 'Granting...' : 'Grant Admin'}
-              </button>
-            </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* MODAL: Revoke Admin Confirmation */}
-      {showRevokeConfirmModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-md w-full overflow-hidden">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-700 bg-red-950/50">
-              <h2 className="text-lg font-bold text-red-300 flex items-center gap-2">
-                <ExclamationTriangleIcon className="w-5 h-5" />
-                Revoke Admin Access
-              </h2>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 space-y-4">
-              <div>
-                <p className="text-gray-300">Are you sure you want to revoke admin access from:</p>
-                <p className="text-lg font-semibold text-white mt-2">{selectedUser.email}</p>
+      <AnimatePresence>
+        {showRevokeConfirmModal && selectedUser && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeRevokeModal}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-slate-900 border border-slate-800 rounded-[2.5rem] max-w-md w-full overflow-hidden shadow-2xl relative z-10"
+            >
+              {/* Modal Header */}
+              <div className="px-8 py-6 border-b border-slate-800 bg-red-500/10">
+                <h2 className="text-xl font-black text-red-500 uppercase tracking-tight flex items-center gap-3">
+                  <div className="p-2 bg-red-500/20 rounded-xl">
+                    <ExclamationTriangleIcon className="w-6 h-6 text-red-500" />
+                  </div>
+                  Revoke Access
+                </h2>
               </div>
 
-              {/* Reason */}
-              <div className="pt-4 border-t border-gray-700">
-                <label className="block text-sm text-gray-400 mb-2">
-                  Reason (optional)
-                </label>
-                <textarea
-                  value={revokeReason}
-                  onChange={(e) => setRevokeReason(e.target.value)}
-                  placeholder="e.g. Left the team"
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 resize-none"
-                  rows="2"
-                />
-              </div>
-
-              {/* Warning */}
-              <div className="p-3 bg-amber-500/10 border border-amber-500/50 rounded text-amber-300 text-sm">
-                This action cannot be undone. The user will lose all admin privileges immediately.
-              </div>
-
-              {revokeRateLimit && (
-                <div className="pt-3">
-                  <div className="px-3 py-2 bg-amber-500/10 border border-amber-500/50 rounded-lg text-amber-200 text-xs">
-                    {revokeRateLimit.remaining === 0
-                      ? `Rate limited. Try again in ${getCooldownSeconds(revokeRateLimit)}s`
-                      : `${revokeRateLimit.remaining}/${revokeRateLimit.limit} revoke attempts remaining`}
+              {/* Modal Content */}
+              <div className="p-8 space-y-6">
+                <div className="space-y-2">
+                  <p className="text-slate-400 text-sm">You are about to remove administrative privileges from:</p>
+                  <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
+                    <p className="text-white font-bold text-lg">{selectedUser.email}</p>
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-700 bg-gray-750 flex gap-3">
-              <button
-                onClick={closeRevokeModal}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRevokeConfirm}
-                disabled={revokingRole === selectedUser.userId || revokeRateLimit?.remaining === 0}
-                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg transition-colors font-medium"
-              >
-                {revokingRole === selectedUser.userId ? 'Revoking...' : 'Revoke'}
-              </button>
-            </div>
+                {/* Reason */}
+                <div className="space-y-3">
+                  <label className="block text-[10px] text-slate-500 uppercase font-black tracking-widest">
+                    Revocation Reason
+                  </label>
+                  <textarea
+                    value={revokeReason}
+                    onChange={(e) => setRevokeReason(e.target.value)}
+                    placeholder="Why is this access being revoked?"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-700 focus:outline-none focus:border-red-500 transition-all text-sm resize-none"
+                    rows="2"
+                  />
+                </div>
+
+                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
+                  <p className="text-xs text-amber-400 font-bold uppercase tracking-tight leading-relaxed">
+                    Warning: This user will lose all access to admin tools immediately. This action is logged.
+                  </p>
+                </div>
+
+                {revokeRateLimit && (
+                  <div className="px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-[10px] font-bold uppercase tracking-widest">
+                    {revokeRateLimit.remaining === 0
+                      ? `Rate limited. Reset in ${getCooldownSeconds(revokeRateLimit)}s`
+                      : `${revokeRateLimit.remaining}/${revokeRateLimit.limit} attempts remaining`}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-8 py-6 border-t border-slate-800 bg-slate-950/50 flex gap-4">
+                <button
+                  onClick={closeRevokeModal}
+                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-all font-bold uppercase tracking-widest text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRevokeConfirm}
+                  disabled={revokingRole === selectedUser.userId || revokeRateLimit?.remaining === 0}
+                  className="flex-1 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-all font-black uppercase tracking-widest text-xs shadow-lg shadow-red-500/20"
+                >
+                  {revokingRole === selectedUser.userId ? 'Revoking...' : 'Confirm Revoke'}
+                </button>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+
