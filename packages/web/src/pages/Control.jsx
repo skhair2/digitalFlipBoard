@@ -73,54 +73,8 @@ export default function Control() {
     // Track user activity to prevent session timeout
     useActivityTracking(sessionCode, 'controller')
 
-    // On first mount, clear any stale sessionCode from localStorage
-    // Sessions should only exist for the current browser session
-    useEffect(() => {
-        if (sessionCode && !searchParams.get('boardId')) {
-            // If we have a sessionCode but no boardId in URL and we just loaded,
-            // this is likely a stale session code persisted from before the fix
-            const connectionTime = useSessionStore.getState().connectionStartTime
-            if (!connectionTime || Date.now() - connectionTime > 15 * 60 * 1000) {
-                // Session is expired or connection time is missing - clear it
-                sessionStorage.removeItem(`controller_active_${sessionCode}`)
-                setConnected(false)
-                setSessionCode(null, { markControllerPaired: false })
-            }
-        }
-    }, [sessionCode, searchParams, setConnected, setSessionCode])
-
-    // Check for boardId in URL
-    useEffect(() => {
-        const boardId = searchParams.get('boardId')
-        const tab = searchParams.get('tab')
-        
-        if (boardId) {
-            setBoardId(boardId)
-        }
-
-        // Set active tab if specified in URL
-        if (tab) {
-            const tabIndex = tabs.findIndex(t => t.name.toLowerCase() === tab.toLowerCase())
-            if (tabIndex >= 0) {
-                setSelectedTabIndex(tabIndex)
-            }
-        }
-    }, [searchParams, setBoardId, tabs])
-
-    useEffect(() => {
-        mixpanel.track('Control Page Viewed')
-    }, [])
-
     const isPaired = controllerHasPaired && sessionCode
     const shouldShowPairing = !isPaired && !isPremium
-
-    if (shouldShowPairing) {
-        return (
-            <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-4">
-                <SessionPairing suggestedCode={boardIdFromQuery || undefined} />
-            </div>
-        )
-    }
 
     const tabs = [
         {
@@ -368,6 +322,52 @@ export default function Control() {
             )
         }
     ]
+
+    // On first mount, clear any stale sessionCode from localStorage
+    // Sessions should only exist for the current browser session
+    useEffect(() => {
+        if (sessionCode && !searchParams.get('boardId')) {
+            // If we have a sessionCode but no boardId in URL and we just loaded,
+            // this is likely a stale session code persisted from before the fix
+            const connectionTime = useSessionStore.getState().connectionStartTime
+            if (!connectionTime || Date.now() - connectionTime > 15 * 60 * 1000) {
+                // Session is expired or connection time is missing - clear it
+                sessionStorage.removeItem(`controller_active_${sessionCode}`)
+                setConnected(false)
+                setSessionCode(null, { markControllerPaired: false })
+            }
+        }
+    }, [sessionCode, searchParams, setConnected, setSessionCode])
+
+    // Check for boardId in URL
+    useEffect(() => {
+        const boardId = searchParams.get('boardId')
+        const tab = searchParams.get('tab')
+        
+        if (boardId) {
+            setBoardId(boardId)
+        }
+
+        // Set active tab if specified in URL
+        if (tab) {
+            const tabIndex = tabs.findIndex(t => t.name.toLowerCase() === tab.toLowerCase())
+            if (tabIndex >= 0) {
+                setSelectedTabIndex(tabIndex)
+            }
+        }
+    }, [searchParams, setBoardId, tabs])
+
+    useEffect(() => {
+        mixpanel.track('Control Page Viewed')
+    }, [])
+
+    if (shouldShowPairing) {
+        return (
+            <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-4">
+                <SessionPairing suggestedCode={boardIdFromQuery || undefined} />
+            </div>
+        )
+    }
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col font-sans selection:bg-teal-500/30">
