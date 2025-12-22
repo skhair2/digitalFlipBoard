@@ -52,7 +52,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 export default function Control() {
     const { sessionCode, isConnected, setSessionCode, setConnected, setBoardId, isClockMode, setClockMode, controllerHasPaired } = useSessionStore()
     const { isPremium } = useAuthStore()
-    const [searchParams] = useSearchParams()
+    const [searchParams, setSearchParams] = useSearchParams()
     const [message, setMessage] = useState('')
     const [selectedTabIndex, setSelectedTabIndex] = useState(0)
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -76,7 +76,7 @@ export default function Control() {
     const isPaired = controllerHasPaired && sessionCode
     const shouldShowPairing = !isPaired && !isPremium
 
-    const tabs = [
+    const tabs = useMemo(() => [
         {
             name: isPaired ? 'Connection' : 'Pairing',
             icon: LinkIcon,
@@ -321,7 +321,7 @@ export default function Control() {
                 </div>
             )
         }
-    ]
+    ], [isPaired, boardIdFromQuery, searchParams, message, isClockMode])
 
     // On first mount, clear any stale sessionCode from localStorage
     // Sessions should only exist for the current browser session
@@ -351,11 +351,11 @@ export default function Control() {
         // Set active tab if specified in URL
         if (tab) {
             const tabIndex = tabs.findIndex(t => t.name.toLowerCase() === tab.toLowerCase())
-            if (tabIndex >= 0) {
+            if (tabIndex >= 0 && tabIndex !== selectedTabIndex) {
                 setSelectedTabIndex(tabIndex)
             }
         }
-    }, [searchParams, setBoardId, tabs])
+    }, [searchParams, setBoardId, tabs, selectedTabIndex])
 
     useEffect(() => {
         mixpanel.track('Control Page Viewed')
@@ -367,6 +367,14 @@ export default function Control() {
                 <SessionPairing suggestedCode={boardIdFromQuery || undefined} />
             </div>
         )
+    }
+
+    const handleTabChange = (index) => {
+        setSelectedTabIndex(index)
+        const tabName = tabs[index].name.toLowerCase()
+        const newParams = new URLSearchParams(searchParams)
+        newParams.set('tab', tabName)
+        setSearchParams(newParams, { replace: true })
     }
 
     return (
@@ -427,7 +435,7 @@ export default function Control() {
                 </div>
             </header>
 
-            <Tab.Group selectedIndex={selectedTabIndex} onChange={setSelectedTabIndex}>
+            <Tab.Group selectedIndex={selectedTabIndex} onChange={handleTabChange}>
                 {/* Sidebar Drawer */}
                 <Transition.Root show={isSidebarOpen} as={Fragment}>
                     <Dialog as="div" className="relative z-50" onClose={setIsSidebarOpen}>
